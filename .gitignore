@@ -1,0 +1,9 @@
+# python virtual env folder
+thesis
+
+# python cache
+__pycache__
+
+# data and model directories
+data/*
+runtime-model*/*

@@ -1,0 +1,6 @@
+{
+    "python.pythonPath": "thesis/bin/python3.7",
+    "python.terminal.activateEnvironment": false,
+    "python.linting.pylintArgs": ["--init-hook",
+        "import sys; sys.path.append('/Users/sandhyagiri/git/masterthesis')"],
+}

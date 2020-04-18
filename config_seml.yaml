@@ -1,0 +1,37 @@
+
+seml:
+  executable: 'trainer_seml.py' # change to eval_seml.py for evaluation or attacks, and trainer_seml.py for training.
+  db_collection: 'priornet'
+  output_dir: '~/logs'
+
+slurm:
+  name: 'dirchletpriornet'
+  experiments_per_job: 1
+  sbatch_options:
+    gres: gpu:1
+    mem:  8G
+    cpus-per-task: 2
+    time: 0-08:00
+    partition: gpu_all
+
+fixed:
+  in_domain_dataset: MNIST
+  input_image_size: 28
+  num_classes: 10
+  ood_dataset: OMNIGLOT
+  model_arch: mlp
+  num_epochs: 10
+  num_channels: 1
+  learning_rate: 0.0001
+  drop_rate: 0.05
+  model_dir: "./runtime-model"
+  data_dir: "./runtime-data"
+  lr_decay_milestones: [1]
+  batch_size: 64
+  logdir: "/nfs/homedirs/giri/priornet/logs"
+  run_eval: False
+  run_attack: True
+  epsilon_list: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+  attack_type: "PGD"
+  attack_norm: "inf"
+  

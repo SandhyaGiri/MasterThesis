@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Module train_priornet",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.training.train_priornet",
+            "args": ["--model_dir", "./runtime-model", "--num_epochs", "1", "./data", "MNIST", "OMNIGLOT"]
+        },
+        {
+            "name": "Python: Module setup_priornet",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.training.setup_priornet",
+            "args": ["--model_arch", "mlp", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "./runtime-model"]
+        },
+        {
+            "name": "(MT) Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }    
+    ]
+}
