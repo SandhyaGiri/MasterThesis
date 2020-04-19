@@ -18,6 +18,8 @@ parser.add_argument('--num_classes', type=int, required=True,
                     help='Number of units in the final output layer.')
 parser.add_argument('--input_size', type=int, required=True,
                     help='Indicates the size of the input image ex: 28 for 28*28 images.')
+parser.add_argument('--drop_prob', type=float, default=0.5,
+                    help='Indicates the probability of dropping out hidden units.')
 
 def main():
     args = parser.parse_args()
@@ -30,6 +32,7 @@ def main():
         model_params['fc_layers'] = args.fc_layers
         model_params['n_in'] = args.input_size
         model_params['n_out'] = args.num_classes
+        model_params['drop_rate'] = args.drop_prob
         model = PriorNetMLP(**model_params)
     elif args.model_arch == 'vgg16':
         pass

@@ -9,14 +9,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.training.train_priornet",
-            "args": ["--model_dir", "./runtime-model", "--num_epochs", "1", "./data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model", "--num_epochs", "1", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Python: Module setup_priornet",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.training.setup_priornet",
-            "args": ["--model_arch", "mlp", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "./runtime-model"]
+            "args": ["--model_arch", "mlp", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "--drop_prob", "0.23", "./runtime-model"]
         },
         {
             "name": "(MT) Python: Current File",

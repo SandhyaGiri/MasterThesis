@@ -164,7 +164,7 @@ class PriorNetTrainer:
             # Calculate train loss
             loss = self.criterion((id_outputs, ood_outputs), (labels, None))
             assert torch.all(torch.isfinite(loss)).item()
-            kl_loss += loss
+            kl_loss += loss.item()
 
             # Measures ID and OOD losses
             id_loss += self.id_criterion(id_outputs, labels).item()
@@ -233,7 +233,7 @@ class PriorNetTrainer:
                 # Calculate train loss
                 loss = self.criterion((id_outputs, ood_outputs), (labels, None))
                 assert torch.all(torch.isfinite(loss)).item()
-                kl_loss += loss
+                kl_loss += loss.item()
 
                 # Measures ID and OOD losses
                 id_loss += self.id_criterion(id_outputs, labels).item()

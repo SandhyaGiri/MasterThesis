@@ -57,7 +57,7 @@ class KLDivDirchletDistLoss:
     """
 
     def __init__(self, target_precision=1e3, smoothing_factor=1e-2):
-        self.target_precision = torch.tensor(target_precision, dtype=torch.float32)
+        self.target_precision = target_precision
         self.smooothing_factor = smoothing_factor
 
     def __call__(self, logits, labels, reduction='mean'):
@@ -91,7 +91,7 @@ class KLDivDirchletDistLoss:
         return kl_div
     
     def compute_loss(self, alphas, labels: Optional[torch.tensor] = None):
-        print("Given dim alphas: ", alphas.shape, " labels: ", labels.shape if labels is not None else '')
+        # print("Given dim alphas: ", alphas.shape, " labels: ", labels.shape if labels is not None else '')
         k = alphas.shape[1] # num_classes
         precision = torch.sum(alphas, dim=1, keepdim=True)
         mean = F.softmax(alphas, dim=1)
@@ -106,7 +106,7 @@ class KLDivDirchletDistLoss:
             target_mean = torch.ones_like(alphas) * self.smooothing_factor # this is the epsilon smoothing param in paper
             target_mean = torch.clone(target_mean).scatter_(1, labels[:, None],
                                                                1-(k-1) * self.smooothing_factor)
-            target_precision = torch.ones(alphas.shape[0], 1) * self.target_precision
+            target_precision = alphas.new_ones((alphas.shape[0], 1)) * self.target_precision
         loss = self.compute_kl_div_dirichlets(target_mean, mean, target_precision, precision)
         return loss
 

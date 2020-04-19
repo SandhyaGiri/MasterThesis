@@ -5,5 +5,5 @@ thesis
 __pycache__
 
 # data and model directories
-data/*
+runtime-data/*
 runtime-model*/*

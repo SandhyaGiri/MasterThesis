@@ -1,7 +1,7 @@
 
 seml:
   executable: 'trainer_seml.py' # change to eval_seml.py for evaluation or attacks, and trainer_seml.py for training.
-  db_collection: 'priornet'
+  db_collection: 'priornet-thesis'
   output_dir: '~/logs'
 
 slurm:
@@ -20,6 +20,7 @@ fixed:
   num_classes: 10
   ood_dataset: OMNIGLOT
   model_arch: mlp
+  fc_layers: [100,90,80,50]
   num_epochs: 10
   num_channels: 1
   learning_rate: 0.0001
