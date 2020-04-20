@@ -1,8 +1,9 @@
 """
 This module contains MLP model.
 """
-import torch.nn as nn
 import numpy as np
+import torch.nn as nn
+
 
 class PriorNetMLP(nn.Module):
     """
@@ -10,7 +11,7 @@ class PriorNetMLP(nn.Module):
     len(fc_layers) * [FC_layer > ReLU > Dropout_layer]
     with a final output layer dictated by n_out.
     """
-    def __init__(self, fc_layers, n_in=28, n_out=10, drop_rate=0.5):
+    def __init__(self, fc_layers, n_in=28, n_out=10, num_channels=1, drop_rate=0.5, **kwargs):
         assert type(fc_layers) in [list, np.ndarray]
         assert len(fc_layers) > 0
         assert n_in > 0
@@ -18,9 +19,11 @@ class PriorNetMLP(nn.Module):
 
         super(PriorNetMLP, self).__init__()
         layers = []
-        prev_layer_size = n_in * n_in
+        prev_layer_size = n_in * n_in * num_channels
         for layer in fc_layers:
-            layers += [nn.Linear(prev_layer_size, layer), nn.ReLU(), nn.Dropout(p=drop_rate)]
+            layers += [nn.Linear(prev_layer_size, layer),
+                       nn.ReLU(inplace=True),
+                       nn.Dropout(p=drop_rate)]
             prev_layer_size = layer
 
         # output layers

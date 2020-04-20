@@ -1,13 +1,12 @@
 import argparse
-import torch
 import os
-import torchvision.transforms as transforms
+
+import numpy as np
+import torch
 import torch.optim as optim
 import torch.utils.data as data
-import numpy as np
 
-from ..datasets.torchvision_datasets import DatasetEnum
-from ..datasets.torchvision_datasets import TorchVisionDataWrapper
+from ..datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from ..datasets.transforms import TransformsBuilder
 from ..losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from ..utils.pytorch import load_model
@@ -26,9 +25,10 @@ parser.add_argument('ood_dataset', type=str, choices=DatasetEnum.__dict__.keys()
 parser.add_argument('--model_dir', type=str, default='./',
                     help='Absolute directory path where to load the model from.')
 parser.add_argument('--target_precision', type=int, default=1e3,
-                    help='Indicates the alpha_0 or the precision of the target dirichlet for in domain samples.')
+                    help='Indicates the alpha_0 or the precision of the target dirichlet \
+                    for in domain samples.')
 parser.add_argument('--lr', type=float, default=1e-3,
-                    help='Learning rate for the optimizer.')  
+                    help='Learning rate for the optimizer.')
 parser.add_argument('--num_epochs', type=int, default=10,
                     help='Specifies the number of epochs to train the model.')
 parser.add_argument('--batch_size', type=int, default=16,
@@ -55,25 +55,34 @@ def main():
 
     # load the datasets
     vis = TorchVisionDataWrapper()
-    trans = TransformsBuilder()
-    trans.add_resize(ckpt['model_params']['n_in'])
-    trans.add_to_tensor()
-    trans.add_Normalize((0.5,),(0.5,))
 
-    id_train_set, id_val_set = vis.getDataset(args.in_domain_dataset, 
-                                                args.data_dir, 
-                                                trans.get_transforms(), 
-                                                None, 
-                                                'train',
-                                                val_ratio=0.1)
+    # build transforms
+    trans = TransformsBuilder()
+    # TODO - change mean std to autoamtic calc based on dataset
+    mean = (0.5,)
+    std = (0.5,)
+    trans.add_resize(ckpt['model_params']['n_in'])
+    if ckpt['model_params']['model_type'].startswith('vgg'):
+        trans.add_rgb_channels(ckpt['model_params']['num_channels'])
+        mean = (0.5, 0.5, 0.5)
+        std = (0.5, 0.5, 0.5)
+    trans.add_to_tensor()
+    trans.add_normalize(mean, std)
+
+    id_train_set, id_val_set = vis.get_dataset(args.in_domain_dataset,
+                                               args.data_dir,
+                                               trans.get_transforms(),
+                                               None,
+                                               'train',
+                                               val_ratio=0.1)
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
-    
-    ood_train_set, ood_val_set = vis.getDataset(args.ood_dataset, 
-                                                args.data_dir, 
-                                                trans.get_transforms(), 
-                                                None, 
-                                                'train',
-                                                val_ratio=0.1)
+
+    ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
+                                                 args.data_dir,
+                                                 trans.get_transforms(),
+                                                 None,
+                                                 'train',
+                                                 val_ratio=0.1)
     print(f"OOD domain dataset: Train-{len(ood_train_set)}, Val-{len(ood_val_set)}")
 
     # make both datasets (id, ood) same size
@@ -84,7 +93,8 @@ def main():
 
     if len(id_train_set) < len(ood_train_set):
         ratio = np.ceil(float(len(ood_train_set)) / float(len(id_train_set)))
-        dataset_list = [id_train_set, ] * (int(ratio)) ## duplicate the id_dataset as much as its lesser than ood dataset
+        # duplicate the id_dataset as much as its lesser than ood dataset
+        dataset_list = [id_train_set, ] * (int(ratio))
         id_train_set = data.ConcatDataset(dataset_list)
     elif len(id_train_set) > len(ood_train_set):
         ratio = np.ceil(float(len(id_train_set)) / float(len(ood_train_set)))
@@ -106,13 +116,15 @@ def main():
     optimizer_params = {'lr': args.lr,
                         'betas': (0.9, 0.999),
                         'weight_decay': 0.0} # add this for other datasets
-    
-    trainer = PriorNetTrainer(model, 
-                                id_train_set, id_val_set, ood_train_set, ood_val_set, 
-                                criterion, id_loss, ood_loss, optimizer, optimizer_params=optimizer_params,
-                                lr_scheduler=optim.lr_scheduler.ExponentialLR,
-                                lr_scheduler_params={'gamma': 0.95},
-                                batch_size=args.batch_size, device=device, log_dir=args.model_dir)
+
+    trainer = PriorNetTrainer(model,
+                              id_train_set, id_val_set, ood_train_set, ood_val_set,
+                              criterion, id_loss, ood_loss, optimizer,
+                              optimizer_params=optimizer_params,
+                              lr_scheduler=optim.lr_scheduler.ExponentialLR,
+                              lr_scheduler_params={'gamma': 0.95},
+                              batch_size=args.batch_size, device=device, 
+                              log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs)
     

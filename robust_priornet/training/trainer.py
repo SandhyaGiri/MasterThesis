@@ -1,15 +1,16 @@
-import os
 import math
+import os
 import time
-import torch
-import numpy as np
-import torch.nn.functional as F
-import torch.utils.data as data
+from typing import Any, Dict
 
+import numpy as np
+import torch
+import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
-from typing import Dict, Any
 from torch.utils.data import DataLoader
-from ..utils.pytorch import get_accuracy,save_model
+
+from ..utils.pytorch import get_accuracy, save_model
+
 
 class PriorNetTrainer:
 
@@ -25,7 +26,7 @@ class PriorNetTrainer:
         # validate if both datasets are of same size (to avoid inductive bias in model)
         assert len(id_train_dataset) == len(ood_train_dataset)
         assert len(id_val_dataset) == len(ood_val_dataset)
-        
+
         self.model = model
         self.criterion = criterion
         self.id_criterion = id_criterion
@@ -97,8 +98,8 @@ class PriorNetTrainer:
             start = time.time()
             train_results = self._train_single_epoch() # train and update metrics list
             end = time.time()
-            
-            ######################    
+
+            ######################
             # validate the model #
             ######################
             val_results = self._val_single_epoch() # validate and update metrics list
@@ -110,8 +111,11 @@ class PriorNetTrainer:
                 'time_taken': (end-start),
             }
             torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
-            print(f"Train loss: {train_results['loss']}, Train accuracy: {train_results['id_accuracy']}")
-            print(f"Val loss: {val_results['loss']}, Val accuracy: {val_results['id_accuracy']}")
+            print(f"Train loss: {train_results['loss']}, \
+                  Train accuracy: {train_results['id_accuracy']}")
+            print(f"Val loss: {val_results['loss']}, \
+                  Val accuracy: {val_results['id_accuracy']}")
+            print(f"Time taken for train epoch: {summary['time_taken']}")
 
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
@@ -120,7 +124,7 @@ class PriorNetTrainer:
             #if early_stopping.early_stop:
             #    print("Early stopping")
             #    break
-            
+
             # step through lr scheduler
             self.lr_scheduler.step()
 
@@ -129,7 +133,7 @@ class PriorNetTrainer:
         save_model(self.model, {}, self.log_dir)
 
     def _eval_logits_id_ood_samples(self, id_inputs, ood_inputs):
-        # append id samples with ood samples 
+        # append id samples with ood samples
         cat_inputs = torch.cat([id_inputs, ood_inputs], dim=1).view(
             torch.Size([2 * id_inputs.size()[0]]) + id_inputs.size()[1:])
         logits = self.model(cat_inputs).view([id_inputs.size()[0], -1])
@@ -158,7 +162,7 @@ class PriorNetTrainer:
             # zero the parameter gradients
             self.optimizer.zero_grad()
 
-            # append id samples with ood samples 
+            # append id samples with ood samples
             id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
 
             # Calculate train loss
@@ -177,7 +181,8 @@ class PriorNetTrainer:
             # Update the number of steps
             self.steps += 1
 
-            # precision of the dirichlet dist output by the model (id, ood seprately), averaged across all samples in batch
+            # precision of the dirichlet dist output by the model (id, ood seprately), 
+            # averaged across all samples in batch
             id_alphas = torch.exp(id_outputs - torch.max(id_outputs, dim=0)[0]) 
             id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
             ood_alphas = torch.exp(ood_outputs - torch.max(ood_outputs, dim=0)[0])
@@ -201,7 +206,7 @@ class PriorNetTrainer:
             'loss': np.round(kl_loss, 4),
             'id_loss': np.round(id_loss, 2),
             'ood_loss': np.round(ood_loss, 2),
-            'id_accuracy': np.round(100.0 * (1.0 - accuracies), 2),
+            'id_accuracy': np.round(100.0 * accuracies, 2),
             'id_precision': np.round(id_precision, 2),
             'ood_precision': np.round(ood_precision, 2)
         }
@@ -215,7 +220,7 @@ class PriorNetTrainer:
         kl_loss = 0.0
         id_loss, ood_loss = 0.0, 0.0
         id_precision, ood_precision = 0.0, 0.0
-        
+
         with torch.no_grad():
             for i, (data, ood_data) in enumerate(
                     zip(self.id_val_loader, self.ood_val_loader), 0):
@@ -225,9 +230,9 @@ class PriorNetTrainer:
                 if self.device is not None:
                     inputs, labels, ood_inputs = map(lambda x: x.to(self.device,
                                                                     non_blocking=self.pin_memory),
-                                                    (inputs, labels, ood_inputs))
+                                                     (inputs, labels, ood_inputs))
 
-                # append id samples with ood samples 
+                # append id samples with ood samples
                 id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
 
                 # Calculate train loss
@@ -239,7 +244,8 @@ class PriorNetTrainer:
                 id_loss += self.id_criterion(id_outputs, labels).item()
                 ood_loss += self.ood_criterion(ood_outputs, None).item()
 
-                # precision of the dirichlet dist output by the model (id, ood seprately), averaged across all samples in batch
+                # precision of the dirichlet dist output by the model (id, ood seprately), 
+                # averaged across all samples in batch
                 id_alphas = torch.exp(id_outputs - torch.max(id_outputs, dim=0)[0]) 
                 id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
                 ood_alphas = torch.exp(ood_outputs - torch.max(ood_outputs, dim=0)[0])
@@ -262,8 +268,7 @@ class PriorNetTrainer:
             'loss': np.round(kl_loss, 4),
             'id_loss': np.round(id_loss, 2),
             'ood_loss': np.round(ood_loss, 2),
-            'id_accuracy': np.round(100.0 * (1.0 - accuracies), 2),
+            'id_accuracy': np.round(100.0 * accuracies, 2),
             'id_precision': np.round(id_precision, 2),
             'ood_precision': np.round(ood_precision, 2)
         }
-
