@@ -9,19 +9,20 @@ import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from ..utils.pytorch import get_accuracy, save_model
+from ..utils.pytorch import save_model
+from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
 
 
 class PriorNetTrainer:
 
     def __init__(self, model, id_train_dataset, id_val_dataset,
-                    ood_train_dataset, ood_val_dataset,
-                    criterion, id_criterion, ood_criterion, optimizer_fn, 
-                    optimizer_params: Dict[str, Any] = {},
-                    lr_scheduler=None,
-                    lr_scheduler_params={},
-                    batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
-                    pin_memory=False, log_dir='.'):
+                 ood_train_dataset, ood_val_dataset,
+                 criterion, id_criterion, ood_criterion, optimizer_fn, 
+                 optimizer_params: Dict[str, Any] = {},
+                 lr_scheduler=None,
+                 lr_scheduler_params={},
+                 batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
+                 pin_memory=False, log_dir='.'):
 
         # validate if both datasets are of same size (to avoid inductive bias in model)
         assert len(id_train_dataset) == len(ood_train_dataset)
@@ -44,34 +45,34 @@ class PriorNetTrainer:
 
         # Dataloaders for train dataset
         self.id_train_loader = DataLoader(id_train_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=True,
-                                            num_workers=self.num_workers,
-                                            pin_memory=self.pin_memory)
+                                          batch_size=batch_size,
+                                          shuffle=True,
+                                          num_workers=self.num_workers,
+                                          pin_memory=self.pin_memory)
         
         self.ood_train_loader = DataLoader(ood_train_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=True,
-                                            num_workers=self.num_workers,
-                                            pin_memory=self.pin_memory)
+                                           batch_size=batch_size,
+                                           shuffle=True,
+                                           num_workers=self.num_workers,
+                                           pin_memory=self.pin_memory)
 
         # Dataloaders for val dataset
         self.id_val_loader = DataLoader(id_val_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=True,
-                                            num_workers=self.num_workers,
-                                            pin_memory=self.pin_memory)
+                                        batch_size=batch_size,
+                                        shuffle=True,
+                                        num_workers=self.num_workers,
+                                        pin_memory=self.pin_memory)
         self.ood_val_loader = DataLoader(ood_val_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=True,
-                                            num_workers=self.num_workers,
-                                            pin_memory=self.pin_memory)
+                                         batch_size=batch_size,
+                                         shuffle=True,
+                                         num_workers=self.num_workers,
+                                         pin_memory=self.pin_memory)
 
         # Track training metrics
         self.train_loss, self.train_accuracy, self.train_eval_steps = [], [], []
         # Track validation metrics
         self.val_loss, self.val_accuracy, self.val_eval_steps = [], [], []
-        
+
         # Training step counter
         self.steps: int = 0
 
@@ -108,14 +109,14 @@ class PriorNetTrainer:
             summary = {
                 'train_results': train_results,
                 'val_results': val_results,
-                'time_taken': (end-start),
+                'time_taken': ((end-start) / 60.0),
             }
             torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
             print(f"Train loss: {train_results['loss']}, \
                   Train accuracy: {train_results['id_accuracy']}")
             print(f"Val loss: {val_results['loss']}, \
                   Val accuracy: {val_results['id_accuracy']}")
-            print(f"Time taken for train epoch: {summary['time_taken']}")
+            print(f"Time taken for train epoch: {summary['time_taken']} mins")
 
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
@@ -189,7 +190,8 @@ class PriorNetTrainer:
             ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
 
             probs = F.softmax(id_outputs, dim=1)
-            accuracy = get_accuracy(probs, labels, self.device).item()
+            accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
+                                                                      self.device).item()
             accuracies += accuracy
 
         # average the metrics over all steps (batches) in this epoch
@@ -252,7 +254,8 @@ class PriorNetTrainer:
                 ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
 
                 probs = F.softmax(id_outputs, dim=1)
-                accuracy = get_accuracy(probs, labels, self.device).item()
+                accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
+                                                                          self.device).item()
                 accuracies += accuracy
 
         # average the metrics over all steps (batches) in this epoch

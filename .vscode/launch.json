@@ -5,18 +5,32 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Module train_priornet",
+            "name": "Module train_priornet",
             "type": "python",
             "request": "launch",
-            "module": "robust_priornet.training.train_priornet",
+            "module": "robust_priornet.train_priornet",
             "args": ["--model_dir", "./runtime-model-conv", "--num_epochs", "1", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
-            "name": "Python: Module setup_priornet",
+            "name": "Module setup_priornet",
             "type": "python",
             "request": "launch",
-            "module": "robust_priornet.training.setup_priornet",
-            "args": ["--model_arch", "mlp", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "--drop_prob", "0.23", "--num_channels", "1", "./runtime-model-conv"]
+            "module": "robust_priornet.setup_priornet",
+            "args": ["--model_arch", "vgg6", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "--drop_prob", "0.23", "--num_channels", "1", "./runtime-model-conv"]
+        },
+        {
+            "name": "Module eval_priornet misclassify",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.eval_priornet",
+            "args": ["--model_dir", "./runtime-model-conv", "--result_dir", "./eval", "--task", "misclassification_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
+            "name": "Module eval_priornet ood",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.eval_priornet",
+            "args": ["--model_dir", "./runtime-model-conv", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "(MT) Python: Current File",

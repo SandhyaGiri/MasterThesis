@@ -6,11 +6,11 @@ import torch
 import torch.optim as optim
 import torch.utils.data as data
 
-from ..datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
-from ..datasets.transforms import TransformsBuilder
-from ..losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
-from ..utils.pytorch import load_model
-from .trainer import PriorNetTrainer
+from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
+from .datasets.transforms import TransformsBuilder
+from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
+from .training.trainer import PriorNetTrainer
+from .utils.pytorch import load_model
 
 parser = argparse.ArgumentParser(description='Train a Prior Network model (esp Dirichlet prior) using a '
                                              'standard feed forward NN on a Torchvision '
@@ -18,9 +18,9 @@ parser = argparse.ArgumentParser(description='Train a Prior Network model (esp D
                                              'and out-of-domain dataset are chosen.')
 parser.add_argument('data_dir', type=str,
                     help='Absolute or relative path to dir where data resides.')
-parser.add_argument('in_domain_dataset', type=str, choices=DatasetEnum.__dict__.keys(),
+parser.add_argument('in_domain_dataset', type=str, choices=DatasetEnum._member_map_.keys(),
                     help='Name of the in-domain dataset to be used.')
-parser.add_argument('ood_dataset', type=str, choices=DatasetEnum.__dict__.keys(),
+parser.add_argument('ood_dataset', type=str, choices=DatasetEnum._member_map_.keys(),
                     help='Name of the out-of-domain dataset to be used.')
 parser.add_argument('--model_dir', type=str, default='./',
                     help='Absolute directory path where to load the model from.')

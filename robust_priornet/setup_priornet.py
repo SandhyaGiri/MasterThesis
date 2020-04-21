@@ -1,12 +1,13 @@
 import argparse
 import os
 
-from ..models.priornet_conv import vgg_model
-from ..models.priornet_mlp import PriorNetMLP
-from ..utils.pytorch import save_model
+from .models.priornet_conv import vgg_model
+from .models.priornet_mlp import PriorNetMLP
+from .utils.pytorch import save_model
 
-parser = argparse.ArgumentParser(description='Sets up a Prior Network model (esp Dirichlet prior) using the '
-                                             'specified model architecture')
+parser = argparse.ArgumentParser(description='Sets up a Prior Network model ' +
+                                 '(esp Dirichlet prior) using the ' +
+                                 'specified model architecture')
 
 parser.add_argument('model_dir', type=str,
                     help='absolute directory path where to save the model.')

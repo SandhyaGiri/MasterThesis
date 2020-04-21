@@ -1,27 +1,10 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
+import torch.utils.data
+from torch.utils.data import DataLoader, Dataset
 
-def get_accuracy(y_probs, y_true, device=None, weights=None):
-    """
-    Calculates accuracy of model's predictsions, given the output probabilities and the truth labels
-    """
-    if weights is None:
-        if device is None:
-            accuracy = torch.mean((torch.argmax(y_probs, dim=1) == y_true).to(dtype=torch.float64))
-        else:
-            accuracy = torch.mean(
-                (torch.argmax(y_probs, dim=1) == y_true).to(device, torch.float64))
-    else:
-        if device is None:
-            weights.to(dtype=torch.float64)
-            accuracy = torch.mean(
-                weights * (torch.argmax(y_probs, dim=1) == y_true).to(dtype=torch.float64))
-        else:
-            weights.to(device=device, dtype=torch.float64)
-            accuracy = torch.mean(
-                weights * (torch.argmax(y_probs, dim=1) == y_true).to(device=device,
-                                                                      dtype=torch.float64))
-    return accuracy
 
 def save_model(model: nn.Module, model_params, model_dir):
     torch.save({
@@ -36,3 +19,29 @@ def load_model(model_dir):
     model = model_constructor.__self__
     model.load_state_dict(ckpt['model_state_dict'])
     return model, ckpt
+
+def eval_model_on_testset(model: nn.Module, dataset : Dataset,
+                          batch_size: int, device: Optional[torch.device] = None,
+                          num_workers=4):
+    model.eval()
+
+    testloader = DataLoader(dataset, batch_size=batch_size,
+                            shuffle=False, num_workers=num_workers)
+    logits_list = []
+    labels_list = []
+    with torch.no_grad():
+        for i, (inputs, labels) in enumerate(testloader, 0):
+            # move tensors to device if available
+            if device is not None:
+                inputs, labels = map(lambda x: x.to(device),
+                                     (inputs, labels))
+            # eval the inputs
+            logits = model(inputs)
+
+            logits_list.append(logits)
+            labels_list.append(labels)
+
+    logits = torch.cat(logits_list, dim=0)
+    probs = nn.functional.softmax(logits, dim =1)
+    labels = torch.cat(labels_list, dim=0)
+    return logits.cpu().numpy(), probs.cpu().numpy(), labels.cpu().numpy()
