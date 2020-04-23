@@ -6,12 +6,12 @@ import torch
 
 from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
-from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.misclassification_detection import \
     MisclassificationDetectionEvaluator
+from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator
-from .utils.pytorch import eval_model_on_testset, load_model
+from .utils.pytorch import eval_model_on_dataset, load_model
 
 parser = argparse.ArgumentParser(description='Evaluates a Prior Network model ' +
                                  '(esp Dirichlet prior) for either misclassification ' +
@@ -101,7 +101,7 @@ def main():
         print(f"OOD domain dataset: {len(ood_test_set)}")
 
     # Compute model predictions by passing the test set through the model.
-    id_logits, id_probs, id_labels = eval_model_on_testset(model,
+    id_logits, id_probs, id_labels = eval_model_on_dataset(model,
                                                            id_test_set,
                                                            args.batch_size,
                                                            device=device)

@@ -3,7 +3,6 @@ from enum import Enum
 
 import numpy as np
 import torch
-
 from scipy.special import digamma, gammaln
 
 
@@ -76,6 +75,10 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
     """
     Evaluator class carrying methods which can be used to retrieve uncertainty measures
     as detailed in PriorNet paper.
+    
+    Params
+    ------
+        logits: numpy ndarray or list or tuple
     """
     def __init__(self, logits, epsilon=1e-8):
         super(UncertaintyEvaluator, self).__init__()
@@ -87,7 +90,7 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
 
     def get_confidence(self):
         """Returns max probability predicted by the model"""
-        return np.max(self.probs, axis=1)
+        return np.max(self.probs, axis=1, keepdims=True)
 
     def get_total_uncertainty(self):
         return -1 * np.sum(self.probs * np.log(self.probs + self.epsilon), axis=1)
@@ -107,13 +110,17 @@ class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
     """
     Evaluator class carrying methods which can be used to retrieve uncertainty measures
     as detailed in PriorNet paper. (using torch functions)
+
+    Params
+    ------
+        logits: a torch tensor
     """
     def __init__(self, logits, epsilon=1e-8):
-        super(UncertaintyEvaluator, self).__init__()
-        self.logits = torch.tensor(logits, dtype=torch.float64)
+        super(UncertaintyEvaluatorTorch, self).__init__()
+        self.logits = logits
         self.alphas = torch.exp(logits)
         # precision of the predictive posterior dirichlet
-        self.alpha_0 = torch.sum(self.alphas, axis=1, keepdims=True)
+        self.alpha_0 = torch.sum(self.alphas, dim=1, keepdim=True)
         self.probs = self.alphas / self.alpha_0
         self.epsilon = epsilon # used for controlling overflows/underflows
 

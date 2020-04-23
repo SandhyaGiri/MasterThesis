@@ -20,7 +20,7 @@ def load_model(model_dir):
     model.load_state_dict(ckpt['model_state_dict'])
     return model, ckpt
 
-def eval_model_on_testset(model: nn.Module, dataset : Dataset,
+def eval_model_on_dataset(model: nn.Module, dataset : Dataset,
                           batch_size: int, device: Optional[torch.device] = None,
                           num_workers=4):
     model.eval()
