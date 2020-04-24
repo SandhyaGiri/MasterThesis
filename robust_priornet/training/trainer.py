@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from ..utils.pytorch import save_model
+from ..utils.pytorch import save_model_with_params_from_ckpt
 from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
 
 
@@ -131,7 +131,7 @@ class PriorNetTrainer:
 
         # load the last checkpoint with the best model
         # self.model.load_state_dict(torch.load('checkpoint.pt'))
-        save_model(self.model, {}, self.log_dir)
+        save_model_with_params_from_ckpt(self.model, self.log_dir)
 
     def _eval_logits_id_ood_samples(self, id_inputs, ood_inputs):
         # append id samples with ood samples

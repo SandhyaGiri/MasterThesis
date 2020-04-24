@@ -23,14 +23,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-conv", "--result_dir", "./eval", "--task", "misclassification_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "misclassification_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-conv", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module attack_priornet fgsm",

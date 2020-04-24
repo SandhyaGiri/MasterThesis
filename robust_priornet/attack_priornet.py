@@ -18,7 +18,8 @@ from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator
 from .losses.attack_loss import AttackCriteria
 from .utils.persistence import persist_image_dataset
-from .utils.pytorch import eval_model_on_dataset, load_model
+from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
+                            load_model)
 
 matplotlib.use('agg')
 
@@ -48,6 +49,8 @@ parser.add_argument('--step_size', type=float, default=0.4,
                     ' in PGD attack.')
 parser.add_argument('--max_steps', type=int, default=10,
                     help='The number of the gradient update steps, to be performed for PGD attack.')
+parser.add_argument('--gpu', type=int, action='append',
+                    help='Specifies the GPU ids to run the script on.')
 
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
                            batch_size=128, device=None, result_dir='./'):
@@ -99,14 +102,7 @@ def main():
     model, ckpt = load_model(args.model_dir)
 
     # move to device if one available
-    if torch.cuda.is_available():
-        assert torch.cuda.device_count() > 0
-        device = torch.device("cuda:0")
-        print(f"Using device: {torch.cuda.get_device_name(device)}.")
-    else:
-        print(f"Using CPU device.")
-        device = torch.device("cpu")
-
+    device = choose_torch_device(args.gpu)
     model.to(device)
 
     # load the datasets

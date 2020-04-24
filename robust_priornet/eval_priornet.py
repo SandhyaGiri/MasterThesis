@@ -11,7 +11,8 @@ from .eval.misclassification_detection import \
 from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator
-from .utils.pytorch import eval_model_on_dataset, load_model
+from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
+                            load_model)
 
 parser = argparse.ArgumentParser(description='Evaluates a Prior Network model ' +
                                  '(esp Dirichlet prior) for either misclassification ' +
@@ -34,6 +35,8 @@ parser.add_argument('--task', choices=['misclassification_detect', 'ood_detect']
 parser.add_argument('--batch_size', type=int, default=64,
                     help='Specifies the number of samples to be batched' +
                     'while evaluating the model.')
+parser.add_argument('--gpu', type=int, action='append',
+                    help='Specifies the GPU ids to run the script on.')
 
 def log_model_predictions(logits, probs, labels,
                           uncertainty_measures : dict, prefix_name='model', result_dir='./'):
@@ -59,14 +62,7 @@ def main():
     model, ckpt = load_model(args.model_dir)
 
     # move to device if one available
-    if torch.cuda.is_available():
-        assert torch.cuda.device_count() > 0
-        device = torch.device("cuda:0")
-        print(f"Using device: {torch.cuda.get_device_name(device)}.")
-    else:
-        print(f"Using CPU device.")
-        device = torch.device("cpu")
-
+    device = choose_torch_device(args.gpu)
     model.to(device)
 
     # load the datasets
@@ -117,7 +113,7 @@ def main():
         f.write(f'NLL: {np.round(model_nll, 3)} \n')
 
     if args.task == 'ood_detect':
-        ood_logits, ood_probs, ood_labels = eval_model_on_testset(model,
+        ood_logits, ood_probs, ood_labels = eval_model_on_dataset(model,
                                                                   ood_test_set,
                                                                   args.batch_size,
                                                                   device=device)
