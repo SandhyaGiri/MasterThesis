@@ -14,7 +14,7 @@ def save_model(model: nn.Module, model_params, model_dir):
     }, f'{model_dir}/model.tar')
 
 def save_model_with_params_from_ckpt(model: nn.Module, model_dir):
-    model, ckpt = load_model(model_dir)
+    _, ckpt = load_model(model_dir)
     torch.save({
         'model_constructor': model.__init__,
         'model_params': ckpt['model_params'],

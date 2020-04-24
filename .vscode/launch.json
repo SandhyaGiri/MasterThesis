@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--model_dir", "./runtime-model-conv", "--num_epochs", "1", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module setup_priornet",
@@ -37,14 +37,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM",  "./runtime-data", "MNIST", "./attack-fgsm"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM",  "./runtime-data", "MNIST", "./attack-fgsm"]
         },
         {
             "name": "Module attack_priornet pgd",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "PGD",  "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "PGD",  "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "(MT) Python: Current File",

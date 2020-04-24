@@ -25,9 +25,9 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     logging.info('Received the following configuration:')
     logging.info(f'In domain dataset: {in_domain_dataset}, OOD dataset: {ood_dataset}')
 
-    os.system('set | grep SLURM | while read line; do echo "# $line"; done')
-    cuda_devices = os.environ['SLURM_JOB_GPUS']
-    logging.info(f"GPUs assigned to me: {cuda_devices}")
+    if os.environ.get('SLURM_JOB_GPUS', None) is not None:
+        gpu_list = list(map(int, os.environ['SLURM_JOB_GPUS'].split(",")))
+        gpu_list = " ".join(map(lambda gpu: "--gpu " + str(gpu), gpu_list))
 
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x),fc_layers))
@@ -39,7 +39,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
 
     # training the model
     # lr_decay_milestones = " ".join(map(lambda epoch: "--lrc " + str(epoch), lr_decay_milestones))
-    train_cmd = f'python -m robust_priornet.train_priornet --model_dir {model_dir} \
+    train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
         --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {data_dir} \
             {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")

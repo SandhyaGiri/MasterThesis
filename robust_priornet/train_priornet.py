@@ -10,7 +10,7 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.trainer import PriorNetTrainer
-from .utils.pytorch import load_model
+from .utils.pytorch import load_model, choose_torch_device
 
 parser = argparse.ArgumentParser(description='Train a Prior Network model (esp Dirichlet prior) using a '
                                              'standard feed forward NN on a Torchvision '
@@ -33,6 +33,8 @@ parser.add_argument('--num_epochs', type=int, default=10,
                     help='Specifies the number of epochs to train the model.')
 parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
+parser.add_argument('--gpu', type=int, action='append',
+                    help='Specifies the GPU ids to run the script on.')
 
 def main():
     args = parser.parse_args()
@@ -43,14 +45,7 @@ def main():
     model, ckpt = load_model(args.model_dir)
 
     # move to device if one available
-    if torch.cuda.is_available():
-        assert torch.cuda.device_count() > 0
-        device = torch.device("cuda:0")
-        print(f"Using device: {torch.cuda.get_device_name(device)}.")
-    else:
-        print(f"Using CPU device.")
-        device = torch.device("cpu")
-
+    device = choose_torch_device(args.gpu)
     model.to(device)
 
     # load the datasets

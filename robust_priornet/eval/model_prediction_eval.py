@@ -30,7 +30,7 @@ class ClassifierPredictionEvaluator:
         np.savetxt(os.path.join(result_dir, file_name + '_precision.txt'), precision)
 
         _, axes = plt.subplots(nrows=1, ncols=1)
-        plot_curve(recall, precision, axes, 0, 0, x_label='Recall',
+        plot_curve(recall, precision, axes, x_label='Recall',
                    y_label='Precision',
                    x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
                    axis_spine_visibility_config=['right', 'top'])
@@ -55,7 +55,7 @@ class ClassifierPredictionEvaluator:
         np.savetxt(os.path.join(result_dir, file_name + '_fpr.txt'), fpr)
 
         _, axes = plt.subplots(nrows=1, ncols=1)
-        plot_curve(fpr, tpr, axes, 0, 0, x_label='False Postive Rate (FPR)',
+        plot_curve(fpr, tpr, axes, x_label='False Postive Rate (FPR)',
                    y_label='True Positive Rate (TPR)',
                    x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
                    axis_spine_visibility_config=['right', 'top'])

@@ -6,9 +6,8 @@ import numpy as np
 import torch
 
 
-def plot_curve(x, y, axes, row_index, col_index,
-               x_label='', y_label='', title='',
-               curve_title='',
+def plot_curve(x, y, axis, x_label='', y_label='',
+               title='', curve_title='',
                x_lim=None, y_lim=None,
                show_legend=False,
                axis_spine_visibility_config: list = None):
@@ -16,9 +15,7 @@ def plot_curve(x, y, axes, row_index, col_index,
         Plots a line graph with x values on x-axis and y values on y-axis. 
 
         Args:
-            axes: axis of the subplot
-            row_index: int value to be indexed into axes for subplots.
-            col_index: int value to be indexed into axes for subplots.
+            axis: axis of the subplot (already indexed to right subplot)
             x_label: str value
             y_label: str value
             curve_title: str value to be used for the line plot specific to given x,y values.
@@ -27,13 +24,6 @@ def plot_curve(x, y, axes, row_index, col_index,
             y_lim: tuple representing low and high range for y-axis
             axis_spine_visibility_config: list of axis directions which should be made invisible.
     """
-    if axes.numCols > 1 and axes.numRows > 1:
-        axis = axes[row_index][col_index]
-    elif axes.numCols == 1 and axes.numRows == 1:
-        axis = axes
-    else:
-        axis = axes[row_index+col_index]
-
     if axis_spine_visibility_config is not None:
         for spine in axis_spine_visibility_config:
             fetched_spine = axis.spines[spine]
@@ -72,7 +62,7 @@ def get_epoch_summaries(model_dir, num_epochs, verbose=False):
         val_id_loss.append(summary['val_results']['id_loss'])
         val_ood_loss.append(summary['val_results']['ood_loss'])
         val_id_accuracy.append(summary['val_results']['id_accuracy'])
-        
+
     return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy
 
 def plot_loss_accuracy_curve(model_dir, num_epochs):
@@ -80,27 +70,27 @@ def plot_loss_accuracy_curve(model_dir, num_epochs):
     figure, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
 
     # ID axis for loss curve
-    x = np.arange(num_epochs)
-    plot_curve(x, train_id_loss, axes, 0, 0, x_label='Epochs',
+    x_values = np.arange(num_epochs)
+    plot_curve(x_values, train_id_loss, axes[0,0], x_label='Epochs',
                y_label='Loss', title='Loss curve',
                curve_title='ID - Train loss', show_legend=True)
-    plot_curve(x, val_id_loss, axes, 0, 0, x_label='Epochs',
+    plot_curve(x_values, val_id_loss, axes[0,0], x_label='Epochs',
                y_label='Loss', title='Loss curve',
                curve_title='ID - Validation loss', show_legend=True)
 
     # OOD axis for loss curve
-    plot_curve(x, train_ood_loss, axes, 0, 1, x_label='Epochs',
+    plot_curve(x_values, train_ood_loss, axes[0,1], x_label='Epochs',
                y_label='Loss', title='Loss curve',
                curve_title='OOD - Train loss', show_legend=True)
-    plot_curve(x, val_ood_loss, axes, 0, 1, x_label='Epochs',
+    plot_curve(x_values, val_ood_loss, axes[0,1], x_label='Epochs',
                y_label='Loss', title='Loss curve',
                curve_title='OOD - Validation loss', show_legend=True)
 
     # ID axis for accuracy curve
-    plot_curve(x, train_id_accuracy, axes, 1, 0, x_label='Epochs',
+    plot_curve(x_values, train_id_accuracy, axes[1,0], x_label='Epochs',
                y_label='Accuracy', title='Accuracy curve',
                curve_title='ID - Train accuracy', show_legend=True)
-    plot_curve(x, val_id_accuracy, axes, 1, 0, x_label='Epochs',
+    plot_curve(x_values, val_id_accuracy, axes[1,0], x_label='Epochs',
                y_label='Accuracy', title='Accuracy curve',
                curve_title='ID - Validation accuracy', show_legend=True)
 
@@ -115,7 +105,6 @@ def plot_aupr_auroc(aupr_list, auroc_list):
     auprs = [np.round(x * 100.0, 1) for x in aupr_list]
     aurocs = [np.round(x * 100.0, 1) for x in auroc_list]
 
-    rcParams['figure.figsize'] = 5, 5
     fig, ax = plt.subplots()
     rects1 = ax.bar(x - width/2, auprs, width, label='AU_PR')
     rects2 = ax.bar(x + width/2, aurocs, width, label='AU_ROC')
