@@ -100,4 +100,4 @@ def construct_pgd_attack(model,
             #     max_loss = torch.max(max_loss, loss)
 
     # return the best adversarial sample generated (one with max loss so far)
-    return best_adversary
+    return adv_inputs

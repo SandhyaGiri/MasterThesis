@@ -21,6 +21,7 @@ from .losses.attack_loss import AttackCriteria
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
                             load_model)
+from .utils.dataspliter import DataSpliter
 
 matplotlib.use('agg')
 
@@ -48,6 +49,7 @@ parser.add_argument('--train_dataset', action='store_true',
 parser.add_argument('--attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
                     help='Choose the type of attack to be performed.')
 parser.add_argument('--attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
+                    required=True,
                     help='Indicates which loss function to use to compute attack gradient.')
 parser.add_argument('--norm', type=str, choices=['inf', '2'], default='inf',
                     help='The type of norm ball to restrict the adversarial samples to.' +
@@ -154,6 +156,7 @@ def main():
                               None,
                               'train' if args.train_dataset else 'test')
 
+    dataset = DataSpliter.reduceSize(dataset, 5000)
     org_dataset_folder = os.path.join(args.result_dir, "org-images")
     if not os.path.exists(org_dataset_folder):
         os.makedirs(org_dataset_folder)
@@ -177,6 +180,7 @@ def main():
                                       trans.get_transforms(),
                                       None,
                                       'train' if args.train_dataset else 'test')
+        ood_dataset = DataSpliter.reduceSize(ood_dataset, 5000)
 
     # perform attacks on the same dataset, using different epsilon values.
     adv_success_rates = []

@@ -13,6 +13,7 @@ from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
                             load_model)
+from .utils.dataspliter import DataSpliter
 
 parser = argparse.ArgumentParser(description='Evaluates a Prior Network model ' +
                                  '(esp Dirichlet prior) for either misclassification ' +
@@ -86,6 +87,7 @@ def main():
                                   trans.get_transforms(),
                                   None,
                                   'train' if args.train_dataset else 'test')
+    id_test_set = DataSpliter.reduceSize(id_test_set, 5000)
     print(f"In domain dataset: {len(id_test_set)}")
 
     if args.task == 'ood_detect':
@@ -94,6 +96,7 @@ def main():
                                        trans.get_transforms(),
                                        None,
                                        'train' if args.train_dataset else 'test')
+        ood_test_set = DataSpliter.reduceSize(ood_test_set, 5000)
         print(f"OOD domain dataset: {len(ood_test_set)}")
 
     # Compute model predictions by passing the test set through the model.

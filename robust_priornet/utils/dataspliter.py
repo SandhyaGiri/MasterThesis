@@ -1,4 +1,5 @@
 import torch.utils.data as data
+import numpy as np
 
 class DataSpliter:
     """
@@ -25,4 +26,7 @@ class DataSpliter:
 
     @staticmethod
     def reduceSize(dataset, target_size):
-        return data.random_split(dataset, [target_size, len(dataset)-target_size])[0]
+        """
+        Returns a subset dataset of given dataset containing first 0...target_size-1 indices.
+        """
+        return data.Subset(dataset, np.arange(target_size))
