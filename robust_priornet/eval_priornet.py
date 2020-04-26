@@ -59,11 +59,9 @@ def main():
     if not os.path.exists(args.result_dir):
         os.makedirs(args.result_dir)
 
-    model, ckpt = load_model(args.model_dir)
-
     # move to device if one available
     device = choose_torch_device(args.gpu)
-    model.to(device)
+    model, ckpt = load_model(args.model_dir, device=device)
 
     # load the datasets
     vis = TorchVisionDataWrapper()

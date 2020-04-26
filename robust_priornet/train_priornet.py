@@ -42,10 +42,9 @@ def main():
     if not os.path.exists(args.model_dir):
         raise ValueError("Model doesn't exist!")
 
-    model, ckpt = load_model(args.model_dir)
-
     # move to device if one available
     device = choose_torch_device(args.gpu)
+    model, ckpt = load_model(args.model_dir, device=device)
     model.to(device)
 
     # load the datasets

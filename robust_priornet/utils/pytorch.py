@@ -21,8 +21,17 @@ def save_model_with_params_from_ckpt(model: nn.Module, model_dir):
         'model_state_dict': model.state_dict()
     }, f'{model_dir}/model.tar')
 
-def load_model(model_dir):
-    ckpt = torch.load(f'{model_dir}/model.tar')
+def load_model(model_dir, device=None):
+    """
+    Params
+    ------
+        model_dir: directory where the model.tar files exists carrying the checkpoint info.
+        device: device where the deserialized checkpoint dict should be moved to irrespective of
+            the device from where it was saved from. Without this, the checkpoint dict will be 
+            desrialized in CPU and move to device where it was saved from, not where it is running
+            now.
+    """
+    ckpt = torch.load(f'{model_dir}/model.tar', map_location=device)
     model_constructor = ckpt['model_constructor']
     model = model_constructor.__self__
     model.load_state_dict(ckpt['model_state_dict'])

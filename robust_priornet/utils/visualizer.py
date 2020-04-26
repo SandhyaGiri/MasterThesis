@@ -4,6 +4,7 @@ from textwrap import wrap
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
 
 
 def plot_curve(x, y, axis, x_label='', y_label='',
@@ -117,3 +118,96 @@ def plot_aupr_auroc(aupr_list, auroc_list):
 
     fig.tight_layout()
     plt.show()
+
+def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_misclassified_indices=[]):
+    """
+    Params
+    ------
+        org_eval_dir: directory where the model was evaluated for misclassification_detect task.
+                        on the same dataset as the attack_dir
+        attack_dir: directory where the various epsilon attack images and eval results are stored.
+                        on the same dataset as org_eval_dir
+        epsilon: value of the epsilon to locate the folder within the attack_dir.
+        plots_dir: directory name to be created to store the results within the attack_dir.
+
+    Returns
+    -------
+        adv_success: number of previously correctly classified samples that got misclassified under attack.
+    """
+    target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
+    probs = np.loadtxt(f"{target_epsilon_dir}/probs.txt")
+    labels = np.loadtxt(f"{target_epsilon_dir}/labels.txt")
+    # current confidence on attack images
+    new_confidence = np.loadtxt(f"{target_epsilon_dir}/confidence.txt")
+
+    # misclassified samples under attack
+    preds = np.argmax(probs, axis=1)
+    misclassification = np.asarray(preds != labels, dtype=np.int32)
+    misclassified = np.argwhere(misclassification == 1)
+    print("# Misclassified samples under attack: ", misclassified.size)
+
+    # real adversarial samples - original model correctly classified them, but now misclassified!
+    # prob dist outputed by model on non-perturbed images.
+    old_probs = np.loadtxt(f"{org_eval_dir}/probs.txt")
+    # confidence of all attack_images from normal eval phase.
+    old_confidence = np.loadtxt(f"{org_eval_dir}/confidence.txt")
+
+    old_preds = np.argmax(old_probs, axis=1)
+    correct_classifications = np.asarray(old_preds == labels, dtype=np.int32)
+    correct_classified_indices = np.argwhere(correct_classifications == 1)
+
+    misclassified = np.intersect1d(misclassified, correct_classified_indices)
+    print("# Real adversarial samples under attack: ", misclassified.size)
+
+    if len(known_misclassified_indices) > 0: # reduce to already known indices
+        misclassified = np.intersect1d(known_misclassified_indices, misclassified)
+
+    # create a separate dir to store all visualizations
+    os.makedirs(os.path.join(target_epsilon_dir, plots_dir))
+
+    # first plot
+    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
+    figure.subplots_adjust(hspace=0.5, wspace=0.5)
+
+    for i, index in enumerate(misclassified):
+        if index.ndim > 0:
+            index = index[0]
+        ri = i%10
+
+        # org image
+        axis = axes[ri][0]
+        img = Image.open(f"{attack_dir}/org-images/{index}.png")
+        axis.set_title(f"index: {index}, label: {int(labels[index])}, confidence: {np.round(old_confidence[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # adv image
+        axis = axes[ri][1]
+        img = Image.open(f"{target_epsilon_dir}/adv-images/{index}.png")
+        axis.set_title(f"label: {preds[index]}, confidence: {np.round(new_confidence[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # change in prob dist (bar plot)
+        axis = axes[ri][2]
+        class_labels = np.arange(10)
+        width = 0.2
+        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
+        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
+        axis.set_xticks(class_labels)
+        axis.set_xticklabels(class_labels)
+        axis.legend()
+
+        # batch every 10 sample into a single image
+        if (i > 0 and (i+1) % 10 == 0) or i == (misclassified.size-1):
+            plt.savefig(os.path.join(target_epsilon_dir, plots_dir,
+                                     f"result_vis_{i+1}.png"), bbox_inches='tight')
+            plt.close()
+
+        if i > 0 and (i+1) % 10 == 0 and i != (misclassified.size-1):
+            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
+            figure.subplots_adjust(hspace=0.5, wspace=0.5)
+
+    return misclassified.size

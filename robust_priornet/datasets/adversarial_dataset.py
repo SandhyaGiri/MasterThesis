@@ -46,8 +46,8 @@ class AdversarialDataset(Dataset):
                 labels_list.append(labels)
                 adv_list.append(adv_inputs.detach())
 
-        self.labels = torch.cat(labels_list, dim=0)
-        self.adv_inputs = torch.cat(adv_list, dim=0)
+        self.labels = torch.cat(labels_list, dim=0).cpu()
+        self.adv_inputs = torch.cat(adv_list, dim=0).cpu()
 
     def __getitem__(self, index):
         return (self.adv_inputs[index], self.labels[index])
