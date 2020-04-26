@@ -38,8 +38,8 @@ def construct_pgd_attack(model,
     adv_inputs.requires_grad = True
     model.eval()
 
-    max_loss = None
-    best_adversary = None
+    # max_loss = None
+    # best_adversary = None
 
     epsilon = torch.ones([inputs.size()[0]]) * epsilon
     epsilon = epsilon.view([epsilon.size()[0], 1, 1, 1]) # transform to a 4D tensor
@@ -91,13 +91,13 @@ def construct_pgd_attack(model,
             adv_inputs.data = perturbed_image
 
 
-            if max_loss is None:
-                max_loss = loss.clone()
-                best_adversary = adv_inputs.clone()
-            else:
-                old_new_best = torch.argmax(torch.cat((max_loss, loss), dim=1), dim=1)
-                best_adversary[old_new_best == 1, :, :, :] = adv_inputs[old_new_best == 1, :,:,:]
-                max_loss = torch.max(max_loss, loss)
+            # if max_loss is None:
+            #     max_loss = loss.clone()
+            #     best_adversary = adv_inputs.clone()
+            # else:
+            #     old_new_best = torch.argmax(torch.cat((max_loss, loss), dim=1), dim=1)
+            #     best_adversary[old_new_best == 1, :, :, :] = adv_inputs[old_new_best == 1, :,:,:]
+            #     max_loss = torch.max(max_loss, loss)
 
     # return the best adversarial sample generated (one with max loss so far)
     return best_adversary

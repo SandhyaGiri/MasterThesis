@@ -21,8 +21,8 @@ def config():
 
 
 @ex.automain
-def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, logdir,
-        run_eval, run_attack, epsilon_list, attack_type, attack_norm):
+def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_train_dataset, logdir,
+        run_eval, run_attack, epsilon_list, eval_ood_during_attack, attack_type, attack_criteria, attack_norm):
     """
     Performs both in-domain evaluation, and ood evaluation and the corresponding results
     are stored under eval/ and ood-eval/ inside the model_dir.
@@ -44,6 +44,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, logdir,
         out_dir = os.path.join(model_dir, "eval")
         cmd = f"python -m robust_priornet.eval_priornet {gpu_list} --batch_size {batch_size} \
             --model_dir {model_dir} --task misclassification_detect --result_dir {out_dir} \
+            {'--train_dataset' if use_train_dataset else ''} \
             {data_dir} {in_domain_dataset} {ood_dataset}"
         logging.info(f"In domain EVAL command being executed: {cmd}")
         os.system(cmd)
@@ -52,6 +53,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, logdir,
         out_dir = os.path.join(model_dir, "ood-eval")
         cmd = f"python -m robust_priornet.eval_priornet {gpu_list} --batch_size {batch_size} \
                 --model_dir {model_dir} --task ood_detect {data_dir} \
+                {'--train_dataset' if use_train_dataset else ''} \
                 {in_domain_dataset} {ood_dataset} {out_dir}"
         logging.info(f"OOD EVAL command being executed: {cmd}")
         os.system(cmd)
@@ -62,14 +64,18 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, logdir,
         out_dir = os.path.join(model_dir, f"{attack_type}-attack-{time}")
         if attack_type == 'FGSM':
             fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
-                    --batch_size {batch_size} --epsilon {epsilons} --attack_type {attack_type} \
-                    --model_dir {model_dir} {data_dir} {in_domain_dataset} {out_dir}"
+                    --batch_size {batch_size} --epsilon {epsilons} \
+                    --attack_type {attack_type} --attack_criteria {attack_criteria} \
+                    --model_dir {model_dir} {'--ood_eval' if eval_ood_during_attack else ''} \
+                    --ood_dataset {ood_dataset} {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"FGSM attack command being executed: {fgsm_cmd}")
             os.system(fgsm_cmd)
         elif attack_type == "PGD":
             pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
-                    --batch_size {batch_size} --epsilon {epsilons} --attack_type {attack_type} \
+                    --batch_size {batch_size} --epsilon {epsilons} \
+                    --attack_type {attack_type} --attack_criteria {attack_criteria} \
                     --norm {attack_norm} --model_dir {model_dir} \
+                    {'--ood_eval' if eval_ood_during_attack else ''} --ood_dataset {ood_dataset} \
                     {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"PGD attack command being executed: {pgd_cmd}")
             os.system(pgd_cmd)

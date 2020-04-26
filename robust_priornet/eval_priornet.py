@@ -35,6 +35,8 @@ parser.add_argument('--task', choices=['misclassification_detect', 'ood_detect']
 parser.add_argument('--batch_size', type=int, default=64,
                     help='Specifies the number of samples to be batched' +
                     'while evaluating the model.')
+parser.add_argument('--train_dataset', action='store_true',
+                    help='Whether to evaluate on the training data instead of test data')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
 
@@ -83,7 +85,7 @@ def main():
                                   args.data_dir,
                                   trans.get_transforms(),
                                   None,
-                                  'test')
+                                  'train' if args.train_dataset else 'test')
     print(f"In domain dataset: {len(id_test_set)}")
 
     if args.task == 'ood_detect':
@@ -91,7 +93,7 @@ def main():
                                        args.data_dir,
                                        trans.get_transforms(),
                                        None,
-                                       'test')
+                                       'train' if args.train_dataset else 'test')
         print(f"OOD domain dataset: {len(ood_test_set)}")
 
     # Compute model predictions by passing the test set through the model.

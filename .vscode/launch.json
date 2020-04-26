@@ -33,18 +33,25 @@
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
-            "name": "Module attack_priornet fgsm",
+            "name": "Module attack_priornet fgsm diff_entropy",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM",  "./runtime-data", "MNIST", "./attack-fgsm"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "./runtime-data", "MNIST", "./attack-fgsm"]
         },
         {
-            "name": "Module attack_priornet pgd",
+            "name": "Module attack_priornet fgsm diff_entropy ood-detect",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "PGD",  "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "OMNIGLOT", "./runtime-data", "MNIST", "./attack-fgsm"]
+        },
+        {
+            "name": "Module attack_priornet pgd confidence",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.attack_priornet",
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "PGD",  "--attack_criteria", "confidence", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "(MT) Python: Current File",

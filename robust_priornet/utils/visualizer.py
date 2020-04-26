@@ -148,9 +148,9 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
 
     # real adversarial samples - original model correctly classified them, but now misclassified!
     # prob dist outputed by model on non-perturbed images.
-    old_probs = np.loadtxt(f"{org_eval_dir}/probs.txt")
+    old_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
     # confidence of all attack_images from normal eval phase.
-    old_confidence = np.loadtxt(f"{org_eval_dir}/confidence.txt")
+    old_confidence = np.loadtxt(f"{org_eval_dir}/id_confidence.txt")
 
     old_preds = np.argmax(old_probs, axis=1)
     correct_classifications = np.asarray(old_preds == labels, dtype=np.int32)
@@ -198,7 +198,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
         rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
         axis.set_xticks(class_labels)
         axis.set_xticklabels(class_labels)
-        axis.legend()
+        # places the legend to the right of the current axis
+        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
         # batch every 10 sample into a single image
         if (i > 0 and (i+1) % 10 == 0) or i == (misclassified.size-1):
