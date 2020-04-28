@@ -53,21 +53,25 @@ def get_epoch_summaries(model_dir, num_epochs, verbose=False):
     val_ood_loss = []
     train_id_accuracy = []
     val_id_accuracy = []
+    train_loss = []
+    val_loss = []
     for epoch in range(num_epochs):
         summary = torch.load(os.path.join(model_dir, f'epoch_summary_{epoch+1}.pt'))
         if verbose:
             print(summary)
         train_id_loss.append(summary['train_results']['id_loss'])
         train_ood_loss.append(summary['train_results']['ood_loss'])
+        train_loss.append(summary['train_results']['loss'])
         train_id_accuracy.append(summary['train_results']['id_accuracy'])
         val_id_loss.append(summary['val_results']['id_loss'])
         val_ood_loss.append(summary['val_results']['ood_loss'])
+        val_loss.append(summary['val_results']['loss'])
         val_id_accuracy.append(summary['val_results']['id_accuracy'])
 
-    return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy
+    return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss
 
 def plot_loss_accuracy_curve(model_dir, num_epochs):
-    train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy = get_epoch_summaries(model_dir, num_epochs)
+    train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss = get_epoch_summaries(model_dir, num_epochs)
     figure, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
 
     # ID axis for loss curve
@@ -95,6 +99,14 @@ def plot_loss_accuracy_curve(model_dir, num_epochs):
                y_label='Accuracy', title='Accuracy curve',
                curve_title='ID - Validation accuracy', show_legend=True)
 
+    # Overall loss axis
+    plot_curve(x_values, train_loss, axes[1,1], x_label='Epochs',
+               y_label='Loss', title='Loss curve',
+               curve_title='Train loss', show_legend=True)
+    plot_curve(x_values, val_loss, axes[1,1], x_label='Epochs',
+               y_label='Loss', title='Loss curve',
+               curve_title='Validation loss', show_legend=True)
+    
     figure.tight_layout()
     plt.show()
     
@@ -135,10 +147,10 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
         adv_success: number of previously correctly classified samples that got misclassified under attack.
     """
     target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
-    probs = np.loadtxt(f"{target_epsilon_dir}/probs.txt")
-    labels = np.loadtxt(f"{target_epsilon_dir}/labels.txt")
+    probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
+    labels = np.loadtxt(f"{target_epsilon_dir}/eval/labels.txt")
     # current confidence on attack images
-    new_confidence = np.loadtxt(f"{target_epsilon_dir}/confidence.txt")
+    new_confidence = np.loadtxt(f"{target_epsilon_dir}/eval/confidence.txt")
 
     # misclassified samples under attack
     preds = np.argmax(probs, axis=1)
@@ -155,6 +167,7 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
     old_preds = np.argmax(old_probs, axis=1)
     correct_classifications = np.asarray(old_preds == labels, dtype=np.int32)
     correct_classified_indices = np.argwhere(correct_classifications == 1)
+    print("# Correct classified samples prior attack: ", len(correct_classified_indices))
 
     misclassified = np.intersect1d(misclassified, correct_classified_indices)
     print("# Real adversarial samples under attack: ", misclassified.size)

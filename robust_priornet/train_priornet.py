@@ -10,7 +10,8 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.trainer import PriorNetTrainer
-from .utils.pytorch import load_model, choose_torch_device
+from .utils.dataspliter import DataSpliter
+from .utils.pytorch import choose_torch_device, load_model
 
 parser = argparse.ArgumentParser(description='Train a Prior Network model (esp Dirichlet prior) using a '
                                              'standard feed forward NN on a Torchvision '

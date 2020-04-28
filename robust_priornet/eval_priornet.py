@@ -11,9 +11,10 @@ from .eval.misclassification_detection import \
 from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator
+from .utils.dataspliter import DataSpliter
+from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
                             load_model)
-from .utils.dataspliter import DataSpliter
 
 parser = argparse.ArgumentParser(description='Evaluates a Prior Network model ' +
                                  '(esp Dirichlet prior) for either misclassification ' +
@@ -74,9 +75,10 @@ def main():
     # TODO - change mean std to automatic calc based on dataset
     mean = (0.5,)
     std = (0.5,)
+    num_channels = ckpt['model_params']['num_channels']
     trans.add_resize(ckpt['model_params']['n_in'])
     if ckpt['model_params']['model_type'].startswith('vgg'):
-        trans.add_rgb_channels(ckpt['model_params']['num_channels'])
+        trans.add_rgb_channels(num_channels)
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
     trans.add_to_tensor()
@@ -87,7 +89,7 @@ def main():
                                   trans.get_transforms(),
                                   None,
                                   'train' if args.train_dataset else 'test')
-    id_test_set = DataSpliter.reduceSize(id_test_set, 5000)
+    # id_test_set = DataSpliter.reduceSize(id_test_set, 5000)
     print(f"In domain dataset: {len(id_test_set)}")
 
     if args.task == 'ood_detect':
@@ -96,7 +98,8 @@ def main():
                                        trans.get_transforms(),
                                        None,
                                        'train' if args.train_dataset else 'test')
-        ood_test_set = DataSpliter.reduceSize(ood_test_set, 5000)
+        # ood_test_set = DataSpliter.reduceSize(ood_test_set, 5000)
+        # persist_image_dataset(ood_test_set, mean, std, num_channels, args.result_dir)
         print(f"OOD domain dataset: {len(ood_test_set)}")
 
     # Compute model predictions by passing the test set through the model.

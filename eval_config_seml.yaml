@@ -29,4 +29,5 @@ fixed:
   attack_type: "PGD"
   attack_criteria: "confidence" # use ['confidence', 'diff_entropy']
   attack_norm: "inf"
+  max_steps: 100
     

@@ -7,12 +7,12 @@ from .uncertainty import UncertaintyMeasuresEnum
 
 
 class OutOfDomainDetectionEvaluator:
-    
+
     def __init__(self, id_uncertainty_measures, ood_uncertainty_measures, result_dir):
         self.id_uncertainty_measures = id_uncertainty_measures
         self.ood_uncertainty_measures = ood_uncertainty_measures
         self.result_dir = result_dir
-        
+
     def get_target_labels(self):
         """
         Generates target labels for the ood detection task as a binary classification
@@ -23,7 +23,7 @@ class OutOfDomainDetectionEvaluator:
         id_labels = np.zeros_like(self.id_uncertainty_measures[UncertaintyMeasuresEnum.CONFIDENCE])
         ood_labels = np.ones_like(self.ood_uncertainty_measures[UncertaintyMeasuresEnum.CONFIDENCE])
         return np.concatenate((id_labels, ood_labels), axis=0) # row wise concatenation
-    
+
     def eval(self):
         """
         Uses the combined uncertainty measure (of id and ood) as the model's predictive

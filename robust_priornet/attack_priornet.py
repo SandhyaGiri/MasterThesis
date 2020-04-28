@@ -115,6 +115,8 @@ def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_class
         ood_uncertainties = UncertaintyEvaluator(ood_logits).get_all_uncertainties()
         ood_eval_dir = os.path.join(result_dir, 'ood_eval')
         os.makedirs(ood_eval_dir)
+        for key in uncertainties.keys():
+            np.savetxt(os.path.join(ood_eval_dir, key._value_ + '.txt'), uncertainties[key])
         OutOfDomainDetectionEvaluator(uncertainties, ood_uncertainties, ood_eval_dir).eval()
 
     # return aversarial successes
@@ -156,7 +158,7 @@ def main():
                               None,
                               'train' if args.train_dataset else 'test')
 
-    dataset = DataSpliter.reduceSize(dataset, 5000)
+    # dataset = DataSpliter.reduceSize(dataset, 5000)
     org_dataset_folder = os.path.join(args.result_dir, "org-images")
     if not os.path.exists(org_dataset_folder):
         os.makedirs(org_dataset_folder)
@@ -180,7 +182,7 @@ def main():
                                       trans.get_transforms(),
                                       None,
                                       'train' if args.train_dataset else 'test')
-        ood_dataset = DataSpliter.reduceSize(ood_dataset, 5000)
+        # ood_dataset = DataSpliter.reduceSize(ood_dataset, 5000)
 
     # perform attacks on the same dataset, using different epsilon values.
     adv_success_rates = []

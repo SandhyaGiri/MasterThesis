@@ -206,11 +206,11 @@ class PriorNetTrainer:
         # returns average metrics (loss, accuracy, dirichlet_dist_precision)
         return {
             'loss': np.round(kl_loss, 4),
-            'id_loss': np.round(id_loss, 2),
-            'ood_loss': np.round(ood_loss, 2),
+            'id_loss': np.round(id_loss, 4),
+            'ood_loss': np.round(ood_loss, 4),
             'id_accuracy': np.round(100.0 * accuracies, 2),
-            'id_precision': np.round(id_precision, 2),
-            'ood_precision': np.round(ood_precision, 2)
+            'id_precision': np.round(id_precision, 4),
+            'ood_precision': np.round(ood_precision, 4)
         }
 
 
@@ -269,9 +269,9 @@ class PriorNetTrainer:
 
         return {
             'loss': np.round(kl_loss, 4),
-            'id_loss': np.round(id_loss, 2),
-            'ood_loss': np.round(ood_loss, 2),
+            'id_loss': np.round(id_loss, 4),
+            'ood_loss': np.round(ood_loss, 4),
             'id_accuracy': np.round(100.0 * accuracies, 2),
-            'id_precision': np.round(id_precision, 2),
-            'ood_precision': np.round(ood_precision, 2)
+            'id_precision': np.round(id_precision, 4),
+            'ood_precision': np.round(ood_precision, 4)
         }

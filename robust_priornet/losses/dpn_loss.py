@@ -80,7 +80,7 @@ class KLDivDirchletDistLoss:
         """
         Computes KL divergence KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
         """
-        precision_term = torch.lgamma(target_precision) - torch.lgamma(precision)
+        precision_term = torch.lgamma(target_precision + epsilon) - torch.lgamma(precision + epsilon)
 
         alphas = target_precision * target_mean
         betas = precision * mean
@@ -94,7 +94,7 @@ class KLDivDirchletDistLoss:
         # print("Given dim alphas: ", alphas.shape, " labels: ", labels.shape if labels is not None else '')
         k = alphas.shape[1] # num_classes
         precision = torch.sum(alphas, dim=1, keepdim=True)
-        mean = F.softmax(alphas, dim=1)
+        mean = alphas / precision
         
         if labels is None:
             # ood sample, set all alphas to 1 to get a flat simplex or precision = num_classes, mean = 1/precision

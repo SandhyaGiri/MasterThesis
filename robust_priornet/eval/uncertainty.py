@@ -101,10 +101,9 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
         return -1 * np.sum(dirichlet_mean * digamma_term, axis=1)
 
     def get_differential_entropy(self):
-        log_term = np.sum(gammaln(self.alphas) - gammaln(self.alpha_0), axis=1)
-        digamma_term = np.sum((self.alphas - 1) *
-                              (digamma(self.alphas) - digamma(self.alpha_0)), axis=1)
-        return log_term - digamma_term
+        log_term = gammaln(self.alphas) - gammaln(self.alpha_0)
+        digamma_term = (self.alphas - 1) * (digamma(self.alphas) - digamma(self.alpha_0))
+        return np.sum(log_term - digamma_term, axis=1)
 
 class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
     """
@@ -136,7 +135,6 @@ class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
         return -1 * torch.sum(dirichlet_mean * digamma_term, dim=1) # sum across classes
 
     def get_differential_entropy(self):
-        log_term = torch.sum(torch.lgamma(self.alphas) - torch.lgamma(self.alpha_0), dim=1)
-        digamma_term = torch.sum((self.alphas - 1) *
-                                 (torch.digamma(self.alphas) - torch.digamma(self.alpha_0)), dim=1)
-        return log_term - digamma_term
+        log_term = torch.lgamma(self.alphas) - torch.lgamma(self.alpha_0)
+        digamma_term = (self.alphas - 1) *(torch.digamma(self.alphas) - torch.digamma(self.alpha_0))
+        return torch.sum(log_term - digamma_term, dim=1)

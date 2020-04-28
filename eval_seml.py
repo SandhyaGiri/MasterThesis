@@ -22,7 +22,7 @@ def config():
 
 @ex.automain
 def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_train_dataset, logdir,
-        run_eval, run_attack, epsilon_list, eval_ood_during_attack, attack_type, attack_criteria, attack_norm):
+        run_eval, run_attack, epsilon_list, eval_ood_during_attack, attack_type, attack_criteria, attack_norm, max_steps):
     """
     Performs both in-domain evaluation, and ood evaluation and the corresponding results
     are stored under eval/ and ood-eval/ inside the model_dir.
@@ -74,7 +74,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
             pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
                     --attack_type {attack_type} --attack_criteria {attack_criteria} \
-                    --norm {attack_norm} --model_dir {model_dir} \
+                    --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
                     {'--ood_eval' if eval_ood_during_attack else ''} --ood_dataset {ood_dataset} \
                     {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"PGD attack command being executed: {pgd_cmd}")

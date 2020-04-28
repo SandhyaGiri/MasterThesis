@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6", "--num_epochs", "10", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module setup_priornet",
@@ -24,6 +24,14 @@
             "request": "launch",
             "module": "robust_priornet.eval_priornet",
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "misclassification_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
+            "name": "Module eval_priornet ood",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "robust_priornet.eval_priornet",
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood train",
