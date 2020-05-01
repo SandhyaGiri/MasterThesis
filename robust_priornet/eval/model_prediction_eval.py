@@ -23,11 +23,12 @@ class ClassifierPredictionEvaluator:
                                 Usually the model's prediction probability.
             truth_labels: ground truth labels for the given task.
         """
-        precision, recall, _ = precision_recall_curve(truth_labels, decision_fn_value)
+        precision, recall, thresholds = precision_recall_curve(truth_labels, decision_fn_value)
         aupr = auc(recall, precision)
 
         np.savetxt(os.path.join(result_dir, file_name + '_recall.txt'), recall)
         np.savetxt(os.path.join(result_dir, file_name + '_precision.txt'), precision)
+        np.savetxt(os.path.join(result_dir, file_name + '_pr_thresholds.txt'), thresholds)
 
         _, axes = plt.subplots(nrows=1, ncols=1)
         plot_curve(recall, precision, axes, x_label='Recall',
@@ -48,11 +49,12 @@ class ClassifierPredictionEvaluator:
                                 Usually the model's prediction probability.
             truth_labels: ground truth labels for the given task.
         """
-        fpr, tpr, _ = roc_curve(truth_labels, decision_fn_value)
+        fpr, tpr, thresholds = roc_curve(truth_labels, decision_fn_value)
         roc_auc = roc_auc_score(truth_labels, decision_fn_value)
 
         np.savetxt(os.path.join(result_dir, file_name + '_tpr.txt'), tpr)
         np.savetxt(os.path.join(result_dir, file_name + '_fpr.txt'), fpr)
+        np.savetxt(os.path.join(result_dir, file_name + '_roc_thresholds.txt'), thresholds)
 
         _, axes = plt.subplots(nrows=1, ncols=1)
         plot_curve(fpr, tpr, axes, x_label='False Postive Rate (FPR)',

@@ -36,16 +36,17 @@ class CustomVGG(nn.Module):
             self._initialize_weights()
 
     def _initialize_weights(self):
+        # TODO - change non-linearity to what is used in the model?
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
@@ -92,11 +93,11 @@ def make_fc_layers(config, activation, in_features, drop_prob=0.5, stitch_togeth
 
     layers = []
     prev_layer_size = in_features
-    for layer in config:
-        layers += [nn.Linear(prev_layer_size, layer),
+    for layer_size in config:
+        layers += [nn.Linear(prev_layer_size, layer_size),
                    activation_layer,
                    nn.Dropout(p=drop_prob)]
-        prev_layer_size = layer
+        prev_layer_size = layer_size
 
     return nn.Sequential(*layers) if stitch_together else layers
 

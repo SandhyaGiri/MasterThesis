@@ -31,16 +31,20 @@ class OutOfDomainDetectionEvaluator:
         """
         target_truth_labels = self.get_target_labels()
         for key in self.id_uncertainty_measures.keys():
-            # negation needed for confidence, as confidence is indicator of label=0 samples i.e for correct classified samples.
-            # But we need scores for label=1 samples i.e misclassified samples to be higher, so we negate.
             decision_fn_value = np.concatenate((self.id_uncertainty_measures[key],
                                                 self.ood_uncertainty_measures[key]), axis=0)
+            # negation needed for confidence, as confidence is indicator of label=0 samples
+            # i.e for correct classified samples.
+            # But we need scores for label=1 samples i.e misclassified samples
+            # to be higher, so we negate.
             if key == UncertaintyMeasuresEnum.CONFIDENCE:
                 decision_fn_value *= -1.0
-                
+
             aupr, auroc = ClassifierPredictionEvaluator.compute_pr_roc_curves(
                 decision_fn_value, target_truth_labels, self.result_dir, key._value_)
 
             with open(os.path.join(self.result_dir, 'results.txt'), 'a') as f:
-                f.write('AUPR using ' + key._value_ + ": " + str(np.round(aupr * 100.0, 1)) + '\n')
-                f.write('AUROC using ' + key._value_ + ": " + str(np.round(auroc * 100.0, 1)) + '\n')
+                f.write('AUPR using ' + key._value_ + ": " +
+                        str(np.round(aupr * 100.0, 1)) + '\n')
+                f.write('AUROC using ' + key._value_ + ": " +
+                        str(np.round(auroc * 100.0, 1)) + '\n')

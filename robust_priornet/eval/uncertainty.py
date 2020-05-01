@@ -75,7 +75,7 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
     """
     Evaluator class carrying methods which can be used to retrieve uncertainty measures
     as detailed in PriorNet paper.
-    
+
     Params
     ------
         logits: numpy ndarray or list or tuple
@@ -96,14 +96,14 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
         return -1 * np.sum(self.probs * np.log(self.probs + self.epsilon), axis=1)
 
     def get_expected_data_uncertainty(self):
-        digamma_term = digamma(self.alphas + 1) - digamma(self.alpha_0 +1)
+        digamma_term = digamma(self.alphas + 1.0) - digamma(self.alpha_0 + 1.0)
         dirichlet_mean = self.alphas / self.alpha_0
         return -1 * np.sum(dirichlet_mean * digamma_term, axis=1)
 
     def get_differential_entropy(self):
-        log_term = gammaln(self.alphas) - gammaln(self.alpha_0)
+        log_term = gammaln(self.alphas)
         digamma_term = (self.alphas - 1) * (digamma(self.alphas) - digamma(self.alpha_0))
-        return np.sum(log_term - digamma_term, axis=1)
+        return np.sum(log_term - digamma_term, axis=1, keepdims=True) - gammaln(self.alpha_0)
 
 class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
     """
@@ -130,11 +130,11 @@ class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
         return -1 * torch.sum(self.probs * torch.log(self.probs + self.epsilon), dim=1)
 
     def get_expected_data_uncertainty(self):
-        digamma_term = torch.digamma(self.alphas + 1) - torch.digamma(self.alpha_0 +1)
+        digamma_term = torch.digamma(self.alphas + 1.0) - torch.digamma(self.alpha_0 +1.0)
         dirichlet_mean = self.alphas / self.alpha_0
         return -1 * torch.sum(dirichlet_mean * digamma_term, dim=1) # sum across classes
 
     def get_differential_entropy(self):
-        log_term = torch.lgamma(self.alphas) - torch.lgamma(self.alpha_0)
+        log_term = torch.lgamma(self.alphas)
         digamma_term = (self.alphas - 1) *(torch.digamma(self.alphas) - torch.digamma(self.alpha_0))
-        return torch.sum(log_term - digamma_term, dim=1)
+        return torch.sum(log_term - digamma_term, dim=1, keepdim=True)  - torch.lgamma(self.alpha_0)

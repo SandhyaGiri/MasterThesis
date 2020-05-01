@@ -22,6 +22,7 @@
             "name": "Module eval_priornet misclassify",
             "type": "python",
             "request": "launch",
+            "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "misclassification_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },

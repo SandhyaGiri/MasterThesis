@@ -118,7 +118,7 @@ def main():
                               optimizer_params=optimizer_params,
                               lr_scheduler=optim.lr_scheduler.ExponentialLR,
                               lr_scheduler_params={'gamma': 0.95},
-                              batch_size=args.batch_size, device=device, 
+                              batch_size=args.batch_size, device=device,
                               log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs)

@@ -20,7 +20,9 @@ def config():
 
 
 @ex.automain
-def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, fc_layers, num_epochs, num_channels, learning_rate, drop_rate, model_dir, data_dir, lr_decay_milestones, batch_size, logdir):
+def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch,
+        fc_layers, num_epochs, num_channels, learning_rate, drop_rate, target_precision,
+        model_dir, data_dir, lr_decay_milestones, batch_size, logdir):
 
     logging.info('Received the following configuration:')
     logging.info(f'In domain dataset: {in_domain_dataset}, OOD dataset: {ood_dataset}')
@@ -40,8 +42,8 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     # training the model
     # lr_decay_milestones = " ".join(map(lambda epoch: "--lrc " + str(epoch), lr_decay_milestones))
     train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
-        --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {data_dir} \
-            {in_domain_dataset} {ood_dataset}'
+        --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} \
+        --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")
     os.system(train_cmd)
 

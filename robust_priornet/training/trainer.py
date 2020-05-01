@@ -49,7 +49,7 @@ class PriorNetTrainer:
                                           shuffle=True,
                                           num_workers=self.num_workers,
                                           pin_memory=self.pin_memory)
-        
+
         self.ood_train_loader = DataLoader(ood_train_dataset,
                                            batch_size=batch_size,
                                            shuffle=True,
@@ -109,7 +109,7 @@ class PriorNetTrainer:
             summary = {
                 'train_results': train_results,
                 'val_results': val_results,
-                'time_taken': ((end-start) / 60.0),
+                'time_taken': np.round(((end-start) / 60.0), 2),
             }
             torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
             print(f"Train loss: {train_results['loss']}, \
@@ -184,9 +184,9 @@ class PriorNetTrainer:
 
             # precision of the dirichlet dist output by the model (id, ood seprately), 
             # averaged across all samples in batch
-            id_alphas = torch.exp(id_outputs - torch.max(id_outputs, dim=0)[0]) 
+            id_alphas = torch.exp(id_outputs) 
             id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
-            ood_alphas = torch.exp(ood_outputs - torch.max(ood_outputs, dim=0)[0])
+            ood_alphas = torch.exp(ood_outputs)
             ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
 
             probs = F.softmax(id_outputs, dim=1)
@@ -246,11 +246,11 @@ class PriorNetTrainer:
                 id_loss += self.id_criterion(id_outputs, labels).item()
                 ood_loss += self.ood_criterion(ood_outputs, None).item()
 
-                # precision of the dirichlet dist output by the model (id, ood seprately), 
+                # precision of the dirichlet dist output by the model (id, ood seprately),
                 # averaged across all samples in batch
-                id_alphas = torch.exp(id_outputs - torch.max(id_outputs, dim=0)[0]) 
+                id_alphas = torch.exp(id_outputs)
                 id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
-                ood_alphas = torch.exp(ood_outputs - torch.max(ood_outputs, dim=0)[0])
+                ood_alphas = torch.exp(ood_outputs)
                 ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
 
                 probs = F.softmax(id_outputs, dim=1)

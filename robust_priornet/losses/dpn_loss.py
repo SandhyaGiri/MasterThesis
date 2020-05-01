@@ -10,7 +10,8 @@ import numpy as np
 
 class PriorNetWeightedLoss:
     """
-    Returns a mixed or linear combination of the losses provided, with weights taken directly from the weights.
+    Returns a mixed or linear combination of the losses provided, with weights
+    taken directly from the weights.
     The losses provided should be of type : DirichletKLLoss.
     The final loss is also scaled down by the maximum target_precisions in the losses.
     """
@@ -38,22 +39,28 @@ class PriorNetWeightedLoss:
                              * self.weights[i])
             total_loss.append(weighted_loss)
         total_loss = torch.stack(total_loss, dim=0)
-        # Normalize by target concentration, so that loss  magnitude is constant wrt lr and other losses
+        # Normalize by target concentration, so that loss  magnitude
+        # is constant wrt lr and other losses
         return torch.sum(total_loss) / target_precision
 
 
 class KLDivDirchletDistLoss:
     """
-    Computes KL divergence between two dirichlet distributions. Can be applied to any DNN model which returns logits.
-    
-    Note that given the logits of a DNN model, exp of this yields the concentration(alpha) of the dirichlet distribution
-    outputted by the DNN. From the target labels provided, a "desired/expected" target dirichlet distribution's concentration parameters
-    are constructed. 
-    Ex: 
-        when target labels are provided, a peaky dirichlet with major concentration on target class is expected.
-        when target labels are not provided, a flat dirichlet with uniform alphas (low value alpha=1) is expected.
+    Computes KL divergence between two dirichlet distributions.
+    Can be applied to any DNN model which returns logits.
 
-    Loss value is then just the KL diveregence between the DNN's dirichlet and the expected dirichlet distribution.
+    Note that given the logits of a DNN model, exp of this yields the concentration(alpha)
+    of the dirichlet distribution outputted by the DNN. From the target labels provided,
+    a "desired/expected" target dirichlet distribution's concentration parameters can
+    be constructed.
+    Ex:
+        when target labels are provided, a peaky dirichlet with major concentration on
+            target class is expected.
+        when target labels are not provided, a flat dirichlet with uniform alphas
+            (low value alpha=1) is expected.
+
+    Loss value is then just the KL diveregence between the DNN's dirichlet and the
+    expected or target dirichlet distribution.
     """
 
     def __init__(self, target_precision=1e3, smoothing_factor=1e-2):
@@ -61,7 +68,7 @@ class KLDivDirchletDistLoss:
         self.smooothing_factor = smoothing_factor
 
     def __call__(self, logits, labels, reduction='mean'):
-        logits = logits - torch.max(logits, dim=0)[0]
+        # logits = logits - torch.max(logits, dim=0)[0]
         alphas = torch.exp(logits)
         return self.forward(alphas, labels, reduction=reduction)
 
@@ -78,35 +85,41 @@ class KLDivDirchletDistLoss:
     @staticmethod
     def compute_kl_div_dirichlets(target_mean, mean, target_precision, precision, epsilon=1e-8):
         """
-        Computes KL divergence KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
+        Computes KL divergence
+        KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
         """
-        precision_term = torch.lgamma(target_precision + epsilon) - torch.lgamma(precision + epsilon)
+        precision_term = (torch.lgamma(target_precision + epsilon) -
+                          torch.lgamma(precision + epsilon))
 
         alphas = target_precision * target_mean
         betas = precision * mean
-        concentration_term = torch.sum(torch.lgamma(betas + epsilon) - torch.lgamma(alphas + epsilon) +
-                                        ((alphas - betas) * (torch.digamma(alphas + epsilon) - 
-                                                            torch.digamma(target_precision + epsilon))), dim=1, keepdim=True)
+        concentration_term = torch.sum(torch.lgamma(betas + epsilon) -
+                                       torch.lgamma(alphas + epsilon) +
+                                       ((alphas - betas) * (torch.digamma(alphas + epsilon) -
+                                                            torch.digamma(target_precision +
+                                                                          epsilon)
+                                                            )
+                                        ), dim=1, keepdim=True)
         kl_div = torch.squeeze(precision_term + concentration_term)
         return kl_div
-    
+
     def compute_loss(self, alphas, labels: Optional[torch.tensor] = None):
-        # print("Given dim alphas: ", alphas.shape, " labels: ", labels.shape if labels is not None else '')
         k = alphas.shape[1] # num_classes
         precision = torch.sum(alphas, dim=1, keepdim=True)
         mean = alphas / precision
-        
+
         if labels is None:
-            # ood sample, set all alphas to 1 to get a flat simplex or precision = num_classes, mean = 1/precision
+            # ood sample, set all alphas to 1 to get a flat simplex
+            # or precision = num_classes, mean = 1/precision
             target_alphas = torch.ones_like(alphas)
             target_precision = torch.sum(target_alphas, dim=1, keepdim=True)
             target_mean = target_alphas / target_precision
         else:
             # in domain sample
-            target_mean = torch.ones_like(alphas) * self.smooothing_factor # this is the epsilon smoothing param in paper
+            # this is the epsilon smoothing param in paper
+            target_mean = torch.ones_like(alphas) * self.smooothing_factor
             target_mean = torch.clone(target_mean).scatter_(1, labels[:, None],
-                                                               1-(k-1) * self.smooothing_factor)
+                                                            1-(k-1) * self.smooothing_factor)
             target_precision = alphas.new_ones((alphas.shape[0], 1)) * self.target_precision
         loss = self.compute_kl_div_dirichlets(target_mean, mean, target_precision, precision)
         return loss
-

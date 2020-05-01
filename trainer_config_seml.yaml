@@ -25,6 +25,7 @@ fixed:
   num_channels: 1
   learning_rate: 0.0001
   drop_rate: 0.05
+  target_precision: 100
   model_dir: "./runtime-model"
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
