@@ -3,20 +3,21 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from sklearn.metrics import (auc, precision_recall_curve, roc_auc_score,
-                             roc_curve)
+from sklearn.metrics import (auc, confusion_matrix, precision_recall_curve,
+                             roc_auc_score, roc_curve)
 
 from ..utils.visualizer import plot_curve
 
 
 class ClassifierPredictionEvaluator:
     """
-    Computes PR curve and ROC curve for a binary classifier model and also
-    saves the result in the result_dir provided.
+    Provides methods to evaluate a binary classifier model such as computing
+    PR and ROC curves, accuracy etc.
     """
     @staticmethod
     def compute_pr_curve(decision_fn_value, truth_labels, result_dir, file_name):
         """
+        Also saves the result in the result_dir provided.
         Args:
             decision_fn_value: estimated probability or any other measure used
                                 for decision making in binary classification task.
@@ -43,6 +44,7 @@ class ClassifierPredictionEvaluator:
     @staticmethod
     def compute_roc_curve(decision_fn_value, truth_labels, result_dir, file_name):
         """
+        Also saves the result in the result_dir provided.
         Args:
             decision_fn_value: estimated probability or any other measure used
                                 for decision making in binary classification task.
@@ -71,6 +73,7 @@ class ClassifierPredictionEvaluator:
         """
         Computes both PR and ROC curves for binary classification task, and returns the
         corresponding area under the curves.
+        Also saves the result in the result_dir provided.
         """
         aupr = cls.compute_pr_curve(decision_fn_value, truth_labels, result_dir, file_name)
         auroc = cls.compute_roc_curve(decision_fn_value, truth_labels, result_dir, file_name)
@@ -117,3 +120,28 @@ class ClassifierPredictionEvaluator:
             y_true = torch.tensor(y_true)
         probs_at_truth_labels = y_probs[:, torch.squeeze(y_true)]
         return -1 * torch.mean(torch.log(probs_at_truth_labels + epsilon))
+
+    @staticmethod
+    def compute_confusion_matrix_entries(decision_fn_value, y_true, threshold=None):
+        """
+        Computes the number of true positives, true negatives, false positives and
+        false negatives from the given decision_fn_values.
+
+        Args:
+            decision_fn_value: This could be either prob
+                outputted by the model or any other value used for making classification decision.
+            y_true: ground truth labels either 0 or 1.
+            threshold: If threshold value is given, decision_fn_values above this threshold
+                are classified as label=1, and those below are classified as label=0.
+                Otherwise, threshold value is chosen (max-min)/2 from the decision_fn_values.
+        
+        Returns:
+            tn, fp, fn, tp (in the same order)
+        """
+        if threshold is None:
+            threshold = (max(decision_fn_value) - min(decision_fn_value)) / 2.0
+
+        y_preds = np.zeros_like(y_true)
+        y_preds[decision_fn_value >= threshold] = 1
+
+        return confusion_matrix(y_true, y_preds).ravel()

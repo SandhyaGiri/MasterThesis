@@ -42,6 +42,13 @@
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--train_dataset", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
+            "name": "Module attack_priornet fgsm entropy_of_exp",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.attack_priornet",
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "entropy_of_exp", "./runtime-data", "MNIST", "./attack-fgsm-total_uncertainty"]
+        },
+        {
             "name": "Module attack_priornet fgsm diff_entropy",
             "type": "python",
             "request": "launch",

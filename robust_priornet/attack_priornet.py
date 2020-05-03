@@ -16,18 +16,22 @@ from .eval.misclassification_detection import \
     MisclassificationDetectionEvaluator
 from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
-from .eval.uncertainty import UncertaintyEvaluator
+from .eval.uncertainty import UncertaintyEvaluator, UncertaintyMeasuresEnum
 from .losses.attack_loss import AttackCriteria
+from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
                             load_model)
-from .utils.dataspliter import DataSpliter
+from .utils.visualizer import plot_epsilon_curve
 
 matplotlib.use('agg')
 
 ATTACK_CRITERIA_MAP = {
     'confidence': AttackCriteria.confidence_loss,
-    'diff_entropy': AttackCriteria.differential_entropy_loss
+    'diff_entropy': AttackCriteria.differential_entropy_loss,
+    'mutual_info': AttackCriteria.distributional_uncertainty_loss,
+    'entropy_of_exp': AttackCriteria.total_uncertainty_loss,
+    'exp_entropy': AttackCriteria.expected_data_uncertainty_loss
 }
 
 parser = argparse.ArgumentParser(description='Constructs an FGSM/PGD attack on test images and \
@@ -68,6 +72,26 @@ parser.add_argument('--ood_dataset', choices=DatasetEnum._member_map_.keys(),
                     help='Dataset to be used for ood-detect evaluation. This dataset will not be' +
                     ' perturbed to get adversarial dataset, just used for eval against an' +
                     ' adversarial in domain dataset.')
+
+def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasuresEnum,
+                            thresholds: list, attack_dir: str, result_dir: str):
+    ood_adv_success = []
+    for i, epsilon in enumerate(epsilons, 0):
+        target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
+        id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{attack_criteria._value_}.txt")
+        ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood-eval/{attack_criteria._value_}.txt")
+        uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+        id_labels = np.zeros_like(id_uncertainty)
+        ood_labels = np.ones_like(ood_uncertainty)
+        y_true = np.concatenate((id_labels, ood_labels), axis=0)
+        tn, fp, fn, tp = ClassifierPredictionEvaluator.compute_confusion_matrix_entries(
+            uncertainty_pred, y_true, threshold=thresholds[i])
+        # previously we assume all id-samples were classififed as id (label=0) and
+        # all ood samples were classified as ood (label=1). Hence division by
+        # overall count of both sets.
+        adv_success_rate = (fp + fn) / (len(id_labels) + len(ood_labels))
+        ood_adv_success.append(adv_success_rate)
+    plot_epsilon_curve(epsilons, ood_adv_success, result_dir)
 
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
                            batch_size=128, device=None, result_dir='./', ood_dataset=None):
@@ -185,7 +209,7 @@ def main():
         # ood_dataset = DataSpliter.reduceSize(ood_dataset, 5000)
 
     # perform attacks on the same dataset, using different epsilon values.
-    adv_success_rates = []
+    misclass_adv_success = []
     attack_criteria = ATTACK_CRITERIA_MAP[args.attack_criteria]
     for epsilon in args.epsilon:
         attack_folder = os.path.join(args.result_dir, f"e{epsilon}-attack")
@@ -203,17 +227,10 @@ def main():
         adv_success = perform_epsilon_attack(model, adv_dataset, correct_classified_indices,
                                              batch_size=args.batch_size, device=device,
                                              result_dir=attack_folder, ood_dataset=ood_dataset)
-        adv_success_rates.append(adv_success / len(correct_classified_indices))
+        misclass_adv_success.append(adv_success / len(correct_classified_indices))
 
     # plot the epsilon, adversarial success rate graph (line plot)
-    plt.figure(figsize=(5, 5))
-    plt.plot(args.epsilon, adv_success_rates, "*-")
-    plt.yticks(np.arange(0, 1.1, step=0.1))
-    plt.xticks(np.arange(np.min(args.epsilon), np.max(args.epsilon), step=0.1))
-    plt.title("Adversarial Success Rate vs Epsilon")
-    plt.xlabel("Epsilon")
-    plt.ylabel("Adversarial Success Rate")
-    plt.savefig(os.path.join(args.result_dir, "epsilon-curve.png"))
+    plot_epsilon_curve(args.epsilon, misclass_adv_success, args.result_dir)
 
 if __name__ == '__main__':
     main()

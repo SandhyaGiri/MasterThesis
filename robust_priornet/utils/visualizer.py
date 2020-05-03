@@ -131,7 +131,8 @@ def plot_aupr_auroc(aupr_list, auroc_list):
     fig.tight_layout()
     plt.show()
 
-def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_misclassified_indices=[]):
+def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
+                     known_misclassified_indices=[], limit=None):
     """
     Params
     ------
@@ -141,7 +142,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
                         on the same dataset as org_eval_dir
         epsilon: value of the epsilon to locate the folder within the attack_dir.
         plots_dir: directory name to be created to store the results within the attack_dir.
-
+        limit: number of adversarial samples to plot, otherwise all adversarial samples
+                will be plotted.
     Returns
     -------
         adv_success: number of previously correctly classified samples that got misclassified under attack.
@@ -224,4 +226,17 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis', known_m
             figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
             figure.subplots_adjust(hspace=0.5, wspace=0.5)
 
+        if limit is not None and i == limit:
+            break
+
     return misclassified.size
+
+def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str):
+    plt.figure(figsize=(5, 5))
+    plt.plot(epsilon, adv_success_rates, "*-")
+    plt.yticks(np.arange(0, 1.1, step=0.1))
+    plt.xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
+    plt.title("Adversarial Success Rate vs Epsilon")
+    plt.xlabel("Epsilon")
+    plt.ylabel("Adversarial Success Rate")
+    plt.savefig(os.path.join(result_dir, "epsilon-curve.png"))
