@@ -50,6 +50,8 @@ parser.add_argument('--batch_size', type=int, default=256,
                     help='Batch size for processing')
 parser.add_argument('--train_dataset', action='store_true',
                     help='Whether to evaluate on the training data instead of test data')
+parser.add_argument('--dataset_size_limit', type=int, default=None,
+                    help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
                     help='Choose the type of attack to be performed.')
 parser.add_argument('--attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
@@ -79,7 +81,7 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
     for i, epsilon in enumerate(epsilons, 0):
         target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
         id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{attack_criteria._value_}.txt")
-        ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood-eval/{attack_criteria._value_}.txt")
+        ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood_eval/{attack_criteria._value_}.txt")
         uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
         id_labels = np.zeros_like(id_uncertainty)
         ood_labels = np.ones_like(ood_uncertainty)
@@ -92,6 +94,24 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
         adv_success_rate = (fp + fn) / (len(id_labels) + len(ood_labels))
         ood_adv_success.append(adv_success_rate)
     plot_epsilon_curve(epsilons, ood_adv_success, result_dir)
+
+def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, result_dir: str):
+    old_probs = np.loadtxt(os.path.join(org_eval_dir, 'id_probs.txt'))
+    labels = np.loadtxt(os.path.join(org_eval_dir, 'id_labels.txt'))
+    org_preds = np.argmax(old_probs, axis=1)
+    correct_classifications = np.asarray(org_preds == labels, dtype=np.int32)
+    correct_classified_indices = np.argwhere(correct_classifications == 1)
+
+    adv_success_rates = []
+    for epsilon in epsilons:
+        probs = np.loadtxt(os.path.join(attack_dir, f'e{epsilon}-attack', 'eval', 'probs.txt'))
+        preds = np.argmax(probs, axis=1)
+        misclassifications = np.asarray(preds != labels, dtype=np.int32)
+        misclassified_indices = np.argwhere(misclassifications == 1)
+        adv_success = len(np.intersect1d(correct_classified_indices, misclassified_indices))
+        adv_success_rates.append(adv_success / len(correct_classified_indices))
+
+    plot_epsilon_curve(epsilons, adv_success_rates, result_dir)
 
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
                            batch_size=128, device=None, result_dir='./', ood_dataset=None):
@@ -181,8 +201,9 @@ def main():
                               trans.get_transforms(),
                               None,
                               'train' if args.train_dataset else 'test')
+    if args.dataset_size_limit is not None:
+        dataset = DataSpliter.reduceSize(dataset, args.dataset_size_limit)
 
-    # dataset = DataSpliter.reduceSize(dataset, 5000)
     org_dataset_folder = os.path.join(args.result_dir, "org-images")
     if not os.path.exists(org_dataset_folder):
         os.makedirs(org_dataset_folder)
@@ -206,7 +227,8 @@ def main():
                                       trans.get_transforms(),
                                       None,
                                       'train' if args.train_dataset else 'test')
-        # ood_dataset = DataSpliter.reduceSize(ood_dataset, 5000)
+        if args.dataset_size_limit is not None:
+            ood_dataset = DataSpliter.reduceSize(ood_dataset, args.dataset_size_limit)
 
     # perform attacks on the same dataset, using different epsilon values.
     misclass_adv_success = []

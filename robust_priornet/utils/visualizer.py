@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from PIL import Image
-
+from ..eval.uncertainty import UncertaintyMeasuresEnum
 
 def plot_curve(x, y, axis, x_label='', y_label='',
                title='', curve_title='',
@@ -226,7 +226,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
             figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
             figure.subplots_adjust(hspace=0.5, wspace=0.5)
 
-        if limit is not None and i == limit:
+        if limit is not None and i == limit-1:
+            plt.close()
             break
 
     return misclassified.size
@@ -240,3 +241,41 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str):
     plt.xlabel("Epsilon")
     plt.ylabel("Adversarial Success Rate")
     plt.savefig(os.path.join(result_dir, "epsilon-curve.png"))
+
+def plot_all_pr_curves(epsilons: list, src_attack_dir: str, eval_dir_name: str,
+                       uncertainty_measure: UncertaintyMeasuresEnum, result_dir: str):
+    _, axes = plt.subplots(nrows=1, ncols=1)
+    for epsilon in epsilons:
+        target_epsilon_dir = os.path.join(src_attack_dir, f'e{epsilon}-attack', eval_dir_name)
+        precision = np.loadtxt(os.path.join(target_epsilon_dir,
+                                            eval_dir_name,
+                                            f'{uncertainty_measure._value_}_precision.txt'))
+        recall = np.loadtxt(os.path.join(target_epsilon_dir,
+                                         eval_dir_name,
+                                         f'{uncertainty_measure._value_}_recall.txt'))
+        plot_curve(recall, precision, axes, x_label='Recall',
+                   y_label='Precision',
+                   x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
+                   axis_spine_visibility_config=['right', 'top'])
+
+    plt.savefig(os.path.join(result_dir, f'{uncertainty_measure._value_}_PR_summary.png'))
+    plt.close()
+
+def plot_all_roc_curves(epsilons: list, src_attack_dir: str, eval_dir_name: str,
+                        uncertainty_measure: UncertaintyMeasuresEnum, result_dir: str):
+    _, axes = plt.subplots(nrows=1, ncols=1)
+    for epsilon in epsilons:
+        target_epsilon_dir = os.path.join(src_attack_dir, f'e{epsilon}-attack', eval_dir_name)
+        tpr = np.loadtxt(os.path.join(target_epsilon_dir,
+                                      eval_dir_name,
+                                      f'{uncertainty_measure._value_}_tpr.txt'))
+        fpr = np.loadtxt(os.path.join(target_epsilon_dir,
+                                      eval_dir_name,
+                                      f'{uncertainty_measure._value_}_fpr.txt'))
+        plot_curve(fpr, tpr, axes, x_label='False Postive Rate (FPR)',
+                   y_label='True Positive Rate (TPR)',
+                   x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
+                   axis_spine_visibility_config=['right', 'top'])
+
+    plt.savefig(os.path.join(result_dir, f'{uncertainty_measure._value_}_ROC_summary.png'))
+    plt.close()
