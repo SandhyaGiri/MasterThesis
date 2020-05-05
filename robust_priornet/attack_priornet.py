@@ -77,7 +77,8 @@ parser.add_argument('--ood_dataset', choices=DatasetEnum._member_map_.keys(),
 
 def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasuresEnum,
                             thresholds: list, attack_dir: str, result_dir: str):
-    ood_adv_success = []
+    adv_success_id = [] # in domain sample gets classified as out domain
+    adv_success_ood = [] # out domain sample gets classified as in domain
     for i, epsilon in enumerate(epsilons, 0):
         target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
         id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{attack_criteria._value_}.txt")
@@ -89,11 +90,11 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
         tn, fp, fn, tp = ClassifierPredictionEvaluator.compute_confusion_matrix_entries(
             uncertainty_pred, y_true, threshold=thresholds[i])
         # previously we assume all id-samples were classififed as id (label=0) and
-        # all ood samples were classified as ood (label=1). Hence division by
-        # overall count of both sets.
-        adv_success_rate = (fp + fn) / (len(id_labels) + len(ood_labels))
-        ood_adv_success.append(adv_success_rate)
-    plot_epsilon_curve(epsilons, ood_adv_success, result_dir)
+        # all ood samples were classified as ood (label=1).
+        adv_success_id.append((fp / len(id_labels)))
+        adv_success_ood.append((fn / len(ood_labels)))
+    plot_epsilon_curve(epsilons, adv_success_id, result_dir, file_name='epsilon_curve_id.png')
+    plot_epsilon_curve(epsilons, adv_success_ood, result_dir, file_name='epsilon_curve_ood.png')
 
 def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, result_dir: str):
     old_probs = np.loadtxt(os.path.join(org_eval_dir, 'id_probs.txt'))

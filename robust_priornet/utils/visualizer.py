@@ -232,7 +232,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
 
     return misclassified.size
 
-def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str):
+def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str,
+                       file_name: str = 'epsilon-curve.png'):
     plt.figure(figsize=(5, 5))
     plt.plot(epsilon, adv_success_rates, "*-")
     plt.yticks(np.arange(0, 1.1, step=0.1))
@@ -240,7 +241,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str):
     plt.title("Adversarial Success Rate vs Epsilon")
     plt.xlabel("Epsilon")
     plt.ylabel("Adversarial Success Rate")
-    plt.savefig(os.path.join(result_dir, "epsilon-curve.png"))
+    plt.savefig(os.path.join(result_dir, file_name))
 
 def plot_all_pr_curves(epsilons: list, src_attack_dir: str,
                        eval_dir_name: str, uncertainty_measure: UncertaintyMeasuresEnum,
