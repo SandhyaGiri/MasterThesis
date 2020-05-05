@@ -1,3 +1,4 @@
+import copy
 import os
 
 import numpy as np
@@ -31,8 +32,10 @@ class OutOfDomainDetectionEvaluator:
         """
         target_truth_labels = self.get_target_labels()
         for key in self.id_uncertainty_measures.keys():
-            decision_fn_value = np.concatenate((self.id_uncertainty_measures[key],
-                                                self.ood_uncertainty_measures[key]), axis=0)
+            # deep copy needed as we mutate confidence values later on
+            decision_fn_value = np.concatenate((copy.deepcopy(self.id_uncertainty_measures[key]),
+                                                copy.deepcopy(self.ood_uncertainty_measures[key])),
+                                               axis=0)
             # negation needed for confidence, as confidence is indicator of label=0 samples
             # i.e for correct classified samples.
             # But we need scores for label=1 samples i.e misclassified samples

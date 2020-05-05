@@ -1,3 +1,4 @@
+import copy
 import os
 
 import numpy as np
@@ -32,11 +33,12 @@ class MisclassificationDetectionEvaluator:
         """
         target_truth_labels = self.get_target_labels()
         for key in self.uncertainty_measures.keys():
+            # deep copy needed as we mutate confidence values later on
+            decision_fn_value = copy.deepcopy(self.uncertainty_measures[key])
             # negation needed for confidence, as confidence is indicator of label=0 samples
             # i.e for correct classified samples.
             # But we need scores for label=1 samples i.e misclassified samples
             # to be higher, so we negate.
-            decision_fn_value = self.uncertainty_measures[key]
             if key == UncertaintyMeasuresEnum.CONFIDENCE:
                 decision_fn_value *= -1.0
 
