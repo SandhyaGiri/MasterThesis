@@ -84,6 +84,8 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
         id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{attack_criteria._value_}.txt")
         ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood_eval/{attack_criteria._value_}.txt")
         uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+        if attack_criteria == UncertaintyMeasuresEnum.CONFIDENCE:
+            uncertainty_pred *= -1.0
         id_labels = np.zeros_like(id_uncertainty)
         ood_labels = np.ones_like(ood_uncertainty)
         y_true = np.concatenate((id_labels, ood_labels), axis=0)
