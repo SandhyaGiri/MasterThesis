@@ -34,6 +34,11 @@ ATTACK_CRITERIA_MAP = {
     'exp_entropy': AttackCriteria.expected_data_uncertainty_loss
 }
 
+OOD_ATTACK_CRITERIA_MAP = {
+    'confidence': AttackCriteria.ood_confidence_loss,
+    'diff_entropy': AttackCriteria.ood_differential_entropy_loss
+}
+
 parser = argparse.ArgumentParser(description='Constructs an FGSM/PGD attack on test images and \
                     reports the results as epsilon vs adversarial success rate.')
 parser.add_argument('data_dir', type=str,
@@ -120,7 +125,7 @@ def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, res
     plot_epsilon_curve(epsilons, adv_success_rates, result_dir)
 
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
-                           batch_size=128, device=None, result_dir='./', ood_dataset=None):
+                           batch_size=128, device=None, result_dir='./', ood_adv_dataset=None):
     logits, probs, labels = eval_model_on_dataset(model, adv_dataset, batch_size, device=device)
 
     # Save model outputs
@@ -157,11 +162,11 @@ def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_class
     MisclassificationDetectionEvaluator(probs, labels, uncertainties, eval_dir).eval()
 
     # eval ood detect performance
-    if ood_dataset is not None:
+    if ood_adv_dataset is not None:
         ood_logits, ood_probs, _ = eval_model_on_dataset(model,
-                                                 ood_dataset,
-                                                 batch_size,
-                                                 device=device)
+                                                         ood_adv_dataset,
+                                                         batch_size,
+                                                         device=device)
         ood_uncertainties = UncertaintyEvaluator(ood_logits).get_all_uncertainties()
         ood_eval_dir = os.path.join(result_dir, 'ood_eval')
         os.makedirs(ood_eval_dir)
@@ -237,26 +242,42 @@ def main():
                                       'train' if args.train_dataset else 'test')
         if args.dataset_size_limit is not None:
             ood_dataset = DataSpliter.reduceSize(ood_dataset, args.dataset_size_limit)
+        org_ood_dataset_folder = os.path.join(args.result_dir, "org-images-ood")
+        if not os.path.exists(org_ood_dataset_folder):
+            os.makedirs(org_ood_dataset_folder)
+        persist_image_dataset(ood_dataset, mean, std, num_channels, org_ood_dataset_folder)
 
     # perform attacks on the same dataset, using different epsilon values.
     misclass_adv_success = []
     attack_criteria = ATTACK_CRITERIA_MAP[args.attack_criteria]
+    ood_attack_criteria = OOD_ATTACK_CRITERIA_MAP[args.attack_criteria]
     for epsilon in args.epsilon:
         attack_folder = os.path.join(args.result_dir, f"e{epsilon}-attack")
         out_path = os.path.join(attack_folder, "adv-images")
         if not os.path.exists(out_path):
             os.makedirs(out_path)
-        # create adversarial dataset
+        # create adversarial dataset - in domain samples
         adv_dataset = AdversarialDataset(dataset, args.attack_type.lower(), model, epsilon,
                                          attack_criteria, args.norm,
                                          args.step_size, args.max_steps,
                                          args.batch_size, device=device)
         persist_image_dataset(adv_dataset, mean, std, num_channels, out_path)
-
+        #create adversarial dataset - out domain samples
+        ood_adv_dataset = None
+        if ood_dataset is not None:
+            ood_adv_dataset = AdversarialDataset(ood_dataset, args.attack_type.lower(),
+                                                 model, epsilon, ood_attack_criteria,
+                                                 args.norm, args.step_size, args.max_steps,
+                                                 args.batch_size, device=device)
+            ood_adv_folder = os.path.join(attack_folder, "adv-images-ood")
+            if not os.path.exists(ood_adv_folder):
+                os.makedirs(ood_adv_folder)
+            persist_image_dataset(ood_adv_dataset, mean, std, num_channels, ood_adv_folder)
         # assess model perf using adv images
         adv_success = perform_epsilon_attack(model, adv_dataset, correct_classified_indices,
                                              batch_size=args.batch_size, device=device,
-                                             result_dir=attack_folder, ood_dataset=ood_dataset)
+                                             result_dir=attack_folder,
+                                             ood_adv_dataset=ood_adv_dataset)
         misclass_adv_success.append(adv_success / len(correct_classified_indices))
 
     # plot the epsilon, adversarial success rate graph (line plot)

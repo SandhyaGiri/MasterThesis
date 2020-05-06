@@ -10,7 +10,7 @@ class AttackCriteria:
     """
     @staticmethod
     def confidence_loss(outputs, labels):
-        return torch.neg(UncertaintyEvaluatorTorch(outputs).get_confidence()[0])
+        return torch.neg(UncertaintyEvaluatorTorch(outputs).get_confidence())
 
     @staticmethod
     def differential_entropy_loss(outputs, labels):
@@ -27,3 +27,21 @@ class AttackCriteria:
     @staticmethod
     def expected_data_uncertainty_loss(outputs, labels):
         return UncertaintyEvaluatorTorch(outputs).get_expected_data_uncertainty()
+
+    @staticmethod
+    def ood_confidence_loss(outputs, labels):
+        """
+        For out of distribution samples, the confidence of the model need to be
+        lesser than that of in distribution samples. So confidence itself can be
+        considered as a loss function (without negation).
+        """
+        return UncertaintyEvaluatorTorch(outputs).get_confidence()
+
+    @staticmethod
+    def ood_differential_entropy_loss(outputs, labels):
+        """
+        For out of distribution samples, the differential entropy which is an
+        uncertainty measure should be higher than that of in dist samples. So
+        as a loss function we minimize the negation of differential entropy.
+        """
+        return torch.neg(UncertaintyEvaluatorTorch(outputs).get_differential_entropy())

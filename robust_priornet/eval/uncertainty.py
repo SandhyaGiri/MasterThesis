@@ -124,7 +124,7 @@ class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
         self.epsilon = epsilon # used for controlling overflows/underflows
 
     def get_confidence(self):
-        return torch.max(self.probs, dim=1, keepdim=True)
+        return torch.max(self.probs, dim=1, keepdim=True)[0] # return only max values not indices
 
     def get_total_uncertainty(self):
         return -1 * torch.sum(self.probs * torch.log(self.probs + self.epsilon), dim=1)
