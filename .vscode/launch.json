@@ -74,7 +74,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "PGD",  "--attack_criteria", "confidence", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.5", "0.9", "--batch_size", "64", "--dataset_size_limit", "200", "--attack_type", "PGD",  "--attack_criteria", "confidence", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "(MT) Python: Current File",

@@ -1,6 +1,80 @@
 import torch
 from torch import nn
 
+def _find_adv_single_input(model, input_image, label, epsilon, criterion,
+                           device, norm, step_size,
+                           max_steps, pin_memory, rel_step_size: float = None):
+    """
+    Finds adversarial sample for a single input image, using the hyperparameters
+    given. (batch_size =1, so input_image must be a 4D tensor)
+    """
+    adv_input = input_image.clone()
+    adv_input.requires_grad = True
+    
+    # set model in eval mode
+    model.eval()
+
+    epsilon = torch.ones([1, 1, 1, 1]) * epsilon # transform to a 4D tensor
+
+    if device is not None:
+        epsilon = epsilon.to(device, non_blocking=pin_memory)
+
+    if rel_step_size is not None:
+        step_size = rel_step_size * epsilon
+
+    for _ in range(max_steps):
+        with torch.enable_grad():
+            output = model(adv_input)
+
+            loss = criterion(output, label)
+            assert torch.all(torch.isfinite(loss)).item()
+
+            grad_output = torch.ones(loss.shape)
+            if device is not None:
+                grad_output = grad_output.to(device, non_blocking=pin_memory)
+
+            grad = torch.autograd.grad(loss,
+                                       adv_input,
+                                       grad_outputs=grad_output,
+                                       only_inputs=True)[0]
+
+            if norm == 'inf':
+                update = step_size * grad.sign()
+            elif norm == '2':
+                update = step_size * grad
+
+            perturbed_image = adv_input + update
+
+            # project the perturbed_image back onto the norm-ball
+            if norm == 'inf':
+                perturbed_image = torch.max(
+                    torch.min(perturbed_image, input_image + epsilon), input_image - epsilon)
+            elif norm == '2':
+                # as the first dim is just channels, find norm of the 2D image in each channel dim
+                norm_value = perturbed_image.view(perturbed_image.shape[0], -1).norm(
+                    p=2, dim=1)
+                mask = norm_value <= epsilon # result dim = num_channels
+                scaling_factor = norm_value
+                # update only channels whose norm value is more than epsilon
+                scaling_factor[mask] = epsilon
+
+                perturbed_image = perturbed_image * (
+                    epsilon / scaling_factor.view(-1, 1, 1, 1)) # convert to 4D tensor
+
+            # re-normalize the image to range (-1,1)
+            perturbed_image = torch.clamp(perturbed_image, -1, 1)
+            adv_input.data = perturbed_image
+
+        # evaluate if adv image results in misclassification
+        # if misclassified stop
+        with torch.no_grad():
+            logit = model(adv_input)
+            prob = nn.functional.softmax(logit, dim= 1)
+            pred = torch.max(prob, dim=1)[1] # indices
+            if pred.item() != label.item():
+                # adversarial success acheieved
+                break
+    return adv_input
 
 def construct_pgd_attack(model,
                          inputs,
@@ -14,8 +88,8 @@ def construct_pgd_attack(model,
                          pin_memory: bool = True):
     """
         Constructs adversarial images by doing multiple iterations of criterion maximization
-        (maximize loss) to get the best adversarial image within a p-norm ball around the
-        input image.
+        (maximize loss) to get the adversarial image within a p-norm ball around the
+        input image that results in a misclassification.
 
         Operates on a batch of images (inputs).
 
@@ -34,70 +108,12 @@ def construct_pgd_attack(model,
             indicates the maximum steps to perform for chosing the best adversary
             (one with max loss/criterion).
     """
-    adv_inputs = inputs.clone()
-    adv_inputs.requires_grad = True
-    model.eval()
-
-    # max_loss = None
-    # best_adversary = None
-
-    epsilon = torch.ones([inputs.size()[0]]) * epsilon
-    epsilon = epsilon.view([epsilon.size()[0], 1, 1, 1]) # transform to a 4D tensor
-
-    if device is not None:
-        epsilon = epsilon.to(device, non_blocking=pin_memory)
-
-    for i in range(max_steps):
-        with torch.enable_grad():
-            outputs = model(adv_inputs)
-
-            loss = criterion(outputs, labels)
-            assert torch.all(torch.isfinite(loss)).item()
-
-            grad_outputs = torch.ones(loss.shape)
-            if device is not None:
-                grad_outputs = grad_outputs.to(device, non_blocking=pin_memory)
-
-            grads = torch.autograd.grad(loss,
-                                        adv_inputs,
-                                        grad_outputs=grad_outputs,
-                                        only_inputs=True)[0]
-
-            if norm == 'inf':
-                update = step_size * grads.sign()
-            elif norm == '2':
-                update = step_size * grads
-
-            perturbed_image = adv_inputs + update
-
-            # project the perturbed_image back onto the norm-ball
-            if norm == 'inf':
-                perturbed_image = torch.max(
-                    torch.min(perturbed_image, inputs + epsilon), inputs - epsilon)
-            elif norm == '2':
-                # as the first dim is just channels, find norm of the 2D image in each channel dim
-                norm_value = perturbed_image.view(perturbed_image.shape[0], -1).norm(
-                    p=2, dim=1)
-                mask = norm_value <= epsilon # result dim = num_channels
-                scaling_factor = norm_value
-                # update only channels whose norm value is more than epsilon
-                scaling_factor[mask] = epsilon
-
-                perturbed_image = perturbed_image * (
-                    epsilon / scaling_factor.view(-1, 1, 1, 1)) # convert to 4D tensor
-
-            # re-normalize the image to range (-1,1)
-            perturbed_image = torch.clamp(perturbed_image, -1, 1)
-            adv_inputs.data = perturbed_image
-
-
-            # if max_loss is None:
-            #     max_loss = loss.clone()
-            #     best_adversary = adv_inputs.clone()
-            # else:
-            #     old_new_best = torch.argmax(torch.cat((max_loss, loss), dim=1), dim=1)
-            #     best_adversary[old_new_best == 1, :, :, :] = adv_inputs[old_new_best == 1, :,:,:]
-            #     max_loss = torch.max(max_loss, loss)
-
-    # return the best adversarial sample generated (one with max loss so far)
-    return adv_inputs
+    adv_inputs = []
+    for i in range(inputs.shape[0]):
+        input_image = torch.unsqueeze(inputs[i], dim=0)
+        label = labels[i].view(1,)
+        adv_input = _find_adv_single_input(model, input_image, label, epsilon,
+                                           criterion, device, norm, step_size,
+                                           max_steps, pin_memory, rel_step_size=0.1)
+        adv_inputs.append(adv_input)
+    return torch.cat(adv_inputs, dim=0)

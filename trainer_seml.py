@@ -31,6 +31,8 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     if os.environ.get('SLURM_JOB_GPUS', None) is not None:
         gpu_list = list(map(int, os.environ['SLURM_JOB_GPUS'].split(",")))
         gpu_list = " ".join(map(lambda gpu: "--gpu " + str(gpu), gpu_list))
+    else:
+        gpu_list = "--gpu -1"
 
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x),fc_layers))

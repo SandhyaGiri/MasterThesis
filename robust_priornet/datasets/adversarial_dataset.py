@@ -50,7 +50,7 @@ class AdversarialDataset(Dataset):
         self.adv_inputs = torch.cat(adv_list, dim=0).cpu()
 
     def __getitem__(self, index):
-        return (self.adv_inputs[index], self.labels[index])
+        return (self.adv_inputs[index], self.labels[index].item())
 
     def __len__(self):
         return len(self.labels)
