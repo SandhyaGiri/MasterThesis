@@ -296,7 +296,9 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     old_id_uncertainty = np.loadtxt(f"{org_eval_dir}/id_{decision_measure._value_}.txt")
     old_ood_uncertainty = np.loadtxt(f"{org_eval_dir}/ood_{decision_measure._value_}.txt")
     old_uncertainty_pred = np.concatenate((old_id_uncertainty, old_ood_uncertainty), axis=0)
-    
+    if decision_measure == UncertaintyMeasuresEnum.CONFIDENCE:
+        old_uncertainty_pred *= -1.0
+        
     old_id_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
     old_ood_probs = np.loadtxt(f"{org_eval_dir}/ood_probs.txt")
     old_probs = np.concatenate((old_id_probs, old_ood_probs), axis=0)
