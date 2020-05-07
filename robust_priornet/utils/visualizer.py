@@ -288,3 +288,153 @@ def plot_all_roc_curves(epsilons: list, src_attack_dir: str,
     plt.savefig(os.path.join(result_dir, f'{uncertainty_measure._value_}_ROC_summary.png'),
                 bbox_inches='tight')
     plt.close()
+
+def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
+                         decision_measure: UncertaintyMeasuresEnum,
+                         plots_dir='vis', limit=None):
+    # old (no attack)
+    old_id_uncertainty = np.loadtxt(f"{org_eval_dir}/id_{decision_measure._value_}.txt")
+    old_ood_uncertainty = np.loadtxt(f"{org_eval_dir}/ood_{decision_measure._value_}.txt")
+    old_uncertainty_pred = np.concatenate((old_id_uncertainty, old_ood_uncertainty), axis=0)
+    
+    old_id_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
+    old_ood_probs = np.loadtxt(f"{org_eval_dir}/ood_probs.txt")
+    old_probs = np.concatenate((old_id_probs, old_ood_probs), axis=0)
+    
+    # new (under attack)
+    target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
+    id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{decision_measure._value_}.txt")
+    ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood_eval/{decision_measure._value_}.txt")
+    uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+    if decision_measure == UncertaintyMeasuresEnum.CONFIDENCE:
+        uncertainty_pred *= -1.0
+    id_probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
+    ood_probs = np.loadtxt(f"{target_epsilon_dir}/ood_eval/probs.txt")
+    probs = np.concatenate((id_probs, ood_probs), axis=0)
+    
+    id_labels = np.zeros_like(id_uncertainty)
+    ood_labels = np.ones_like(ood_uncertainty)
+    y_true = np.concatenate((id_labels, ood_labels), axis=0)
+    #tn, fp, fn, tp = ClassifierPredictionEvaluator.compute_confusion_matrix_entries(
+    #        uncertainty_pred, y_true, threshold=threshold)
+    #print(f"# in domain samples misclassifed as out domain: {fp}/{tn+fp}")
+    #print(f"# out domain samples misclassified as in domain: {fn}/{tp+fn}")
+    
+    # assign labels based on thershold given
+    y_preds = np.zeros_like(uncertainty_pred)
+    y_preds[uncertainty_pred >= threshold] = 1
+    fp_indices = np.intersect1d(np.argwhere(y_true == 0), np.argwhere(y_preds == 1))
+    fn_indices = np.intersect1d(np.argwhere(y_true == 1), np.argwhere(y_preds == 0))
+    print(f"Cross check: fp: {len(fp_indices)}")
+    print(f"Cross check: fn: {len(fn_indices)}")
+    
+    # create a separate dir to store all visualizations
+    os.makedirs(os.path.join(target_epsilon_dir, plots_dir))
+    
+    # plot false positives
+    fp_dir = os.path.join(target_epsilon_dir, plots_dir, 'in-out')
+    os.makedirs(fp_dir)
+    
+    # first plot
+    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
+    figure.subplots_adjust(hspace=0.5, wspace=0.5)
+
+    for i, index in enumerate(fp_indices):
+        if index.ndim > 0:
+            index = index[0]
+        ri = i%10
+
+        # org image
+        axis = axes[ri][0]
+        img = Image.open(f"{attack_dir}/org-images/{index}.png")
+        axis.set_title(f"index: {index}, label: {int(y_true[index])}, {decision_measure._value_}: {np.round(old_uncertainty_pred[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # adv image
+        axis = axes[ri][1]
+        img = Image.open(f"{target_epsilon_dir}/adv-images/{index}.png")
+        axis.set_title(f"label: {y_preds[index]}, {decision_measure._value_}: {np.round(uncertainty_pred[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # change in prob dist (bar plot)
+        axis = axes[ri][2]
+        class_labels = np.arange(10)
+        width = 0.2
+        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
+        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
+        axis.set_xticks(class_labels)
+        axis.set_xticklabels(class_labels)
+        # places the legend to the right of the current axis
+        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+        # batch every 10 sample into a single image
+        if (i > 0 and (i+1) % 10 == 0) or i == (fp_indices.size-1):
+            plt.savefig(os.path.join(fp_dir, f"result_vis_{i+1}.png"), bbox_inches='tight')
+            plt.close()
+
+        if i > 0 and (i+1) % 10 == 0 and i != (fp_indices.size-1):
+            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
+            figure.subplots_adjust(hspace=0.5, wspace=0.5)
+
+        if limit is not None and i == limit-1:
+            plt.close()
+            break
+
+    # plot false negatives
+    fn_dir = os.path.join(target_epsilon_dir, plots_dir, 'out-in')
+    os.makedirs(fn_dir)
+    
+    # first plot
+    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
+    figure.subplots_adjust(hspace=0.5, wspace=0.5)
+    
+    for i, index in enumerate(fn_indices):
+        if index.ndim > 0:
+            index = index[0]
+        ri = i%10
+
+        # org image
+        axis = axes[ri][0]
+        img = Image.open(f"{attack_dir}/org-images-ood/{index-len(id_uncertainty)}.png")
+        axis.set_title(f"index: {index}, label: {int(y_true[index])}, {decision_measure._value_}: {np.round(old_uncertainty_pred[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # adv image
+        axis = axes[ri][1]
+        img = Image.open(f"{target_epsilon_dir}/adv-images-ood/{index-len(id_uncertainty)}.png")
+        axis.set_title(f"label: {y_preds[index]}, {decision_measure._value_}: {np.round(uncertainty_pred[index],3)}", pad=2)
+        #hide all spines
+        axis.axis("off")
+        axis.imshow(img, cmap="gray")
+
+        # change in prob dist (bar plot)
+        axis = axes[ri][2]
+        class_labels = np.arange(10)
+        width = 0.2
+        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
+        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
+        axis.set_xticks(class_labels)
+        axis.set_xticklabels(class_labels)
+        # places the legend to the right of the current axis
+        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+        # batch every 10 sample into a single image
+        if (i > 0 and (i+1) % 10 == 0) or i == (fn_indices.size-1):
+            plt.savefig(os.path.join(fn_dir, f"result_vis_{i+1}.png"), bbox_inches='tight')
+            plt.close()
+
+        if i > 0 and (i+1) % 10 == 0 and i != (fn_indices.size-1):
+            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
+            figure.subplots_adjust(hspace=0.5, wspace=0.5)
+
+        if limit is not None and i == limit-1:
+            plt.close()
+            break
+
+    return (len(fp_indices)+len(fn_indices))
