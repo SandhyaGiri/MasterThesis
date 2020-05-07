@@ -30,5 +30,9 @@ fixed:
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
   batch_size: 64
+  adv_training: False
+  adv_attack_type: "FGSM"
+  adv_epsilon: 0.5
+  adv_attack_criteria: "confidence"
   logdir: "/nfs/homedirs/giri/priornet/logs"
   

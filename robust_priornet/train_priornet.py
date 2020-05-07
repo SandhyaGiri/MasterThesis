@@ -6,10 +6,12 @@ import torch
 import torch.optim as optim
 import torch.utils.data as data
 
+from .datasets.adversarial_dataset import AdversarialDataset
 from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.trainer import PriorNetTrainer
+from .utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from .utils.dataspliter import DataSpliter
 from .utils.pytorch import choose_torch_device, load_model
 
@@ -36,7 +38,19 @@ parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
-
+parser.add_argument('--include_adv_samples', action='store_true',
+                    help='Specifies if adversarial samples should be augmented while training'+
+                    ' to create a robust model.')
+parser.add_argument('--adv_attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
+                    help='Choose the type of attack used to generate adv samples, such that'+
+                    ' resulting model is immune to the chosen attack.')
+parser.add_argument('--adv_attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
+                    required=True,
+                    help='Indicates which loss function to use to compute attack gradient'+
+                    ' for generating adversarial samples.')
+parser.add_argument('--adv_epsilon', type=float, default=0.3,
+                    help='Strength of perturbation in range of 0 to 1, ex: 0.25,'+
+                    ' to generate adversarial samples.', required=True)
 def main():
     args = parser.parse_args()
 
@@ -71,6 +85,14 @@ def main():
                                                'train',
                                                val_ratio=0.1)
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
+    if args.include_adv_samples:
+        id_train_adv_set = AdversarialDataset(id_train_set, args.adv_attack_type.lower(),
+                                              model, args.adv_epsilon,
+                                              ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
+                                              None, None, None,
+                                              batch_size=args.batch_size, device=device)
+        print(f"In domain adversarial dataset: Train-{len(id_train_adv_set)}")
+        id_train_set = data.ConcatDataset([id_train_set, id_train_adv_set])
 
     ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
                                                  args.data_dir,
@@ -79,6 +101,14 @@ def main():
                                                  'train',
                                                  val_ratio=0.1)
     print(f"OOD domain dataset: Train-{len(ood_train_set)}, Val-{len(ood_val_set)}")
+    if args.include_adv_samples:
+        ood_train_adv_set = AdversarialDataset(ood_train_set, args.adv_attack_type.lower(),
+                                               model, args.adv_epsilon,
+                                               OOD_ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
+                                               None, None, None,
+                                               batch_size=args.batch_size, device=device)
+        print(f"OOD domain adversarial dataset: Train-{len(ood_train_adv_set)}")
+        ood_train_set = data.ConcatDataset([ood_train_set, ood_train_adv_set])
 
     # make both datasets (id, ood) same size
     if len(ood_val_set) != len(id_val_set):

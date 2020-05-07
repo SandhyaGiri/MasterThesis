@@ -18,6 +18,7 @@ from .eval.model_prediction_eval import ClassifierPredictionEvaluator
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from .eval.uncertainty import UncertaintyEvaluator, UncertaintyMeasuresEnum
 from .losses.attack_loss import AttackCriteria
+from .utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
@@ -25,19 +26,6 @@ from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
 from .utils.visualizer import plot_epsilon_curve
 
 matplotlib.use('agg')
-
-ATTACK_CRITERIA_MAP = {
-    'confidence': AttackCriteria.confidence_loss,
-    'diff_entropy': AttackCriteria.differential_entropy_loss,
-    'mutual_info': AttackCriteria.distributional_uncertainty_loss,
-    'entropy_of_exp': AttackCriteria.total_uncertainty_loss,
-    'exp_entropy': AttackCriteria.expected_data_uncertainty_loss
-}
-
-OOD_ATTACK_CRITERIA_MAP = {
-    'confidence': AttackCriteria.ood_confidence_loss,
-    'diff_entropy': AttackCriteria.ood_differential_entropy_loss
-}
 
 parser = argparse.ArgumentParser(description='Constructs an FGSM/PGD attack on test images and \
                     reports the results as epsilon vs adversarial success rate.')

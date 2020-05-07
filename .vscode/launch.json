@@ -12,11 +12,18 @@
             "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6", "--num_epochs", "10", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
+            "name": "Module train_priornet fgsm adversarial",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6-robust", "--num_epochs", "1", "--include_adv_samples", "--adv_attack_type", "FGSM", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
             "name": "Module setup_priornet",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.setup_priornet",
-            "args": ["--model_arch", "vgg6", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "--drop_prob", "0.23", "--num_channels", "1", "./runtime-model-conv"]
+            "args": ["--model_arch", "vgg6", "--fc_layers", "100", "80", "50", "--num_classes", "10", "--input_size", "28", "--drop_prob", "0.05", "--num_channels", "1", "./runtime-model-vgg6-robust"]
         },
         {
             "name": "Module eval_priornet misclassify",
@@ -60,7 +67,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "OMNIGLOT", "--train_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "SVHN", "--train_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
         },
         {
             "name": "Module attack_priornet pgd confidence",

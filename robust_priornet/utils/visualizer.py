@@ -315,10 +315,6 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     id_labels = np.zeros_like(id_uncertainty)
     ood_labels = np.ones_like(ood_uncertainty)
     y_true = np.concatenate((id_labels, ood_labels), axis=0)
-    #tn, fp, fn, tp = ClassifierPredictionEvaluator.compute_confusion_matrix_entries(
-    #        uncertainty_pred, y_true, threshold=threshold)
-    #print(f"# in domain samples misclassifed as out domain: {fp}/{tn+fp}")
-    #print(f"# out domain samples misclassified as in domain: {fn}/{tp+fn}")
     
     # assign labels based on thershold given
     y_preds = np.zeros_like(uncertainty_pred)
