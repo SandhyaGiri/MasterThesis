@@ -31,13 +31,13 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
     logging.info(f'In domain dataset: {in_domain_dataset}, OOD dataset: {ood_dataset}')
 
     os.system('set | grep SLURM | while read line; do echo "# $line"; done')
-    cuda_devices = os.environ['SLURM_JOB_GPUS']
-    logging.info(f"GPUs assigned to me: {cuda_devices}")
 
     # Check that we are training on a sensible GPU
     if os.environ.get('SLURM_JOB_GPUS', None) is not None:
         gpu_list = list(map(int, os.environ['SLURM_JOB_GPUS'].split(",")))
         gpu_list = " ".join(map(lambda gpu: "--gpu " + str(gpu), gpu_list))
+    else:
+        gpu_list = "--gpu -1"
 
     if run_eval is True:
         # in-domain evaluation ( + misclassification detection eval, as binary classification task)
