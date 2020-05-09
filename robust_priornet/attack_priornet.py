@@ -43,6 +43,8 @@ parser.add_argument('--batch_size', type=int, default=256,
                     help='Batch size for processing')
 parser.add_argument('--train_dataset', action='store_true',
                     help='Whether to evaluate on the training data instead of test data')
+parser.add_argument('--val_dataset', action='store_true',
+                    help='Whether to evaluate on the val data instead of train/test dataset.')
 parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
@@ -197,11 +199,19 @@ def main():
     trans.add_to_tensor()
     trans.add_normalize(mean, std)
 
-    dataset = vis.get_dataset(args.dataset,
-                              args.data_dir,
-                              trans.get_transforms(),
-                              None,
-                              'train' if args.train_dataset else 'test')
+    if args.val_dataset:
+        _, dataset = vis.get_dataset(args.dataset,
+                                     args.data_dir,
+                                     trans.get_transforms(),
+                                     None,
+                                     'train',
+                                     val_ratio=0.1)
+    else:
+        dataset = vis.get_dataset(args.dataset,
+                                  args.data_dir,
+                                  trans.get_transforms(),
+                                  None,
+                                  'train' if args.train_dataset else 'test')
     if args.dataset_size_limit is not None:
         dataset = DataSpliter.reduceSize(dataset, args.dataset_size_limit)
 
@@ -223,11 +233,19 @@ def main():
     # load ood dataset if ood-detect eval also needs to be done during adversarial attacks.
     ood_dataset = None
     if args.ood_eval and args.ood_dataset is not None:
-        ood_dataset = vis.get_dataset(args.ood_dataset,
-                                      args.data_dir,
-                                      trans.get_transforms(),
-                                      None,
-                                      'train' if args.train_dataset else 'test')
+        if args.val_dataset:
+            _, ood_dataset = vis.get_dataset(args.ood_dataset,
+                                             args.data_dir,
+                                             trans.get_transforms(),
+                                             None,
+                                             'train',
+                                             val_ratio=0.1)
+        else:
+            ood_dataset = vis.get_dataset(args.ood_dataset,
+                                          args.data_dir,
+                                          trans.get_transforms(),
+                                          None,
+                                          'train' if args.train_dataset else 'test')
         if args.dataset_size_limit is not None:
             ood_dataset = DataSpliter.reduceSize(ood_dataset, args.dataset_size_limit)
         org_ood_dataset_folder = os.path.join(args.result_dir, "org-images-ood")

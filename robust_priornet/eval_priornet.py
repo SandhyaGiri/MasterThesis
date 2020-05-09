@@ -39,6 +39,8 @@ parser.add_argument('--batch_size', type=int, default=64,
                     'while evaluating the model.')
 parser.add_argument('--train_dataset', action='store_true',
                     help='Whether to evaluate on the training data instead of test data')
+parser.add_argument('--val_dataset', action='store_true',
+                    help='Whether to evaluate on the val data instead of train/test dataset.')
 parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--gpu', type=int, action='append',
@@ -86,22 +88,38 @@ def main():
     trans.add_to_tensor()
     trans.add_normalize(mean, std)
 
-    id_test_set = vis.get_dataset(args.in_domain_dataset,
-                                  args.data_dir,
-                                  trans.get_transforms(),
-                                  None,
-                                  'train' if args.train_dataset else 'test')
+    if args.val_dataset:
+        _, id_test_set = vis.get_dataset(args.in_domain_dataset,
+                                         args.data_dir,
+                                         trans.get_transforms(),
+                                         None,
+                                         'train',
+                                         val_ratio=0.1)
+    else:
+        id_test_set = vis.get_dataset(args.in_domain_dataset,
+                                      args.data_dir,
+                                      trans.get_transforms(),
+                                      None,
+                                      'train' if args.train_dataset else 'test')
     if args.dataset_size_limit is not None:
         id_test_set = DataSpliter.reduceSize(id_test_set, args.dataset_size_limit)
 
     print(f"In domain dataset: {len(id_test_set)}")
 
     if args.task == 'ood_detect':
-        ood_test_set = vis.get_dataset(args.ood_dataset,
-                                       args.data_dir,
-                                       trans.get_transforms(),
-                                       None,
-                                       'train' if args.train_dataset else 'test')
+        if args.val_dataset:
+            _, ood_test_set = vis.get_dataset(args.ood_dataset,
+                                              args.data_dir,
+                                              trans.get_transforms(),
+                                              None,
+                                              'train',
+                                              val_ratio=0.1)
+        else:
+            ood_test_set = vis.get_dataset(args.ood_dataset,
+                                           args.data_dir,
+                                           trans.get_transforms(),
+                                           None,
+                                           'train' if args.train_dataset else 'test')
         if args.dataset_size_limit is not None:
             ood_test_set = DataSpliter.reduceSize(ood_test_set, args.dataset_size_limit)
         # persist_image_dataset(ood_test_set, mean, std, num_channels, args.result_dir)

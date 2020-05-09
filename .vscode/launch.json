@@ -49,6 +49,13 @@
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--train_dataset", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
+            "name": "Module eval_priornet ood val",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.eval_priornet",
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--val_dataset", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
             "name": "Module attack_priornet fgsm entropy_of_exp",
             "type": "python",
             "request": "launch",
@@ -68,6 +75,13 @@
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
             "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "SVHN", "--train_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
+        },
+        {
+            "name": "Module attack_priornet fgsm diff_entropy ood-detect val 200",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.attack_priornet",
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "SVHN", "--val_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
         },
         {
             "name": "Module attack_priornet pgd confidence",
