@@ -66,7 +66,6 @@ class RandomizedSmoother:
                          inputs.shape[3], 1) # (batch_size, H, W, 3)
         std = std.permute(0,3,1,2)
         normalized_inputs = (inputs - mean) / std
-
         # eval the inputs on base_classifier
         log_alphas = self.base_classifier(normalized_inputs)
         uncertainty_estimates = UncertaintyEvaluatorTorch(log_alphas).get_uncertainty(
@@ -88,7 +87,7 @@ class RandomizedSmoother:
                 # sample noise from normal dist
                 noise = torch.randn_like(batch) * self.noise_std_dev
                 predictions = self._eval_ood_task(batch + noise)
-                preds_numpy = np.asarray(predictions)
+                preds_numpy = predictions.cpu().numpy()
                 counts[0] += len(np.argwhere(preds_numpy == 0)) # in dist
                 counts[1] += len(np.argwhere(preds_numpy == 1)) # out dist
             return counts

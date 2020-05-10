@@ -132,7 +132,7 @@ def main():
     out_pred_labels = []
     for i in range(len(dataset)):
         image, _ = dataset[i]
-        image.to(device)
+        image = image.to(device)
         label = labels[i]
         start = time.time()
         pred, radius = rand_smoother.certify(image, args.n0, args.n, args.alpha, args.batch_size)

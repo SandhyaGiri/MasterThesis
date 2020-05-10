@@ -1,7 +1,7 @@
 
 seml:
   executable: 'eval_seml.py'
-  db_collection: 'priornet-thesis-eval'
+  db_collection: 'priornet-thesis-certify'
   output_dir: '~/logs'
   
 slurm:
@@ -16,15 +16,15 @@ slurm:
 
 fixed:
   in_domain_dataset: MNIST
-  ood_dataset: OMNIGLOT
-  model_dir: "./runtime-model"
+  ood_dataset: SVHN
+  model_dir: "./runtime-model-vgg6-50epochs-robust"
   data_dir: "./runtime-data"
   batch_size: 64
-  use_train_dataset: False
+  use_train_dataset: True
   use_val_dataset: False
-  dataset_size_limit: None
+  dataset_size_limit: 5000
   logdir: "/nfs/homedirs/giri/priornet/logs"
-  run_eval: True
+  run_eval: False
   run_attack: False
   epsilon_list: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
   eval_ood_during_attack: False
@@ -34,9 +34,9 @@ fixed:
   max_steps: 100
   run_certification: True
   n0: 100
-  n: 10000
+  n: 1000
   sigma: 0.2
   uncertainty_measure: CONFIDENCE
-  uncertainty_measure_threshold: -0.5497
+  uncertainty_measure_threshold: -0.5947
   
     
