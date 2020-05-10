@@ -91,6 +91,13 @@
             "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.5", "0.9", "--batch_size", "64", "--dataset_size_limit", "200", "--attack_type", "PGD",  "--attack_criteria", "confidence", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
+            "name": "Module certify_priornet val 200",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.certify_priornet",
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
+        },
+        {
             "name": "(MT) Python: Current File",
             "type": "python",
             "request": "launch",

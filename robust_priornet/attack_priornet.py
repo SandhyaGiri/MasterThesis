@@ -36,7 +36,7 @@ parser.add_argument('dataset', choices=DatasetEnum._member_map_.keys(),
 parser.add_argument('result_dir', type=str,
                     help='Path of directory for saving the attack resultss.')
 parser.add_argument('--model_dir', type=str, default='./',
-                    help='absolute directory path where to save model and associated data.')
+                    help='absolute directory path where to the saved model exists.')
 parser.add_argument('--epsilon', '--list', nargs='+', type=float,
                     help='Strength perturbation in range of 0 to 1, ex: 0.25', required=True)
 parser.add_argument('--batch_size', type=int, default=256,

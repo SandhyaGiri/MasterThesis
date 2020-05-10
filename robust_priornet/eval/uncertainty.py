@@ -70,6 +70,18 @@ class BaseUncertaintyEvaluator(ABC):
             UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY:
                 self.get_differential_entropy()
         }
+        
+    def get_uncertainty(self, measure: UncertaintyMeasuresEnum, negate_confidence= False):
+        if measure == UncertaintyMeasuresEnum.CONFIDENCE:
+            return self.get_confidence() if negate_confidence is False else -1 * self.get_confidence()
+        elif measure == UncertaintyMeasuresEnum.TOTAL_UNCERTAINTY:
+            return self.get_total_uncertainty()
+        elif measure == UncertaintyMeasuresEnum.EXPECTED_DATA_UNCERTAINTY:
+            return self.get_expected_data_uncertainty()
+        elif measure == UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY:
+            return self.get_distributional_uncertainty()
+        elif measure == UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY:
+            return self.get_differential_entropy()
     
 class UncertaintyEvaluator(BaseUncertaintyEvaluator):
     """
