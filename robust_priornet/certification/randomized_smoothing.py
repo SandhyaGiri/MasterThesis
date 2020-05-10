@@ -72,7 +72,7 @@ class RandomizedSmoother:
         uncertainty_estimates = UncertaintyEvaluatorTorch(log_alphas).get_uncertainty(
             self.uncertainty_estimator, negate_confidence=True)
         # use threhold value to estimate prob(out dist), prob(in dist)
-        probs = nn.functional.sigmoid(uncertainty_estimates - self.threhsold)
+        probs = torch.sigmoid(uncertainty_estimates - self.threhsold)
         preds = torch.zeros_like(probs)
         preds[probs > 0.5] = 1
         return preds

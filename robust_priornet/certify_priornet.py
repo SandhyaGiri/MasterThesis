@@ -115,7 +115,8 @@ def main():
 
     dataset = data.ConcatDataset((id_dataset, ood_dataset))
     # in domain = label 0, out domain = label 1
-    labels = np.concatenate((np.zeros(len(id_dataset)), np.ones(len(ood_dataset))), axis=0)
+    labels = np.concatenate((np.zeros(len(id_dataset), dtype=np.uint8),
+                             np.ones(len(ood_dataset), dtype=np.uint8)), axis=0)
 
     rand_smoother = RandomizedSmoother(model,
                                        UncertaintyMeasuresEnum.get_enum(args.uncertainty_measure),
@@ -127,6 +128,8 @@ def main():
         os.makedirs(args.result_dir)
     in_radius = []
     out_radius = []
+    in_pred_labels = []
+    out_pred_labels = []
     for i in range(len(dataset)):
         image, _ = dataset[i]
         image.to(device)
@@ -137,15 +140,40 @@ def main():
         correct = int(pred == label)
         if label == 0:
             in_radius.append(radius)
+            in_pred_labels.append(pred)
         else:
             out_radius.append(radius)
+            out_pred_labels.append(pred)
         with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
             f.write(f'Index: {i}, Label: {label}, Prediction: {pred},'+
                     f' Correct: {correct}, TimeTaken: {np.round(((end-start) / 60.0), 2)}\n')
 
+    # save collected results
+    np.savetxt(os.path.join(args.result_dir, 'in_radius.txt'), np.asarray(in_radius))
+    np.savetxt(os.path.join(args.result_dir, 'out_radius.txt'), np.asarray(out_radius))
+    np.savetxt(os.path.join(args.result_dir, 'in_preds.txt'), np.asarray(in_pred_labels))
+    np.savetxt(os.path.join(args.result_dir, 'out_preds.txt'), np.asarray(out_pred_labels))
+    
+    # compute avg radius
+    avg_in_radius_all = np.sum(in_radius) / len(id_dataset)
+    in_pred_labels = np.asarray(in_pred_labels)
+    in_radius = np.asarray(in_radius)
+    avg_in_radius_correct = np.sum(in_radius[in_pred_labels == 0]) / len(np.argwhere(in_pred_labels == 0))
+    avg_out_radius_all = np.sum(out_radius) / len(ood_dataset)
+    out_pred_labels = np.asarray(out_pred_labels)
+    out_radius = np.asarray(out_radius)
+    avg_out_radius_correct = np.sum(out_radius[out_pred_labels == 1]) / len(np.argwhere(out_pred_labels == 1))
+    avg_radius_correct = (np.sum(in_radius[in_pred_labels == 0]) +
+                          np.sum(out_radius[out_pred_labels == 1])) / (
+                              len(np.argwhere(in_pred_labels == 0)) +
+                              len(np.argwhere(out_pred_labels == 1))
+                          )
     with open(os.path.join(args.result_dir, 'radius.txt'), 'a') as f:
-        f.write(f'Avg in-domain radius: {np.sum(in_radius) / len(id_dataset)}\n')
-        f.write(f'Avg out-domain radius: {np.sum(out_radius) / len(ood_dataset)}\n')
+        f.write(f'Avg in-domain radius: {np.round(avg_in_radius_all, 4)}\n')
+        f.write(f'Avg out-domain radius: {np.round(avg_out_radius_all, 4)}\n')
+        f.write(f'Avg in-domain radius (only correctly classified samples): {np.round(avg_in_radius_correct, 4)}\n')
+        f.write(f'Avg out-domain radius (only correctly classified samples): {np.round(avg_out_radius_correct, 4)}\n')
         f.write(f'Avg robust radius: {(np.sum(in_radius) + np.sum(out_radius)) / len(dataset)}\n')
+        f.write(f'Avg robust radius ((only correctly classified samples)): {np.round(avg_radius_correct, 4)}\n')
 if __name__ == "__main__":
     main()

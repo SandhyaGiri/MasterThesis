@@ -21,6 +21,8 @@ fixed:
   data_dir: "./runtime-data"
   batch_size: 64
   use_train_dataset: False
+  use_val_dataset: False
+  dataset_size_limit: None
   logdir: "/nfs/homedirs/giri/priornet/logs"
   run_eval: True
   run_attack: False
@@ -30,4 +32,11 @@ fixed:
   attack_criteria: "confidence" # use ['confidence', 'diff_entropy']
   attack_norm: "inf"
   max_steps: 100
+  run_certification: True
+  n0: 100
+  n: 10000
+  sigma: 0.2
+  uncertainty_measure: CONFIDENCE
+  uncertainty_measure_threshold: -0.5497
+  
     

@@ -70,7 +70,7 @@ class BaseUncertaintyEvaluator(ABC):
             UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY:
                 self.get_differential_entropy()
         }
-        
+
     def get_uncertainty(self, measure: UncertaintyMeasuresEnum, negate_confidence= False):
         if measure == UncertaintyMeasuresEnum.CONFIDENCE:
             return self.get_confidence() if negate_confidence is False else -1 * self.get_confidence()
