@@ -38,6 +38,7 @@ parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
+# adversarial training arguments
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
                     ' to create a robust model.')
@@ -51,6 +52,15 @@ parser.add_argument('--adv_attack_criteria', type=str, choices=ATTACK_CRITERIA_M
 parser.add_argument('--adv_epsilon', type=float, default=0.3,
                     help='Strength of perturbation in range of 0 to 1, ex: 0.25,'+
                     ' to generate adversarial samples.', required=True)
+# PGD adversarial training arguments
+parser.add_argument('--pgd_norm', type=str, choices=['inf', '2'], default='inf',
+                    help='The type of norm ball to restrict the adversarial samples to.' +
+                    'Needed only for PGD adversarial training.')
+parser.add_argument('--pgd_step_size', type=float, default=0.4,
+                    help='The size of the gradient update step, used during each iteration'+
+                    ' in PGD attack.')
+parser.add_argument('--pgd_max_steps', type=int, default=10,
+                    help='The number of the gradient update steps, to be performed for PGD attack.')
 def main():
     args = parser.parse_args()
 
@@ -89,7 +99,7 @@ def main():
         id_train_adv_set = AdversarialDataset(id_train_set, args.adv_attack_type.lower(),
                                               model, args.adv_epsilon,
                                               ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
-                                              None, None, None,
+                                              args.pgd_norm, args.pgd_step_size, args.pgd_max_steps,
                                               batch_size=args.batch_size, device=device)
         print(f"In domain adversarial dataset: Train-{len(id_train_adv_set)}")
         id_train_set = data.ConcatDataset([id_train_set, id_train_adv_set])
@@ -105,8 +115,10 @@ def main():
         ood_train_adv_set = AdversarialDataset(ood_train_set, args.adv_attack_type.lower(),
                                                model, args.adv_epsilon,
                                                OOD_ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
-                                               None, None, None,
-                                               batch_size=args.batch_size, device=device)
+                                               args.pgd_norm, args.pgd_step_size,
+                                               args.pgd_max_steps,
+                                               batch_size=args.batch_size,
+                                               device=device)
         print(f"OOD domain adversarial dataset: Train-{len(ood_train_adv_set)}")
         ood_train_set = data.ConcatDataset([ood_train_set, ood_train_adv_set])
 

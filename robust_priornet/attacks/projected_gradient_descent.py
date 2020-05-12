@@ -10,7 +10,7 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
     """
     adv_input = input_image.clone()
     adv_input.requires_grad = True
-    
+
     # set model in eval mode
     model.eval()
 
@@ -117,6 +117,6 @@ def construct_pgd_attack(model,
         label = labels[i].view(1,)
         adv_input = _find_adv_single_input(model, input_image, label, epsilon,
                                            criterion, device, norm, step_size,
-                                           max_steps, pin_memory, rel_step_size=0.4)
+                                           max_steps, pin_memory, rel_step_size=0.1)
         adv_inputs.append(adv_input)
     return torch.cat(adv_inputs, dim=0)
