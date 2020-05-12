@@ -19,9 +19,9 @@ fixed:
   input_image_size: 28
   num_classes: 10
   ood_dataset: OMNIGLOT
-  model_arch: mlp
+  model_arch: vgg6
   fc_layers: [100,90,80,50]
-  num_epochs: 10
+  num_epochs: 50
   num_channels: 1
   learning_rate: 0.0001
   drop_rate: 0.05
@@ -31,8 +31,10 @@ fixed:
   lr_decay_milestones: [1]
   batch_size: 64
   adv_training: False
-  adv_attack_type: "FGSM"
+  adv_attack_type: "PGD"
   adv_epsilon: 0.5
-  adv_attack_criteria: "confidence"
+  adv_attack_criteria: "diff_entropy"
+  pgd_norm: "inf"
+  pgd_max_steps: 100 
   logdir: "/nfs/homedirs/giri/priornet/logs"
   
