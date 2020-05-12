@@ -38,28 +38,31 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                                        grad_outputs=grad_output,
                                        only_inputs=True)[0]
 
-            if norm == 'inf':
-                update = step_size * grad.sign()
-            elif norm == '2':
-                update = step_size * grad
-
-            perturbed_image = adv_input + update
-
+            # compute the perturbed_image
             # project the perturbed_image back onto the norm-ball
             if norm == 'inf':
+                update = step_size * grad.sign()
+                perturbed_image = adv_input + update
                 perturbed_image = torch.max(
                     torch.min(perturbed_image, input_image + epsilon), input_image - epsilon)
             elif norm == '2':
-                # as the first dim is just channels, find norm of the 2D image in each channel dim
-                norm_value = perturbed_image.view(perturbed_image.shape[0], -1).norm(
-                    p=2, dim=1)
-                mask = norm_value <= epsilon # result dim = num_channels
+                update = step_size * grad.sign()
+                # l2 norm ball centered around "adv_input" (old image)
+                delta = torch.clone(update)
+                # as the first dim is batch dimension
+                # find norm of the 2D image (all other dimensions)
+                norm_value = delta.view(delta.shape[0], -1).norm(p=2, dim=1)
+                norm_value = norm_value.view(1, 1, 1, 1) # batch_size is 1
+                # mask to indicate if div by norm is necessary or not
+                mask = norm_value <= epsilon
                 scaling_factor = norm_value
-                # update only channels whose norm value is more than epsilon
+                # update only image deltas whose norm value is more than epsilon
                 scaling_factor[mask] = epsilon
 
-                perturbed_image = perturbed_image * (
-                    epsilon / scaling_factor.view(-1, 1, 1, 1)) # convert to 4D tensor
+                delta = delta * (epsilon / scaling_factor)
+
+                # add corrected delta whose l2 norm is less than epsilon
+                perturbed_image = adv_input + delta
 
             # re-normalize the image to range (-1,1)
             perturbed_image = torch.clamp(perturbed_image, -1, 1)
@@ -114,6 +117,6 @@ def construct_pgd_attack(model,
         label = labels[i].view(1,)
         adv_input = _find_adv_single_input(model, input_image, label, epsilon,
                                            criterion, device, norm, step_size,
-                                           max_steps, pin_memory, rel_step_size=0.1)
+                                           max_steps, pin_memory, rel_step_size=0.4)
         adv_inputs.append(adv_input)
     return torch.cat(adv_inputs, dim=0)
