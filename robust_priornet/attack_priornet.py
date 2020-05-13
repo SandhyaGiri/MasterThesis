@@ -93,8 +93,9 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
         # all ood samples were classified as ood (label=1).
         adv_success_id.append((fp / len(id_labels)))
         adv_success_ood.append((fn / len(ood_labels)))
-    plot_epsilon_curve(epsilons, adv_success_id, result_dir, file_name='epsilon-curve_id.png')
-    plot_epsilon_curve(epsilons, adv_success_ood, result_dir, file_name='epsilon-curve_ood.png')
+    plot_epsilon_curve(epsilons, adv_success_id, result_dir=result_dir, file_name='epsilon-curve_id.png')
+    plot_epsilon_curve(epsilons, adv_success_ood, result_dir=result_dir, file_name='epsilon-curve_ood.png')
+    return adv_success_id, adv_success_ood
 
 def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, result_dir: str):
     old_probs = np.loadtxt(os.path.join(org_eval_dir, 'id_probs.txt'))
@@ -112,7 +113,8 @@ def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, res
         adv_success = len(np.intersect1d(correct_classified_indices, misclassified_indices))
         adv_success_rates.append(adv_success / len(correct_classified_indices))
 
-    plot_epsilon_curve(epsilons, adv_success_rates, result_dir)
+    plot_epsilon_curve(epsilons, adv_success_rates, result_dir=result_dir)
+    return adv_success_rates
 
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
                            batch_size=128, device=None, result_dir='./', ood_adv_dataset=None):

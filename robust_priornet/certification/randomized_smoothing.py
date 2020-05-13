@@ -14,16 +14,23 @@ class RandomizedSmoother:
 
     Customized for a binary classifier for the ood-detect task on top of the standard
     dirichlet priornet classifier.
+
+    Performs both in domain data classification for classifying image correctly
+    into one of the target classess (multi-class) and in-out classification (binary).
+    Tasks: 'normal', 'ood-detect'
     """
     # to abstain from making a prediction/certification, this int will be returned.
     ABSTAIN = -1
 
     def __init__(self, base_classifier: nn.Module,
+                 num_classes: int,
                  uncertainty_estimator: UncertaintyMeasuresEnum,
                  decision_threshold: float,
                  image_normalization_params: dict,
                  noise_std_dev: float):
+        # num_classes is base classifier's last layer
         self.base_classifier = base_classifier
+        self.num_classes = num_classes
         self.uncertainty_estimator = uncertainty_estimator
         self.threhsold = decision_threshold
         self.image_normalization_params = image_normalization_params
@@ -32,14 +39,16 @@ class RandomizedSmoother:
     def predict(self, image: torch.tensor, n: int, alpha: float, batch_size: int):
         pass
 
-    def certify(self, image: torch.tensor, n0: int, n: int, alpha: float, batch_size: int):
+    def certify(self, image: torch.tensor, n0: int, n: int, alpha: float, batch_size: int,
+                task_type: str):
+        assert task_type in ['normal', 'ood-detect']
         # set model in eval mode
         self.base_classifier.eval()
-        class_pred_counts = self._get_noisy_samples(image, n0, batch_size)
+        class_pred_counts = self._get_noisy_samples(image, n0, batch_size, task_type)
         # get the class with max counts
         most_prob_class_guess = class_pred_counts.argmax().item()
         # use many samples to estimate the probabilities
-        class_pred_counts_strong = self._get_noisy_samples(image, n, batch_size)
+        class_pred_counts_strong = self._get_noisy_samples(image, n, batch_size, task_type)
         max_count = class_pred_counts_strong[most_prob_class_guess].item()
         # confidence interval for binomial dist (after n bernoulli trials,
         # with max_count number of times the guessed class was observed.)
@@ -50,6 +59,18 @@ class RandomizedSmoother:
             robust_radius = self.noise_std_dev * norm.ppf(class_prob_lower_bound)
             return most_prob_class_guess, robust_radius
 
+    def _normalize_image(self, inputs: torch.tensor):
+        mean = inputs.new_tensor(self.image_normalization_params['mean'])
+        mean = mean.repeat(inputs.shape[0], inputs.shape[2],
+                           inputs.shape[3], 1) # (batch_size, H, W, 3)
+        mean = mean.permute(0, 3, 1, 2)
+        std = inputs.new_tensor(self.image_normalization_params['std'])
+        std = std.repeat(inputs.shape[0], inputs.shape[2],
+                         inputs.shape[3], 1) # (batch_size, H, W, 3)
+        std = std.permute(0, 3, 1, 2)
+        normalized_inputs = (inputs - mean) / std
+        return normalized_inputs
+
     def _eval_ood_task(self, inputs: torch.tensor):
         """
         normalize input images to range (-1,1) ->
@@ -57,15 +78,7 @@ class RandomizedSmoother:
         -> use the threshold to make the prediction.
         """
         # normalize the input images
-        mean = inputs.new_tensor(self.image_normalization_params['mean'])
-        mean = mean.repeat(inputs.shape[0], inputs.shape[2],
-                           inputs.shape[3], 1) # (batch_size, H, W, 3)
-        mean = mean.permute(0,3,1,2)
-        std = inputs.new_tensor(self.image_normalization_params['std'])
-        std = std.repeat(inputs.shape[0], inputs.shape[2],
-                         inputs.shape[3], 1) # (batch_size, H, W, 3)
-        std = std.permute(0,3,1,2)
-        normalized_inputs = (inputs - mean) / std
+        normalized_inputs = self._normalize_image(inputs)
         # eval the inputs on base_classifier
         log_alphas = self.base_classifier(normalized_inputs)
         uncertainty_estimates = UncertaintyEvaluatorTorch(log_alphas).get_uncertainty(
@@ -76,9 +89,28 @@ class RandomizedSmoother:
         preds[probs > 0.5] = 1
         return preds
 
-    def _get_noisy_samples(self, image: torch.tensor, num_samples: int, batch_size: int):
+    def _eval_normal_classification_task(self, inputs: torch.tensor):
+        """
+        normalize input images to range (-1,1) ->
+        eval(base_classifer, inputs) -> predict class label based on max prob
+        """
+        # normalize the input images
+        normalized_inputs = self._normalize_image(inputs)
+        # eval the inputs on base_classifier
+        log_alphas = self.base_classifier(normalized_inputs)
+        probs = torch.nn.functional.softmax(log_alphas, dim=1)
+        preds = torch.argmax(probs, dim=1)
+        return preds
+
+    def _update_count(self, counts: np.ndarray, preds: np.ndarray):
+        for i in range(len(counts)):
+            counts[i] += len(np.argwhere(preds == i))
+
+    def _get_noisy_samples(self, image: torch.tensor, num_samples: int, batch_size: int,
+                           task_type: str):
+        num_classes = 2 if task_type == 'ood-detect' else self.num_classes
         with torch.no_grad():
-            counts = np.zeros(2, dtype=int)
+            counts = np.zeros(num_classes, dtype=int)
             for _ in range(int(np.ceil(num_samples / batch_size))):
                 this_batch_size = min(batch_size, num_samples)
                 num_samples -= this_batch_size
@@ -86,8 +118,10 @@ class RandomizedSmoother:
                 batch = image.repeat((this_batch_size, 1, 1, 1))
                 # sample noise from normal dist
                 noise = torch.randn_like(batch) * self.noise_std_dev
-                predictions = self._eval_ood_task(batch + noise)
+                if task_type == 'ood-detect':
+                    predictions = self._eval_ood_task(batch + noise)
+                elif task_type == 'normal':
+                    predictions = self._eval_normal_classification_task(batch + noise)
                 preds_numpy = predictions.cpu().numpy()
-                counts[0] += len(np.argwhere(preds_numpy == 0)) # in dist
-                counts[1] += len(np.argwhere(preds_numpy == 1)) # out dist
+                self._update_count(counts, preds_numpy)
             return counts
