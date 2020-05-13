@@ -25,7 +25,8 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         use_val_dataset, dataset_size_limit, logdir,
         run_eval, run_attack, epsilon_list, eval_ood_during_attack,
         attack_type, attack_criteria, attack_norm, max_steps,
-        run_certification, n0, n, sigma, uncertainty_measure, uncertainty_measure_threshold):
+        run_certification, certify_task, n0, n, sigma, uncertainty_measure,
+        uncertainty_measure_threshold):
     """
     Performs both in-domain evaluation, and ood evaluation and the corresponding results
     are stored under eval/ and ood-eval/ inside the model_dir.
@@ -98,6 +99,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
                     --batch_size {batch_size} --model_dir {model_dir} \
                     {'--train_dataset' if use_train_dataset else ''} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit} \
+                    --certify_task {certify_task} \
                     --uncertainty_measure {uncertainty_measure} \
                     --uncertainty_measure_threshold {uncertainty_measure_threshold} \
                     --n0 {n0} --n {n} --sigma {sigma} \

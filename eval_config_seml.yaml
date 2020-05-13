@@ -33,6 +33,7 @@ fixed:
   attack_norm: "inf"
   max_steps: 100
   run_certification: True
+  certify_task: "ood-detect"
   n0: 100
   n: 1000
   sigma: 0.2
