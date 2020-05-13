@@ -232,15 +232,36 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
 
     return misclassified.size
 
-def plot_epsilon_curve(epsilon: list, adv_success_rates: list, result_dir: str,
-                       file_name: str = 'epsilon-curve.png'):
-    plt.figure(figsize=(5, 5))
-    plt.plot(epsilon, adv_success_rates, "*-")
-    plt.yticks(np.arange(0, 1.1, step=0.1))
-    plt.xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
-    plt.title("Adversarial Success Rate vs Epsilon")
-    plt.xlabel("Epsilon")
-    plt.ylabel("Adversarial Success Rate")
+def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
+                       result_dir: str = '.',
+                       file_name: str = 'epsilon-curve.png',
+                       plt_label: str = '',
+                       save_fig=True,
+                       plt_axis=None):
+    if plt_axis is None:
+        _, plt_axis = plt.subplots(nrows=1, ncols=1)
+
+    plt_axis.set_yticks(np.arange(0, 1.1, step=0.1))
+    plt_axis.set_xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
+    plot_curve(epsilon, adv_success_rates, plt_axis, x_label='Epsilon',
+               y_label='Adversarial Success Rate',
+               x_lim=(np.min(epsilon), np.max(epsilon)), y_lim=(0.0, 1.0),
+               curve_title=plt_label, show_legend=(True if plt_label != '' else False),
+               title='Adversarial Success Rate vs Epsilon')
+    if save_fig:
+        plt.savefig(os.path.join(result_dir, file_name))
+
+def plot_many_epsilon_curves(epsilon: list, adv_success_rates: list,
+                             curve_legend_labels: list,
+                             result_dir: str,
+                             file_name: str):
+    # send adv_success_rates as list of lists for each curve to be plotted.
+    _, axes = plt.subplots(nrows=1, ncols=1)
+    num_curves = len(adv_success_rates)
+    for curve_index in range(num_curves):
+        plot_epsilon_curve(epsilon, adv_success_rates[curve_index],
+                           plt_label=curve_legend_labels[curve_index],
+                           save_fig=False, plt_axis=axes)
     plt.savefig(os.path.join(result_dir, file_name))
 
 def plot_all_pr_curves(epsilons: list, src_attack_dir: str,

@@ -109,7 +109,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.certify_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
+        },
+        {
+            "name": "Module certify_priornet val 200 classification",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.certify_priornet",
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--certify_task", "normal", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
         },
         {
             "name": "(MT) Python: Current File",
