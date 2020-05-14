@@ -11,7 +11,8 @@ def plot_curve(x, y, axis, x_label='', y_label='',
                title='', curve_title='',
                x_lim=None, y_lim=None,
                show_legend=False,
-               axis_spine_visibility_config: list = None):
+               axis_spine_visibility_config: list = None,
+               additional_plt_args=[]):
     """
         Plots a line graph with x values on x-axis and y values on y-axis. 
 
@@ -31,7 +32,7 @@ def plot_curve(x, y, axis, x_label='', y_label='',
             fetched_spine.set_visible(False)
 
     axis.set_title("\n".join(wrap(title, 20)))
-    axis.plot(x, y, label=curve_title)
+    axis.plot(x, y, *additional_plt_args, label=curve_title)
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
     if x_lim is not None:
@@ -247,7 +248,8 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                y_label='Adversarial Success Rate',
                x_lim=(np.min(epsilon), np.max(epsilon)), y_lim=(0.0, 1.0),
                curve_title=plt_label, show_legend=(True if plt_label != '' else False),
-               title='Adversarial Success Rate vs Epsilon')
+               title='Adversarial Success Rate vs Epsilon',
+               additional_plt_args=['*-'])
     if save_fig:
         plt.savefig(os.path.join(result_dir, file_name))
 
@@ -256,7 +258,7 @@ def plot_many_epsilon_curves(epsilon: list, adv_success_rates: list,
                              result_dir: str,
                              file_name: str):
     # send adv_success_rates as list of lists for each curve to be plotted.
-    _, axes = plt.subplots(nrows=1, ncols=1)
+    _, axes = plt.subplots(nrows=1, ncols=1, figsize=(5,5))
     num_curves = len(adv_success_rates)
     for curve_index in range(num_curves):
         plot_epsilon_curve(epsilon, adv_success_rates[curve_index],

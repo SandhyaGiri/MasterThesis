@@ -71,7 +71,7 @@ parser.add_argument('--ood_dataset', choices=DatasetEnum._member_map_.keys(),
                     ' adversarial in domain dataset.')
 
 def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasuresEnum,
-                            thresholds: list, attack_dir: str, result_dir: str):
+                            thresholds: list, attack_dir: str, result_dir: str, verbose=True):
     adv_success_id = [] # in domain sample gets classified as out domain
     adv_success_ood = [] # out domain sample gets classified as in domain
     for i, epsilon in enumerate(epsilons, 0):
@@ -86,9 +86,10 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
         y_true = np.concatenate((id_labels, ood_labels), axis=0)
         tn, fp, fn, tp = ClassifierPredictionEvaluator.compute_confusion_matrix_entries(
             uncertainty_pred, y_true, threshold=thresholds[i])
-        print(f"epsilon: {epsilon}, threshold: {thresholds[i]}")
-        print(f"tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp},"+
-              f" total_id: {len(id_labels)}, total_ood: {len(ood_labels)}")
+        if verbose is True:
+            print(f"epsilon: {epsilon}, threshold: {thresholds[i]}")
+            print(f"tn: {tn}, fp: {fp}, fn: {fn}, tp: {tp},"+
+                  f" total_id: {len(id_labels)}, total_ood: {len(ood_labels)}")
         # previously we assume all id-samples were classififed as id (label=0) and
         # all ood samples were classified as ood (label=1).
         adv_success_id.append((fp / len(id_labels)))
