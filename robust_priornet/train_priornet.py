@@ -43,6 +43,8 @@ parser.add_argument('--gpu', type=int, action='append',
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
                     ' to create a robust model.')
+parser.add_argument('--adv_model_dir', type=str, default=None,
+                    help='Absolute directory path where to load the model to be used for generating adv samples.')
 parser.add_argument('--adv_attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
                     help='Choose the type of attack used to generate adv samples, such that'+
                     ' resulting model is immune to the chosen attack.')
@@ -53,6 +55,8 @@ parser.add_argument('--adv_attack_criteria', type=str, choices=ATTACK_CRITERIA_M
 parser.add_argument('--adv_epsilon', type=float, default=0.3,
                     help='Strength of perturbation in range of 0 to 1, ex: 0.25,'+
                     ' to generate adversarial samples.', required=True)
+parser.add_argument('--adv_persist_images', action='store_true',
+                    help='Specify this if you want to save the adv images created.')
 # PGD adversarial training arguments
 parser.add_argument('--pgd_norm', type=str, choices=['inf', '2'], default='inf',
                     help='The type of norm ball to restrict the adversarial samples to.' +
@@ -72,6 +76,11 @@ def main():
     device = choose_torch_device(args.gpu)
     model, ckpt = load_model(args.model_dir, device=device)
     model.to(device)
+
+    if args.include_adv_samples and args.adv_model_dir is not None:
+        print(f"Loaded old model for adversarial sample gen: {args.adv_model_dir}")
+        adv_model, adv_ckpt = load_model(args.adv_model_dir, device=device)
+        adv_model.to(device)
 
     # load the datasets
     vis = TorchVisionDataWrapper()
@@ -99,11 +108,17 @@ def main():
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
     if args.include_adv_samples:
         id_train_adv_set = AdversarialDataset(id_train_set, args.adv_attack_type.lower(),
-                                              model, args.adv_epsilon,
+                                              adv_model if args.adv_model_dir is not None else model,
+                                              args.adv_epsilon,
                                               ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
                                               args.pgd_norm, args.pgd_step_size, args.pgd_max_steps,
                                               batch_size=args.batch_size, device=device)
         print(f"In domain adversarial dataset: Train-{len(id_train_adv_set)}")
+        if args.adv_persist_images:
+            adv_folder = os.path.join(args.model_dir, "adv-images")
+            if not os.path.exists(adv_folder):
+                os.makedirs(adv_folder)
+            persist_image_dataset(data.Subset(id_train_adv_set, np.arange(2000)), mean, std, num_channels, adv_folder)
         id_train_set = data.ConcatDataset([id_train_set, id_train_adv_set])
 
     ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
@@ -115,17 +130,19 @@ def main():
     print(f"OOD domain dataset: Train-{len(ood_train_set)}, Val-{len(ood_val_set)}")
     if args.include_adv_samples:
         ood_train_adv_set = AdversarialDataset(ood_train_set, args.adv_attack_type.lower(),
-                                               model, args.adv_epsilon,
+                                               adv_model if args.adv_model_dir is not None else model,
+                                               args.adv_epsilon,
                                                OOD_ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
                                                args.pgd_norm, args.pgd_step_size,
                                                args.pgd_max_steps,
                                                batch_size=args.batch_size,
                                                device=device)
         print(f"OOD domain adversarial dataset: Train-{len(ood_train_adv_set)}")
-        adv_folder = os.path.join(args.model_dir, "adv-images-ood")
-        if not os.path.exists(adv_folder):
-            os.makedirs(adv_folder)
-        persist_image_dataset(ood_train_adv_set, mean, std, num_channels, adv_folder)
+        if args.adv_persist_images:
+            adv_folder = os.path.join(args.model_dir, "adv-images-ood")
+            if not os.path.exists(adv_folder):
+                os.makedirs(adv_folder)
+            persist_image_dataset(ood_train_adv_set, mean, std, num_channels, adv_folder)
         ood_train_set = data.ConcatDataset([ood_train_set, ood_train_adv_set])
 
     # make both datasets (id, ood) same size

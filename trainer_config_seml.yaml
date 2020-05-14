@@ -31,9 +31,11 @@ fixed:
   lr_decay_milestones: [1]
   batch_size: 64
   adv_training: False
-  adv_attack_type: "PGD"
+  adv_attack_type: "FGSM"
   adv_epsilon: 0.5
   adv_attack_criteria: "diff_entropy"
+  adv_model_dir: None
+  adv_persist_images: False
   pgd_norm: "inf"
   pgd_max_steps: 100 
   logdir: "/nfs/homedirs/giri/priornet/logs"

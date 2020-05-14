@@ -12,6 +12,7 @@ def plot_curve(x, y, axis, x_label='', y_label='',
                x_lim=None, y_lim=None,
                show_legend=False,
                axis_spine_visibility_config: list = None,
+               title_wrap_length=20,
                additional_plt_args=[]):
     """
         Plots a line graph with x values on x-axis and y values on y-axis. 
@@ -31,7 +32,7 @@ def plot_curve(x, y, axis, x_label='', y_label='',
             fetched_spine = axis.spines[spine]
             fetched_spine.set_visible(False)
 
-    axis.set_title("\n".join(wrap(title, 20)))
+    axis.set_title("\n".join(wrap(title, title_wrap_length)))
     axis.plot(x, y, *additional_plt_args, label=curve_title)
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
@@ -250,7 +251,8 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                x_lim=(0.0, np.max(epsilon)+ 0.1), y_lim=(0.0, 1.1),
                curve_title=plt_label, show_legend=(True if plt_label != '' else False),
                title=f'Adversarial Success Rate vs Epsilon -{title}',
-               additional_plt_args=['*-'])
+               additional_plt_args=['*-'],
+               title_wrap_length=150)
     if save_fig:
         plt.savefig(os.path.join(result_dir, file_name))
 
