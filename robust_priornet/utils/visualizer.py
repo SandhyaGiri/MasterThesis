@@ -237,6 +237,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                        result_dir: str = '.',
                        file_name: str = 'epsilon-curve.png',
                        plt_label: str = '',
+                       title: str='',
                        save_fig=True,
                        plt_axis=None):
     if plt_axis is None:
@@ -246,24 +247,25 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
     plt_axis.set_xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
     plot_curve(epsilon, adv_success_rates, plt_axis, x_label='Epsilon',
                y_label='Adversarial Success Rate',
-               x_lim=(np.min(epsilon), np.max(epsilon)), y_lim=(0.0, 1.0),
+               x_lim=(0.0, np.max(epsilon)+ 0.1), y_lim=(0.0, 1.1),
                curve_title=plt_label, show_legend=(True if plt_label != '' else False),
-               title='Adversarial Success Rate vs Epsilon',
+               title=f'Adversarial Success Rate vs Epsilon -{title}',
                additional_plt_args=['*-'])
     if save_fig:
         plt.savefig(os.path.join(result_dir, file_name))
 
 def plot_many_epsilon_curves(epsilon: list, adv_success_rates: list,
                              curve_legend_labels: list,
+                             plot_title: str,
                              result_dir: str,
                              file_name: str):
     # send adv_success_rates as list of lists for each curve to be plotted.
-    _, axes = plt.subplots(nrows=1, ncols=1, figsize=(5,5))
+    _, axes = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
     num_curves = len(adv_success_rates)
     for curve_index in range(num_curves):
         plot_epsilon_curve(epsilon, adv_success_rates[curve_index],
                            plt_label=curve_legend_labels[curve_index],
-                           save_fig=False, plt_axis=axes)
+                           save_fig=False, plt_axis=axes, title=plot_title)
     plt.savefig(os.path.join(result_dir, file_name))
 
 def plot_all_pr_curves(epsilons: list, src_attack_dir: str,

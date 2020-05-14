@@ -13,6 +13,7 @@ from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.trainer import PriorNetTrainer
 from .utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from .utils.dataspliter import DataSpliter
+from .utils.persistence import persist_image_dataset
 from .utils.pytorch import choose_torch_device, load_model
 
 parser = argparse.ArgumentParser(description='Train a Prior Network model (esp Dirichlet prior) using a '
@@ -81,8 +82,9 @@ def main():
     mean = (0.5,)
     std = (0.5,)
     trans.add_resize(ckpt['model_params']['n_in'])
+    num_channels = ckpt['model_params']['num_channels']
     if ckpt['model_params']['model_type'].startswith('vgg'):
-        trans.add_rgb_channels(ckpt['model_params']['num_channels'])
+        trans.add_rgb_channels(num_channels)
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
     trans.add_to_tensor()
@@ -120,6 +122,10 @@ def main():
                                                batch_size=args.batch_size,
                                                device=device)
         print(f"OOD domain adversarial dataset: Train-{len(ood_train_adv_set)}")
+        adv_folder = os.path.join(args.model_dir, "adv-images-ood")
+        if not os.path.exists(adv_folder):
+            os.makedirs(adv_folder)
+        persist_image_dataset(ood_train_adv_set, mean, std, num_channels, adv_folder)
         ood_train_set = data.ConcatDataset([ood_train_set, ood_train_adv_set])
 
     # make both datasets (id, ood) same size
