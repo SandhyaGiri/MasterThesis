@@ -34,7 +34,7 @@ fixed:
   adv_attack_type: "FGSM"
   adv_epsilon: 0.5
   adv_attack_criteria: "diff_entropy"
-  adv_model_dir: None
+  adv_model_dir: ""
   adv_persist_images: False
   pgd_norm: "inf"
   pgd_max_steps: 100 
