@@ -16,7 +16,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6-robust", "--num_epochs", "1", "--include_adv_samples", "--adv_attack_type", "FGSM", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6-robust", "--num_epochs", "1","--dataset_size_limit", "100", "--include_adv_samples", "--adv_attack_type", "FGSM", "--adv_attack_criteria", "confidence", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial",

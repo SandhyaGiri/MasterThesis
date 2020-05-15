@@ -97,7 +97,9 @@ class PriorNetTrainer:
             # train the model #
             ###################
             start = time.time()
-            train_results = self._train_single_epoch() # train and update metrics list
+            # train and update metrics list
+            train_results = self._train_single_epoch(self.id_train_loader,
+                                                     self.ood_train_loader)
             end = time.time()
 
             ######################
@@ -141,7 +143,7 @@ class PriorNetTrainer:
         id_outputs, ood_outputs = torch.chunk(logits, 2, dim=1)
         return id_outputs, ood_outputs
 
-    def _train_single_epoch(self):
+    def _train_single_epoch(self, id_train_loader, ood_train_loader):
         # Set model in train mode
         self.model.train()
 
@@ -151,7 +153,7 @@ class PriorNetTrainer:
         id_loss, ood_loss = 0.0, 0.0
         id_precision, ood_precision = 0.0, 0.0
         for i, (data, ood_data) in enumerate(
-                zip(self.id_train_loader, self.ood_train_loader), 0):
+                zip(id_train_loader, ood_train_loader), 0):
             # Get inputs
             inputs, labels = data
             ood_inputs, _ = ood_data

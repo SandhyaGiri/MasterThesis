@@ -269,6 +269,7 @@ def plot_many_epsilon_curves(epsilon: list, adv_success_rates: list,
                            plt_label=curve_legend_labels[curve_index],
                            save_fig=False, plt_axis=axes, title=plot_title)
     plt.savefig(os.path.join(result_dir, file_name))
+    plt.close()
 
 def plot_all_pr_curves(epsilons: list, src_attack_dir: str,
                        eval_dir_name: str, uncertainty_measure: UncertaintyMeasuresEnum,

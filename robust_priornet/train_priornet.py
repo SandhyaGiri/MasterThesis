@@ -11,6 +11,7 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.trainer import PriorNetTrainer
+from .training.adversarial_trainer import AdversarialPriorNetTrainer
 from .utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
@@ -39,6 +40,8 @@ parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
+parser.add_argument('--dataset_size_limit', type=int, default=None,
+                    help='Specifies the number of samples to consider in the loaded datasets.')
 # adversarial training arguments
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
@@ -105,21 +108,10 @@ def main():
                                                None,
                                                'train',
                                                val_ratio=0.1)
+    if args.dataset_size_limit is not None:
+        id_train_set = DataSpliter.reduceSize(id_train_set, args.dataset_size_limit)
+        id_val_set = DataSpliter.reduceSize(id_val_set, args.dataset_size_limit)
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
-    if args.include_adv_samples:
-        id_train_adv_set = AdversarialDataset(id_train_set, args.adv_attack_type.lower(),
-                                              adv_model if args.adv_model_dir is not None else model,
-                                              args.adv_epsilon,
-                                              ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
-                                              args.pgd_norm, args.pgd_step_size, args.pgd_max_steps,
-                                              batch_size=args.batch_size, device=device)
-        print(f"In domain adversarial dataset: Train-{len(id_train_adv_set)}")
-        if args.adv_persist_images:
-            adv_folder = os.path.join(args.model_dir, "adv-images")
-            if not os.path.exists(adv_folder):
-                os.makedirs(adv_folder)
-            persist_image_dataset(data.Subset(id_train_adv_set, np.arange(2000)), mean, std, num_channels, adv_folder)
-        id_train_set = data.ConcatDataset([id_train_set, id_train_adv_set])
 
     ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
                                                  args.data_dir,
@@ -127,23 +119,10 @@ def main():
                                                  None,
                                                  'train',
                                                  val_ratio=0.1)
+    if args.dataset_size_limit is not None:
+        ood_train_set = DataSpliter.reduceSize(ood_train_set, args.dataset_size_limit)
+        ood_val_set = DataSpliter.reduceSize(ood_val_set, args.dataset_size_limit)
     print(f"OOD domain dataset: Train-{len(ood_train_set)}, Val-{len(ood_val_set)}")
-    if args.include_adv_samples:
-        ood_train_adv_set = AdversarialDataset(ood_train_set, args.adv_attack_type.lower(),
-                                               adv_model if args.adv_model_dir is not None else model,
-                                               args.adv_epsilon,
-                                               OOD_ATTACK_CRITERIA_MAP[args.adv_attack_criteria],
-                                               args.pgd_norm, args.pgd_step_size,
-                                               args.pgd_max_steps,
-                                               batch_size=args.batch_size,
-                                               device=device)
-        print(f"OOD domain adversarial dataset: Train-{len(ood_train_adv_set)}")
-        if args.adv_persist_images:
-            adv_folder = os.path.join(args.model_dir, "adv-images-ood")
-            if not os.path.exists(adv_folder):
-                os.makedirs(adv_folder)
-            persist_image_dataset(ood_train_adv_set, mean, std, num_channels, adv_folder)
-        ood_train_set = data.ConcatDataset([ood_train_set, ood_train_adv_set])
 
     # make both datasets (id, ood) same size
     if len(ood_val_set) != len(id_val_set):
@@ -177,14 +156,36 @@ def main():
                         'betas': (0.9, 0.999),
                         'weight_decay': 0.0} # add this for other datasets
 
-    trainer = PriorNetTrainer(model,
-                              id_train_set, id_val_set, ood_train_set, ood_val_set,
-                              criterion, id_loss, ood_loss, optimizer,
-                              optimizer_params=optimizer_params,
-                              lr_scheduler=optim.lr_scheduler.ExponentialLR,
-                              lr_scheduler_params={'gamma': 0.95},
-                              batch_size=args.batch_size, device=device,
-                              log_dir=args.model_dir)
+    if args.include_adv_samples:
+        trainer = AdversarialPriorNetTrainer(model,
+                                             id_train_set, id_val_set,
+                                             ood_train_set, ood_val_set,
+                                             criterion, id_loss, ood_loss, optimizer,
+                                             args.adv_attack_type, args.adv_attack_criteria,
+                                             optimizer_params=optimizer_params,
+                                             lr_scheduler=optim.lr_scheduler.ExponentialLR,
+                                             lr_scheduler_params={'gamma': 0.95},
+                                             batch_size=args.batch_size, device=device,
+                                             log_dir=args.model_dir, attack_params={
+                                                 'epsilon': args.adv_epsilon,
+                                                 'adv_persist_images': args.adv_persist_images,
+                                                 'norm': args.pgd_norm,
+                                                 'max_steps': args.pgd_max_steps,
+                                                 'step_size': args.pgd_step_size
+                                             }, dataset_persistence_params=[
+                                                 mean,
+                                                 std,
+                                                 num_channels
+                                             ])
+    else:
+        trainer = PriorNetTrainer(model,
+                                  id_train_set, id_val_set, ood_train_set, ood_val_set,
+                                  criterion, id_loss, ood_loss, optimizer,
+                                  optimizer_params=optimizer_params,
+                                  lr_scheduler=optim.lr_scheduler.ExponentialLR,
+                                  lr_scheduler_params={'gamma': 0.95},
+                                  batch_size=args.batch_size, device=device,
+                                  log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs)
     
