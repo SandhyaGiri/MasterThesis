@@ -45,3 +45,12 @@ class AttackCriteria:
         as a loss function we minimize the negation of differential entropy.
         """
         return torch.neg(UncertaintyEvaluatorTorch(outputs).get_differential_entropy())
+
+    @staticmethod
+    def ood_distributional_uncertainty_loss(outputs, labels):
+        """
+        For out of distribution samples, the dist uncertainty which is an
+        uncertainty measure should be higher than that of in dist samples. So
+        as a loss function we minimize the negation of dist uncertainty.
+        """
+        return torch.neg(UncertaintyEvaluatorTorch(outputs).get_distributional_uncertainty())

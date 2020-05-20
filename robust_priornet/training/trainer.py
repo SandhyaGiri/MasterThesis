@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from ..utils.pytorch import save_model_with_params_from_ckpt
 from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
+from ..eval.uncertainty import UncertaintyEvaluator
 
 
 class PriorNetTrainer:
@@ -22,7 +23,8 @@ class PriorNetTrainer:
                  lr_scheduler=None,
                  lr_scheduler_params={},
                  batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
-                 pin_memory=False, log_dir='.'):
+                 pin_memory=False, log_dir='.',
+                 log_uncertainties=False):
 
         # validate if both datasets are of same size (to avoid inductive bias in model)
         assert len(id_train_dataset) == len(ood_train_dataset)
@@ -39,6 +41,7 @@ class PriorNetTrainer:
         self.patience = patience
         self.device = device
         self.clip_norm = clip_norm
+        self.log_uncertainties = log_uncertainties
 
         if lr_scheduler is not None:
             self.lr_scheduler = lr_scheduler(self.optimizer, **lr_scheduler_params)
@@ -75,6 +78,7 @@ class PriorNetTrainer:
 
         # Training step counter
         self.steps: int = 0
+        self.epochs: int = 0
 
 
     def train(self, num_epochs=None, num_steps=None, resume=False):
@@ -93,6 +97,7 @@ class PriorNetTrainer:
 
         for epoch in range(num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
+            self.epochs = epoch
             ###################
             # train the model #
             ###################
@@ -143,7 +148,7 @@ class PriorNetTrainer:
         id_outputs, ood_outputs = torch.chunk(logits, 2, dim=1)
         return id_outputs, ood_outputs
 
-    def _train_single_epoch(self, id_train_loader, ood_train_loader):
+    def _train_single_epoch(self, id_train_loader, ood_train_loader, is_adversarial_epoch=False):
         # Set model in train mode
         self.model.train()
 
@@ -152,6 +157,8 @@ class PriorNetTrainer:
         kl_loss = 0.0
         id_loss, ood_loss = 0.0, 0.0
         id_precision, ood_precision = 0.0, 0.0
+        id_outputs_all = None
+        ood_outputs_all = None
         for i, (data, ood_data) in enumerate(
                 zip(id_train_loader, ood_train_loader), 0):
             # Get inputs
@@ -167,7 +174,13 @@ class PriorNetTrainer:
 
             # append id samples with ood samples
             id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
-
+            # accumulate all outputs by the model
+            if id_outputs_all is None:
+                id_outputs_all = id_outputs
+                ood_outputs_all = ood_outputs
+            else:
+                id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
+                ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
             # Calculate train loss
             loss = self.criterion((id_outputs, ood_outputs), (labels, None))
             assert torch.all(torch.isfinite(loss)).item()
@@ -205,6 +218,19 @@ class PriorNetTrainer:
         id_precision /= num_batches
         ood_precision /= num_batches
 
+        if self.log_uncertainties:
+            id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().numpy()).get_all_uncertainties()
+            ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().numpy()).get_all_uncertainties()
+            if is_adversarial_epoch:
+                uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties-adv')
+            else:
+                uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties')
+            os.makedirs(uncertainty_dir)
+            for key in ood_uncertainties.keys():
+                np.savetxt(os.path.join(uncertainty_dir, 'ood_' + key._value_ + '.txt'),
+                           ood_uncertainties[key])
+                np.savetxt(os.path.join(uncertainty_dir, 'id_' + key._value_ + '.txt'),
+                           id_uncertainties[key])
         # returns average metrics (loss, accuracy, dirichlet_dist_precision)
         return {
             'loss': np.round(kl_loss, 4),
