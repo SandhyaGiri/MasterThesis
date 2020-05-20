@@ -7,14 +7,44 @@ from typing import Any, Dict
 import numpy as np
 import torch
 import torch.utils.data as data
+from sklearn.metrics import roc_curve
 from torch.utils.data import DataLoader
 
 from ..datasets.adversarial_dataset import AdversarialDataset
+from ..eval.uncertainty import UncertaintyMeasuresEnum
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import save_model_with_params_from_ckpt
 from .trainer import PriorNetTrainer
 
+
+def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum):
+    id_uncertainty = np.loadtxt(os.path.join(src_dir,
+                                             'id_' + uncertainty_measure._value_ + '.txt'))
+    ood_uncertainty = np.loadtxt(os.path.join(src_dir,
+                                              'ood_' + uncertainty_measure._value_ + '.txt'))
+    target_labels = np.concatenate((np.zeros_like(id_uncertainty),
+                                    np.ones_like(ood_uncertainty)), axis=0)
+    decision_fn_value = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+    fpr, tpr, thresholds = roc_curve(target_labels, decision_fn_value)
+    opt_fn_value = (tpr - fpr)
+    indices = np.argwhere(opt_fn_value == np.amax(opt_fn_value)).flatten().tolist()
+    median_indices = []
+    num_optimal_thresholds = len(indices)
+    if num_optimal_thresholds % 2 == 0:
+        index1 = indices[math.floor(num_optimal_thresholds/2)]
+        index2 = indices[math.floor(num_optimal_thresholds/2) -1]
+        if fpr[index2] < fpr[index1]:
+            median_indices.append(index2)
+        else:
+            median_indices.append(index1)
+    else:
+        median_indices.append(indices[math.floor(num_optimal_thresholds/2)])
+    # log the TPR and FPR at these thresholds
+    for ind in median_indices:
+        print("Min fn value: ", opt_fn_value[ind])
+        print(f"Threshold: {thresholds[ind]}, TPR: {tpr[ind]}, FPR: {fpr[ind]}")
+    return np.mean(thresholds[median_indices])
 
 class AdversarialPriorNetTrainer(PriorNetTrainer):
     """
@@ -32,7 +62,15 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
                  pin_memory=False, log_dir='.',
                  attack_params: Dict[str, Any] = {},
-                 dataset_persistence_params=[]):
+                 dataset_persistence_params=[],
+                 adv_training_type: str='normal',
+                 uncertainty_measure: UncertaintyMeasuresEnum=UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY):
+        """
+        for "ood-detect adversarial training, we need to know the uncertainty_measure used to the binary
+        classification between in-domain and out-domain samples."
+        """
+        assert adv_training_type in ['normal', 'ood-detect']
+        
         super(AdversarialPriorNetTrainer, self).__init__(model, id_train_dataset,
                                                          id_val_dataset, ood_train_dataset,
                                                          ood_val_dataset, criterion,
@@ -41,7 +79,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                          lr_scheduler, lr_scheduler_params,
                                                          batch_size, patience, device,
                                                          clip_norm, num_workers,
-                                                         pin_memory, log_dir)
+                                                         pin_memory, log_dir,
+                                                         adv_training_type == 'ood-detect')
         self.id_train_dataset = id_train_dataset
         self.ood_train_dataset = ood_train_dataset
         self.batch_size = batch_size
@@ -50,6 +89,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.adv_ood_attack_criteria = OOD_ATTACK_CRITERIA_MAP[adv_attack_criteria]
         self.attack_params = attack_params
         self.dataset_persistence_params = dataset_persistence_params
+        self.adv_training_type = adv_training_type
+        self.uncertainty_measure = uncertainty_measure
 
     def train(self, num_epochs=None, num_steps=None, resume=False):
         """
@@ -64,6 +105,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
 
         for epoch in range(num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
+            self.epochs = epoch
             ###################
             # train the model #
             ###################
@@ -71,7 +113,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # train and update metrics list
             train_results = self._train_single_epoch(self.id_train_loader,
                                                      self.ood_train_loader)
-            adv_train_results = self._adv_train_single_epoch(epoch) # train with adversarial images
+            adv_train_results = self._adv_train_single_epoch() # train with adversarial images
             end = time.time()
 
             ######################
@@ -100,10 +142,20 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
 
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
-    def _adv_train_single_epoch(self, epoch):
+    def _adv_train_single_epoch(self):
         """
         Generates adversarial dataset and trains the model on them.
         """
+        if self.adv_training_type == "normal":
+            additional_args = {''} # TODO - complete it
+        elif self.adv_training_type == "ood-detect":
+            threshold = get_optimal_threshold(os.path.join(self.log_dir,
+                                                           f'epoch-{self.epochs+1}-uncertainties'),
+                                              self.uncertainty_measure)
+            additional_args = {'only_true_adversaries': True,
+                               'uncertainty_measure': self.uncertainty_measure,
+                               'uncertainty_threshold': threshold
+                               }
         id_train_adv_set = AdversarialDataset(self.id_train_dataset,
                                               self.adv_attack_type.lower(),
                                               self.model,
@@ -113,7 +165,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                               self.attack_params['step_size'],
                                               self.attack_params['max_steps'],
                                               batch_size=self.batch_size,
-                                              device=self.device)
+                                              device=self.device,
+                                              adv_success_detect_type=self.adv_training_type,
+                                              **additional_args)
         ood_train_adv_set = AdversarialDataset(self.ood_train_dataset,
                                                self.adv_attack_type.lower(),
                                                self.model,
@@ -123,15 +177,20 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                self.attack_params['step_size'],
                                                self.attack_params['max_steps'],
                                                batch_size=self.batch_size,
-                                               device=self.device)
-        # persist images? as model progresses in training, attack gradients
+                                               device=self.device,
+                                               adv_success_detect_type=self.adv_training_type,
+                                               ood_dataset=True,
+                                               **additional_args)
+        print(f"Number of in->out adversarials generated: {len(id_train_adv_set)}")
+        print(f"Number of out->in adversarials generated: {len(ood_train_adv_set)}")
+        # persist images. as model progresses in training, attack gradients
         # will differ and we should get different adv images
         if self.attack_params['adv_persist_images']:
             # persist only random sampled 100 images
             indices = np.arange(len(id_train_adv_set))
 
             id_train_adv_subset = data.Subset(id_train_adv_set, random.sample(list(indices), 100))
-            adv_dir = os.path.join(self.log_dir, f'epoch-{epoch}-adv-images')
+            adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
             os.makedirs(adv_dir)
             persist_image_dataset(id_train_adv_subset,
                                   *self.dataset_persistence_params,
@@ -139,22 +198,24 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
 
             indices = np.arange(len(ood_train_adv_set))
             ood_train_adv_subset = data.Subset(ood_train_adv_set, random.sample(list(indices), 100))
-            adv_dir = os.path.join(self.log_dir, f'epoch-{epoch}-adv-images-ood')
+            adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images-ood')
             os.makedirs(adv_dir)
             persist_image_dataset(ood_train_adv_subset,
                                   *self.dataset_persistence_params,
                                   adv_dir)
-        
+
         # Dataloaders for adv train dataset
         id_train_adv_loader = DataLoader(id_train_adv_set,
+                                         batch_size=self.batch_size,
+                                         shuffle=True,
+                                         num_workers=self.num_workers,
+                                         pin_memory=self.pin_memory)
+
+        ood_train_adv_loader = DataLoader(ood_train_adv_set,
                                           batch_size=self.batch_size,
                                           shuffle=True,
                                           num_workers=self.num_workers,
                                           pin_memory=self.pin_memory)
-
-        ood_train_adv_loader = DataLoader(ood_train_adv_set,
-                                           batch_size=self.batch_size,
-                                           shuffle=True,
-                                           num_workers=self.num_workers,
-                                           pin_memory=self.pin_memory)
-        return self._train_single_epoch(id_train_adv_loader, ood_train_adv_loader)
+        return self._train_single_epoch(id_train_adv_loader,
+                                        ood_train_adv_loader,
+                                        is_adversarial_epoch=True)

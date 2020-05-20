@@ -10,9 +10,11 @@ from .datasets.adversarial_dataset import AdversarialDataset
 from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
-from .training.trainer import PriorNetTrainer
 from .training.adversarial_trainer import AdversarialPriorNetTrainer
-from .utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
+from .training.trainer import PriorNetTrainer
+from .utils.common_data import (ATTACK_CRITERIA_MAP,
+                                ATTACK_CRITERIA_TO_ENUM_MAP,
+                                OOD_ATTACK_CRITERIA_MAP)
 from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import choose_torch_device, load_model
@@ -46,6 +48,11 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
                     ' to create a robust model.')
+parser.add_argument('--adv_training_type', choices=['normal', 'ood-detect'],
+                    default='ood-detect',
+                    help='identifies what type of adversarials should the model be trained on.'+
+                    ' If normal, model is trained on id adv samples that lead to label misclassification'+
+                    ' If ood-detect model is trained on id->ood and ood->id adversarials.')
 parser.add_argument('--adv_model_dir', type=str, default=None,
                     help='Absolute directory path where to load the model to be used for generating adv samples.')
 parser.add_argument('--adv_attack_type', type=str, choices=['FGSM', 'PGD'], default='FGSM',
@@ -176,7 +183,10 @@ def main():
                                                  mean,
                                                  std,
                                                  num_channels
-                                             ])
+                                             ],
+                                             adv_training_type=args.adv_training_type,
+                                             uncertainty_measure=
+                                             ATTACK_CRITERIA_TO_ENUM_MAP[args.adv_attack_criteria])
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
@@ -188,6 +198,6 @@ def main():
                                   log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs)
-    
+
 if __name__ == "__main__":
     main()

@@ -55,4 +55,4 @@ def construct_fgsm_attack(model,
         perturbed_image = torch.clamp(perturbed_image, -1, 1)
         adv_inputs.data = perturbed_image
 
-    return adv_inputs
+    return adv_inputs, labels
