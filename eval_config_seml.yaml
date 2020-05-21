@@ -28,9 +28,9 @@ fixed:
   run_attack: False
   epsilon_list: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
   threshold: -0.16398
-  attack_type: "ood-detect" # one of ['misclassify', 'ood-detects']
+  attack_type: "ood-detect" # one of ['misclassify', 'ood-detect']
   attack_strategy: "PGD"
-  attack_criteria: "confidence" # use ['confidence', 'diff_entropy']
+  attack_criteria: "confidence" # use ['confidence', 'diff_entropy', 'mutual_info']
   attack_norm: "inf"
   max_steps: 10
   run_certification: True

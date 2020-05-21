@@ -69,7 +69,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         time = int(datetime.timestamp(datetime.now()))
         out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{time}")
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
-        if attack_type == 'FGSM':
+        if attack_strategy == 'FGSM':
             fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
                     --attack_type {attack_type} --attack_strategy {attack_strategy} \
@@ -80,7 +80,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
                     {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"FGSM attack command being executed: {fgsm_cmd}")
             os.system(fgsm_cmd)
-        elif attack_type == "PGD":
+        elif attack_strategy == "PGD":
             pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
                     --attack_type {attack_type} --attack_strategy {attack_strategy} \

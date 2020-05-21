@@ -272,6 +272,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 # Calculate train loss (only ID loss)
                 loss = self.id_criterion(id_outputs, labels)
                 assert torch.all(torch.isfinite(loss)).item()
+                # divide the loss by id precision, so that loss is inline with lr
+                loss = loss / self.id_criterion.target_precision
                 kl_loss += loss.item()
 
                 loss.backward()
