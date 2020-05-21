@@ -13,7 +13,8 @@ def _eval_for_adv_success_normal_classify(model, adv_input, label):
 
 def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measure: UncertaintyMeasuresEnum, threshold):
     logit = model(adv_input)
-    uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure)
+    uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure,
+                                                                         negate_confidence=True)
     pred = torch.zeros((logit.shape[0], 1))
     pred[uncertainty_value >= threshold] = 1
     return pred.item() != label.item() # adversarial success acheieved

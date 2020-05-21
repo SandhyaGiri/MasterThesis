@@ -23,8 +23,8 @@ def config():
 @ex.automain
 def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_train_dataset,
         use_val_dataset, dataset_size_limit, logdir,
-        run_eval, run_attack, epsilon_list, eval_ood_during_attack,
-        attack_type, attack_criteria, attack_norm, max_steps,
+        run_eval, run_attack, epsilon_list, threshold, attack_type,
+        attack_strategy, attack_criteria, attack_norm, max_steps,
         run_certification, certify_task, n0, n, sigma, uncertainty_measure,
         uncertainty_measure_threshold):
     """
@@ -67,13 +67,14 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
     if run_attack is True:
         epsilons = " ".join(map(lambda x: str(x),epsilon_list))
         time = int(datetime.timestamp(datetime.now()))
-        out_dir = os.path.join(model_dir, f"attack-{attack_type}-{time}")
+        out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{time}")
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
         if attack_type == 'FGSM':
             fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
-                    --attack_type {attack_type} --attack_criteria {attack_criteria} \
-                    --model_dir {model_dir} {'--ood_eval' if eval_ood_during_attack else ''} \
+                    --attack_type {attack_type} --attack_strategy {attack_strategy} \
+                    --attack_criteria {attack_criteria} --threshold {threshold} \
+                    --model_dir {model_dir} \
                     --ood_dataset {ood_dataset} {'--train_dataset' if use_train_dataset else ''} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
                     {data_dir} {in_domain_dataset} {out_dir}"
@@ -82,9 +83,10 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         elif attack_type == "PGD":
             pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
-                    --attack_type {attack_type} --attack_criteria {attack_criteria} \
+                    --attack_type {attack_type} --attack_strategy {attack_strategy} \
+                    --attack_criteria {attack_criteria} \
                     --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
-                    {'--ood_eval' if eval_ood_during_attack else ''} --ood_dataset {ood_dataset} \
+                    --threshold {threshold} --ood_dataset {ood_dataset} \
                     {'--train_dataset' if use_train_dataset else ''} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
                     {data_dir} {in_domain_dataset} {out_dir}"

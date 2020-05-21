@@ -141,11 +141,8 @@ class PriorNetTrainer:
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
     def _eval_logits_id_ood_samples(self, id_inputs, ood_inputs):
-        # append id samples with ood samples
-        cat_inputs = torch.cat([id_inputs, ood_inputs], dim=1).view(
-            torch.Size([2 * id_inputs.size()[0]]) + id_inputs.size()[1:])
-        logits = self.model(cat_inputs).view([id_inputs.size()[0], -1])
-        id_outputs, ood_outputs = torch.chunk(logits, 2, dim=1)
+        id_outputs = self.model(id_inputs)
+        ood_outputs = self.model(ood_inputs)
         return id_outputs, ood_outputs
 
     def _train_single_epoch(self, id_train_loader, ood_train_loader, is_adversarial_epoch=False):

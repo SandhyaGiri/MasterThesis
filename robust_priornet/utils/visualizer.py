@@ -250,7 +250,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                y_label='Adversarial Success Rate',
                x_lim=(0.0, np.max(epsilon)+ 0.1), y_lim=(0.0, 1.1),
                curve_title=plt_label, show_legend=(True if plt_label != '' else False),
-               title=f'Adversarial Success Rate vs Epsilon -{title}',
+               title=f'Adversarial Success Rate vs Epsilon - {title}',
                additional_plt_args=['*-'],
                title_wrap_length=150)
     if save_fig:

@@ -22,12 +22,13 @@ def persist_images(images, mean, std, n_channels, image_dir):
 
 def persist_image_dataset(dataset, mean, std, n_channels, image_dir):
     assert isinstance(dataset, Dataset), ("Dataset is not of right type. Cannot be persisted.")
-    images = []
-    testloader = DataLoader(dataset, batch_size=128,
-                            shuffle=False, num_workers=4, pin_memory=True)
-    with torch.no_grad():
-        for _, data in enumerate(testloader, 0):
-            image, _ = data
-            images.append(image)
+    if len(dataset) > 0:
+        images = []
+        testloader = DataLoader(dataset, batch_size=128,
+                                shuffle=False, num_workers=4, pin_memory=True)
+        with torch.no_grad():
+            for _, data in enumerate(testloader, 0):
+                image, _ = data
+                images.append(image)
 
-    persist_images(torch.cat(images, dim=0).numpy(), mean, std, n_channels, image_dir)
+        persist_images(torch.cat(images, dim=0).numpy(), mean, std, n_channels, image_dir)

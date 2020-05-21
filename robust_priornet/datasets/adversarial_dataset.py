@@ -80,3 +80,10 @@ class AdversarialDataset(Dataset):
 
     def __len__(self):
         return len(self.labels)
+    
+    def get_adversarial_indices(self):
+        """
+        Returns indices which resulted in an adversarial image.
+        These indices can be indexed directly into orginal dataset provided.
+        """
+        pass

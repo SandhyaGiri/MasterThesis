@@ -67,42 +67,42 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "entropy_of_exp", "./runtime-data", "MNIST", "./attack-fgsm-total_uncertainty"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_strategy", "FGSM", "--attack_criteria", "entropy_of_exp", "./runtime-data", "MNIST", "./attack-fgsm-total_uncertainty"]
         },
         {
             "name": "Module attack_priornet fgsm diff_entropy",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "./runtime-data", "MNIST", "./attack-fgsm"]
+            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.1", "0.2", "--batch_size", "64", "--attack_strategy", "FGSM", "--attack_criteria", "diff_entropy", "./runtime-data", "MNIST", "./attack-fgsm"]
         },
         {
             "name": "Module attack_priornet fgsm diff_entropy ood-detect train 200",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "SVHN", "--train_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "ood-detect", "--attack_strategy", "FGSM", "--attack_criteria", "diff_entropy", "--ood_dataset", "SVHN", "--train_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
         },
         {
             "name": "Module attack_priornet fgsm diff_entropy ood-detect val 200",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_type", "FGSM", "--attack_criteria", "diff_entropy", "--ood_eval", "--ood_dataset", "SVHN", "--val_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.9", "1.0", "--batch_size", "64", "--attack_strategy", "FGSM", "--attack_criteria", "diff_entropy", "--attack_type", "ood-detect", "--threshold", "-17.2113", "--ood_dataset", "CIFAR10", "--val_dataset", "--dataset_size_limit", "200", "./runtime-data", "MNIST", "./attack-fgsm-new"]
         },
         {
             "name": "Module attack_priornet pgd confidence",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.5", "0.9", "--batch_size", "64", "--dataset_size_limit", "200", "--attack_type", "PGD",  "--attack_criteria", "confidence", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.5", "0.9", "--batch_size", "64", "--dataset_size_limit", "1000", "--attack_strategy", "PGD",  "--attack_criteria", "confidence", "--max_steps", "10", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "Module attack_priornet pgd ood-detect confidence l2",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-conv","--gpu", "-1", "--epsilon", "0.3", "0.9", "--batch_size", "64", "--dataset_size_limit", "2000", "--attack_type", "PGD", "--attack_criteria", "confidence", "--norm", "2", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.3", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "2000", "--attack_strategy", "PGD", "--attack_criteria", "confidence", "--threshold", "-0.16398","--ood_dataset", "OMNIGLOT", "--norm", "2", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "Module certify_priornet val 200",

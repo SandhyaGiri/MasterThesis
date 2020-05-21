@@ -16,7 +16,7 @@ slurm:
 
 fixed:
   in_domain_dataset: MNIST
-  ood_dataset: SVHN
+  ood_dataset: OMNIGLOT
   model_dir: "./runtime-model-vgg6-50epochs-robust"
   data_dir: "./runtime-data"
   batch_size: 64
@@ -27,11 +27,12 @@ fixed:
   run_eval: False
   run_attack: False
   epsilon_list: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-  eval_ood_during_attack: False
-  attack_type: "PGD"
+  threshold: -0.16398
+  attack_type: "ood-detect" # one of ['misclassify', 'ood-detects']
+  attack_strategy: "PGD"
   attack_criteria: "confidence" # use ['confidence', 'diff_entropy']
   attack_norm: "inf"
-  max_steps: 100
+  max_steps: 10
   run_certification: True
   certify_task: "ood-detect"
   n0: 100

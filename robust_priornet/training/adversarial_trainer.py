@@ -6,12 +6,15 @@ from typing import Any, Dict
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 import torch.utils.data as data
 from sklearn.metrics import roc_curve
+from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
 from ..datasets.adversarial_dataset import AdversarialDataset
-from ..eval.uncertainty import UncertaintyMeasuresEnum
+from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
+from ..eval.uncertainty import UncertaintyEvaluator, UncertaintyMeasuresEnum
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import save_model_with_params_from_ckpt
@@ -44,7 +47,7 @@ def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum)
         median_indices.append(indices[math.floor(num_optimal_thresholds/2)])
     # log the TPR and FPR at these thresholds
     for ind in median_indices:
-        print("Min fn value: ", opt_fn_value[ind])
+        print("Max fn value: ", opt_fn_value[ind])
         print(f"Threshold: {thresholds[ind]}, TPR: {tpr[ind]}, FPR: {fpr[ind]}")
     return np.mean(thresholds[median_indices])
 
@@ -191,7 +194,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # persist only random sampled 100 images
             indices = np.arange(len(id_train_adv_set))
 
-            id_train_adv_subset = data.Subset(id_train_adv_set, random.sample(list(indices), 100))
+            id_train_adv_subset = data.Subset(id_train_adv_set, random.sample(list(indices), min(100, len(indices))))
             adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
             os.makedirs(adv_dir)
             persist_image_dataset(id_train_adv_subset,
@@ -199,7 +202,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                   adv_dir)
 
             indices = np.arange(len(ood_train_adv_set))
-            ood_train_adv_subset = data.Subset(ood_train_adv_set, random.sample(list(indices), 100))
+            ood_train_adv_subset = data.Subset(ood_train_adv_set, random.sample(list(indices), min(100, len(indices))))
             adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images-ood')
             os.makedirs(adv_dir)
             persist_image_dataset(ood_train_adv_subset,
@@ -207,17 +210,156 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                   adv_dir)
 
         # Dataloaders for adv train dataset
-        id_train_adv_loader = DataLoader(id_train_adv_set,
-                                         batch_size=self.batch_size,
-                                         shuffle=True,
-                                         num_workers=self.num_workers,
-                                         pin_memory=self.pin_memory)
+        id_train_adv_loader = None
+        if len(id_train_adv_set) > 0:
+            id_train_adv_loader = DataLoader(id_train_adv_set,
+                                             batch_size=self.batch_size,
+                                             shuffle=True,
+                                             num_workers=self.num_workers,
+                                             pin_memory=self.pin_memory)
 
-        ood_train_adv_loader = DataLoader(ood_train_adv_set,
-                                          batch_size=self.batch_size,
-                                          shuffle=True,
-                                          num_workers=self.num_workers,
-                                          pin_memory=self.pin_memory)
-        return self._train_single_epoch(id_train_adv_loader,
-                                        ood_train_adv_loader,
-                                        is_adversarial_epoch=True)
+        ood_train_adv_loader = None
+        if len(ood_train_adv_set) > 0:
+            ood_train_adv_loader = DataLoader(ood_train_adv_set,
+                                              batch_size=self.batch_size,
+                                              shuffle=True,
+                                              num_workers=self.num_workers,
+                                              pin_memory=self.pin_memory)
+
+        return self._train_single_epoch_adversarial(id_train_adv_loader,
+                                        ood_train_adv_loader)
+        
+    def _train_single_epoch_adversarial(self, id_train_loader, ood_train_loader):
+        """
+        Overriding normal training epoch, as for adversarial datasets
+        we could have imbalanced id and ood datasets or sometimes no
+        adversarial for in->out or out->in.
+        """
+        # Set model in train mode
+        self.model.train()
+
+        # metrics to be collected
+        accuracies = 0.0
+        kl_loss = 0.0
+        id_loss, ood_loss = 0.0, 0.0
+        id_precision, ood_precision = 0.0, 0.0
+        id_outputs_all = None
+        ood_outputs_all = None
+        
+        if id_train_loader is not None:
+            # train on id samples separately
+            for i, (data) in enumerate(id_train_loader, 0):
+                # Get inputs
+                inputs, labels = data
+                # print("In domain tensor shape: ", inputs.shape)
+                # print("Out domain tensor shape: ", ood_inputs.shape)
+                if self.device is not None:
+                    inputs, labels = map(lambda x: x.to(self.device,
+                                                        non_blocking=self.pin_memory),
+                                        (inputs, labels))
+
+                # zero the parameter gradients
+                self.optimizer.zero_grad()
+
+                # eval id_samples
+                id_outputs = self.model(inputs)
+                # accumulate all outputs by the model
+                if id_outputs_all is None:
+                    id_outputs_all = id_outputs
+                else:
+                    id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
+
+                # Calculate train loss (only ID loss)
+                loss = self.id_criterion(id_outputs, labels)
+                assert torch.all(torch.isfinite(loss)).item()
+                kl_loss += loss.item()
+
+                loss.backward()
+                clip_grad_norm_(self.model.parameters(), self.clip_norm)
+                self.optimizer.step()
+
+                # precision of the dirichlet dist outputed by the model (id), 
+                # averaged across all samples in batch
+                id_alphas = torch.exp(id_outputs)
+                id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
+
+                probs = F.softmax(id_outputs, dim=1)
+                accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
+                                                                        self.device).item()
+                accuracies += accuracy
+
+            # average the metrics over all steps (batches) in this epoch
+            num_batches = len(self.id_train_loader)
+            accuracies /= num_batches
+            kl_loss /= num_batches
+            id_precision /= num_batches
+
+            if self.log_uncertainties:
+                id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
+                uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties-adv')
+                if not os.path.exists(uncertainty_dir):
+                    os.makedirs(uncertainty_dir)
+                for key in id_uncertainties.keys():
+                    np.savetxt(os.path.join(uncertainty_dir, 'id_' + key._value_ + '.txt'),
+                            id_uncertainties[key])
+        id_loss = kl_loss
+        kl_loss = 0.0
+
+        if ood_train_loader is not None:
+            # train on ood samples separately
+            for i, (ood_data) in enumerate(ood_train_loader, 0):
+                # Get inputs
+                ood_inputs, _ = ood_data
+                if self.device is not None:
+                    ood_inputs = ood_inputs.to(self.device, non_blocking=self.pin_memory)
+
+                # zero the parameter gradients
+                self.optimizer.zero_grad()
+
+                # eval ood_samples
+                ood_outputs = self.model(ood_inputs)
+                # accumulate all outputs by the model
+                if ood_outputs_all is None:
+                    ood_outputs_all = ood_outputs
+                else:
+                    ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
+
+                # Calculate train loss (only OOD loss)
+                loss = self.ood_criterion(ood_outputs, None)
+                assert torch.all(torch.isfinite(loss)).item()
+                kl_loss += loss.item()
+
+                loss.backward()
+                clip_grad_norm_(self.model.parameters(), self.clip_norm)
+                self.optimizer.step()
+
+                # precision of the dirichlet dist outputed by the model (ood),
+                # averaged across all samples in batch
+                ood_alphas = torch.exp(ood_outputs)
+                ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
+
+            # average the metrics over all steps (batches) in this epoch
+            num_batches = len(self.ood_train_loader)
+            kl_loss /= num_batches
+            ood_precision /= num_batches
+
+            if self.log_uncertainties:
+                ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
+                uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties-adv')
+                if not os.path.exists(uncertainty_dir):
+                    os.makedirs(uncertainty_dir)
+                for key in ood_uncertainties.keys():
+                    np.savetxt(os.path.join(uncertainty_dir, 'id_' + key._value_ + '.txt'),
+                            ood_uncertainties[key])
+        ood_loss = kl_loss
+        # for adv epoch, we cannot compute overall PriorNetWeightedLoss having both id and ood loss
+        kl_loss = 0.0
+        # returns average metrics (loss, accuracy, dirichlet_dist_precision)
+        return {
+            'loss': np.round(kl_loss, 4),
+            'id_loss': np.round(id_loss, 4),
+            'ood_loss': np.round(ood_loss, 4),
+            'id_accuracy': np.round(100.0 * accuracies, 2),
+            'id_precision': np.round(id_precision, 4),
+            'ood_precision': np.round(ood_precision, 4)
+        }
