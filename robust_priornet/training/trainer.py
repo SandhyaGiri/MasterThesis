@@ -219,8 +219,8 @@ class PriorNetTrainer:
         ood_precision /= num_batches
 
         if self.log_uncertainties:
-            id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().numpy()).get_all_uncertainties()
-            ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().numpy()).get_all_uncertainties()
+            id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
+            ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
             if is_adversarial_epoch:
                 uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties-adv')
             else:

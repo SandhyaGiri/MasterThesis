@@ -26,6 +26,8 @@ def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum)
     target_labels = np.concatenate((np.zeros_like(id_uncertainty),
                                     np.ones_like(ood_uncertainty)), axis=0)
     decision_fn_value = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+    if uncertainty_measure == UncertaintyMeasuresEnum.CONFIDENCE:
+        decision_fn_value *= -1.0
     fpr, tpr, thresholds = roc_curve(target_labels, decision_fn_value)
     opt_fn_value = (tpr - fpr)
     indices = np.argwhere(opt_fn_value == np.amax(opt_fn_value)).flatten().tolist()

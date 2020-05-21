@@ -196,6 +196,7 @@ def main():
                                      'train' if args.train_dataset else 'test')
     if args.dataset_size_limit is not None:
         id_dataset = DataSpliter.reduceSize(id_dataset, args.dataset_size_limit)
+    print(f"In domain dataset: {len(id_dataset)}")
 
     if args.val_dataset:
         _, ood_dataset = vis.get_dataset(args.ood_dataset,
@@ -212,6 +213,7 @@ def main():
                                       'train' if args.train_dataset else 'test')
     if args.dataset_size_limit is not None:
         ood_dataset = DataSpliter.reduceSize(ood_dataset, args.dataset_size_limit)
+    print(f"Out domain dataset: {len(ood_dataset)}")
 
     rand_smoother = RandomizedSmoother(model,
                                        num_classes,
