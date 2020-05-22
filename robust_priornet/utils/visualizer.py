@@ -245,7 +245,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
         _, plt_axis = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
 
     plt_axis.set_yticks(np.arange(0, 1.1, step=0.1))
-    plt_axis.set_xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
+    plt_axis.set_xticks(np.arange(0, np.max(epsilon)+0.1, step=0.1))
     plot_curve(epsilon, adv_success_rates, plt_axis, x_label='Epsilon',
                y_label='Adversarial Success Rate',
                x_lim=(0.0, np.max(epsilon)+ 0.1), y_lim=(0.0, 1.1),
@@ -262,7 +262,7 @@ def plot_many_epsilon_curves(epsilon: list, adv_success_rates: list,
                              result_dir: str,
                              file_name: str):
     # send adv_success_rates as list of lists for each curve to be plotted.
-    _, axes = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
+    _, axes = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
     num_curves = len(adv_success_rates)
     for curve_index in range(num_curves):
         plot_epsilon_curve(epsilon, adv_success_rates[curve_index],

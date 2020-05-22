@@ -32,6 +32,7 @@ fixed:
   lr_decay_milestones: [1]
   batch_size: 64
   adv_training: False
+  adv_training_type: "ood-detect" # ['normal', 'ood-detect']
   adv_attack_type: "FGSM"
   adv_epsilon: 0.5
   adv_attack_criteria: "diff_entropy"

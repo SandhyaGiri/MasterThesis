@@ -22,8 +22,10 @@ def config():
 @ex.automain
 def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch,
         fc_layers, num_epochs, num_channels, learning_rate, drop_rate, target_precision,
-        model_dir, resume_from_ckpt, data_dir, lr_decay_milestones, batch_size, adv_training, adv_attack_type,
-        adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images, pgd_norm, pgd_max_steps, logdir):
+        model_dir, resume_from_ckpt, data_dir, lr_decay_milestones, batch_size,
+        adv_training, adv_training_type, adv_attack_type,
+        adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
+        pgd_norm, pgd_max_steps, logdir):
 
     logging.info('Received the following configuration:')
     logging.info(f'In domain dataset: {in_domain_dataset}, OOD dataset: {ood_dataset}')
@@ -51,7 +53,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} \
             --target_precision {target_precision} --include_adv_samples \
-            {adv_model} {adv_persist} {resume} \
+            {adv_model} {adv_persist} {resume} --adv_training_type {adv_training_type} \
             --adv_attack_type {adv_attack_type} --adv_attack_criteria {adv_attack_criteria} \
             --adv_epsilon {adv_epsilon} --pgd_norm {pgd_norm} --pgd_max_steps {pgd_max_steps} \
             {data_dir} {in_domain_dataset} {ood_dataset}'

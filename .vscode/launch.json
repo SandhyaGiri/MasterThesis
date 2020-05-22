@@ -19,6 +19,13 @@
             "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "10", "--batch_size", "64","--dataset_size_limit", "1000", "--include_adv_samples", "--adv_attack_type", "FGSM", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "CIFAR10"]
         },
         {
+            "name": "Module train_priornet pgd adversarial misclassify",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--adv_training_type", "normal", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
             "name": "Module train_priornet pgd adversarial",
             "type": "python",
             "request": "launch",

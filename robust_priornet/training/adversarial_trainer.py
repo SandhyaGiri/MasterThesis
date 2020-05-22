@@ -170,18 +170,11 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         """
         Generates adversarial dataset and trains the model on them.
         """
+        id_train_adv_loader = None
+        ood_train_adv_loader = None
         if self.adv_training_type == "normal":
-            additional_args = {''} # TODO - complete it
-        elif self.adv_training_type == "ood-detect":
-            threshold = get_optimal_threshold(os.path.join(self.log_dir,
-                                                           f'epoch-{self.epochs+1}-uncertainties'),
-                                              self.uncertainty_measure)
-            additional_args = {'only_true_adversaries': True,
-                               'uncertainty_measure': self.uncertainty_measure,
-                               'uncertainty_threshold': threshold
-                               }
-        id_train_adv_set = []
-        if not self.only_out_in_adversarials:
+            # only works on in domain samples which get misclassified under attack
+            additional_args = {'only_true_adversaries': True}
             id_train_adv_set = AdversarialDataset(self.id_train_dataset,
                                                   self.adv_attack_type.lower(),
                                                   self.model,
@@ -194,58 +187,102 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                   device=self.device,
                                                   adv_success_detect_type=self.adv_training_type,
                                                   **additional_args)
-        ood_train_adv_set = AdversarialDataset(self.ood_train_dataset,
-                                               self.adv_attack_type.lower(),
-                                               self.model,
-                                               self.attack_params['epsilon'],
-                                               self.adv_ood_attack_criteria,
-                                               self.attack_params['norm'],
-                                               self.attack_params['step_size'],
-                                               self.attack_params['max_steps'],
-                                               batch_size=self.batch_size,
-                                               device=self.device,
-                                               adv_success_detect_type=self.adv_training_type,
-                                               ood_dataset=True,
-                                               **additional_args)
-        print(f"Number of in->out adversarials generated: {len(id_train_adv_set)}")
-        print(f"Number of out->in adversarials generated: {len(ood_train_adv_set)}")
-        # persist images. as model progresses in training, attack gradients
-        # will differ and we should get different adv images
-        if self.attack_params['adv_persist_images']:
-            # persist only random sampled 100 images
-            indices = np.arange(len(id_train_adv_set))
+            print(f"Number of misclassification adversarials generated: {len(id_train_adv_set)}")
+            if self.attack_params['adv_persist_images']:
+                # persist only random sampled 100 images
+                indices = np.arange(len(id_train_adv_set))
+                id_train_adv_subset = data.Subset(id_train_adv_set,
+                                                  random.sample(list(indices),
+                                                                min(100, len(indices))))
+                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
+                os.makedirs(adv_dir)
+                persist_image_dataset(id_train_adv_subset,
+                                      *self.dataset_persistence_params,
+                                      adv_dir)
+            # data loader for the adv dataset generated
+            if len(id_train_adv_set) > 0:
+                id_train_adv_loader = DataLoader(id_train_adv_set,
+                                                 batch_size=self.batch_size,
+                                                 shuffle=True,
+                                                 num_workers=self.num_workers,
+                                                 pin_memory=self.pin_memory)
+        elif self.adv_training_type == "ood-detect":
+            threshold = get_optimal_threshold(os.path.join(self.log_dir,
+                                                           f'epoch-{self.epochs+1}-uncertainties'),
+                                              self.uncertainty_measure)
+            additional_args = {'only_true_adversaries': True,
+                               'uncertainty_measure': self.uncertainty_measure,
+                               'uncertainty_threshold': threshold
+                               }
+            id_train_adv_set = []
+            if not self.only_out_in_adversarials:
+                id_train_adv_set = AdversarialDataset(self.id_train_dataset,
+                                                      self.adv_attack_type.lower(),
+                                                      self.model,
+                                                      self.attack_params['epsilon'],
+                                                      self.adv_id_attack_criteria,
+                                                      self.attack_params['norm'],
+                                                      self.attack_params['step_size'],
+                                                      self.attack_params['max_steps'],
+                                                      batch_size=self.batch_size,
+                                                      device=self.device,
+                                                      adv_success_detect_type=
+                                                      self.adv_training_type,
+                                                      **additional_args)
+            ood_train_adv_set = AdversarialDataset(self.ood_train_dataset,
+                                                   self.adv_attack_type.lower(),
+                                                   self.model,
+                                                   self.attack_params['epsilon'],
+                                                   self.adv_ood_attack_criteria,
+                                                   self.attack_params['norm'],
+                                                   self.attack_params['step_size'],
+                                                   self.attack_params['max_steps'],
+                                                   batch_size=self.batch_size,
+                                                   device=self.device,
+                                                   adv_success_detect_type=self.adv_training_type,
+                                                   ood_dataset=True,
+                                                   **additional_args)
+            print(f"Number of in->out adversarials generated: {len(id_train_adv_set)}")
+            print(f"Number of out->in adversarials generated: {len(ood_train_adv_set)}")
+            # persist images. as model progresses in training, attack gradients
+            # will differ and we should get different adv images
+            if self.attack_params['adv_persist_images']:
+                # persist only random sampled 100 images
+                indices = np.arange(len(id_train_adv_set))
 
-            id_train_adv_subset = data.Subset(id_train_adv_set, random.sample(list(indices), min(100, len(indices))))
-            adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
-            os.makedirs(adv_dir)
-            persist_image_dataset(id_train_adv_subset,
-                                  *self.dataset_persistence_params,
-                                  adv_dir)
+                id_train_adv_subset = data.Subset(id_train_adv_set,
+                                                  random.sample(list(indices),
+                                                                min(100, len(indices))))
+                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
+                os.makedirs(adv_dir)
+                persist_image_dataset(id_train_adv_subset,
+                                      *self.dataset_persistence_params,
+                                      adv_dir)
 
-            indices = np.arange(len(ood_train_adv_set))
-            ood_train_adv_subset = data.Subset(ood_train_adv_set, random.sample(list(indices), min(100, len(indices))))
-            adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images-ood')
-            os.makedirs(adv_dir)
-            persist_image_dataset(ood_train_adv_subset,
-                                  *self.dataset_persistence_params,
-                                  adv_dir)
+                indices = np.arange(len(ood_train_adv_set))
+                ood_train_adv_subset = data.Subset(ood_train_adv_set,
+                                                   random.sample(list(indices),
+                                                                 min(100, len(indices))))
+                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images-ood')
+                os.makedirs(adv_dir)
+                persist_image_dataset(ood_train_adv_subset,
+                                      *self.dataset_persistence_params,
+                                      adv_dir)
 
-        # Dataloaders for adv train dataset
-        id_train_adv_loader = None
-        if len(id_train_adv_set) > 0:
-            id_train_adv_loader = DataLoader(id_train_adv_set,
-                                             batch_size=self.batch_size,
-                                             shuffle=True,
-                                             num_workers=self.num_workers,
-                                             pin_memory=self.pin_memory)
+            # Dataloaders for adv train dataset
+            if len(id_train_adv_set) > 0:
+                id_train_adv_loader = DataLoader(id_train_adv_set,
+                                                 batch_size=self.batch_size,
+                                                 shuffle=True,
+                                                 num_workers=self.num_workers,
+                                                 pin_memory=self.pin_memory)
 
-        ood_train_adv_loader = None
-        if len(ood_train_adv_set) > 0:
-            ood_train_adv_loader = DataLoader(ood_train_adv_set,
-                                              batch_size=self.batch_size,
-                                              shuffle=True,
-                                              num_workers=self.num_workers,
-                                              pin_memory=self.pin_memory)
+            if len(ood_train_adv_set) > 0:
+                ood_train_adv_loader = DataLoader(ood_train_adv_set,
+                                                  batch_size=self.batch_size,
+                                                  shuffle=True,
+                                                  num_workers=self.num_workers,
+                                                  pin_memory=self.pin_memory)
 
         return self._train_single_epoch_adversarial(id_train_adv_loader,
                                         ood_train_adv_loader)
