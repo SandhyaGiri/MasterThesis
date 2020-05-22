@@ -242,7 +242,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                        save_fig=True,
                        plt_axis=None):
     if plt_axis is None:
-        _, plt_axis = plt.subplots(nrows=1, ncols=1)
+        _, plt_axis = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
 
     plt_axis.set_yticks(np.arange(0, 1.1, step=0.1))
     plt_axis.set_xticks(np.arange(np.min(epsilon), np.max(epsilon)+0.1, step=0.1))
@@ -252,7 +252,7 @@ def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                curve_title=plt_label, show_legend=(True if plt_label != '' else False),
                title=f'Adversarial Success Rate vs Epsilon - {title}',
                additional_plt_args=['*-'],
-               title_wrap_length=150)
+               title_wrap_length=100)
     if save_fig:
         plt.savefig(os.path.join(result_dir, file_name))
 

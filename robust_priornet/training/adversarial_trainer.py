@@ -68,8 +68,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  pin_memory=False, log_dir='.',
                  attack_params: Dict[str, Any] = {},
                  dataset_persistence_params=[],
-                 adv_training_type: str='normal',
-                 uncertainty_measure: UncertaintyMeasuresEnum=UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY):
+                 adv_training_type: str = 'normal',
+                 uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
+                 only_out_in_adversarials: bool = False):
         """
         for "ood-detect adversarial training, we need to know the uncertainty_measure used to the binary
         classification between in-domain and out-domain samples."
@@ -96,8 +97,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.dataset_persistence_params = dataset_persistence_params
         self.adv_training_type = adv_training_type
         self.uncertainty_measure = uncertainty_measure
+        self.only_out_in_adversarials = only_out_in_adversarials
 
-    def train(self, num_epochs=None, num_steps=None, resume=False):
+    def train(self, num_epochs=None, num_steps=None, resume=False, ckpt=None):
         """
         Provide either num_epochs, or num_steps indicating total number of training
         steps to be performed.
@@ -108,7 +110,15 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         else:
             assert isinstance(num_epochs, int)
 
-        for epoch in range(num_epochs):
+        assert resume is False or ckpt is not None
+        init_epoch = 0
+        if resume is True:
+            init_epoch = ckpt['epochs'] + 1
+            self.optimizer.load_state_dict(ckpt['opt_state_dict'])
+            self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
+            print(f"Model restored from checkpoint at epoch {init_epoch}")
+
+        for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
             self.epochs = epoch
             ###################
@@ -120,6 +130,15 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                      self.ood_train_loader)
             adv_train_results = self._adv_train_single_epoch() # train with adversarial images
             end = time.time()
+
+            # save the checkpoint every epoch
+            save_model_with_params_from_ckpt(self.model, self.log_dir,
+                                             name='checkpoint.tar',
+                                             additional_params={
+                                                 'epochs': self.epochs,
+                                                 'opt_state_dict': self.optimizer.state_dict(),
+                                                 'lr_scheduler_state_dict': self.lr_scheduler.state_dict()
+                                             })
 
             ######################
             # validate the model #
@@ -161,18 +180,20 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                'uncertainty_measure': self.uncertainty_measure,
                                'uncertainty_threshold': threshold
                                }
-        id_train_adv_set = AdversarialDataset(self.id_train_dataset,
-                                              self.adv_attack_type.lower(),
-                                              self.model,
-                                              self.attack_params['epsilon'],
-                                              self.adv_id_attack_criteria,
-                                              self.attack_params['norm'],
-                                              self.attack_params['step_size'],
-                                              self.attack_params['max_steps'],
-                                              batch_size=self.batch_size,
-                                              device=self.device,
-                                              adv_success_detect_type=self.adv_training_type,
-                                              **additional_args)
+        id_train_adv_set = []
+        if not self.only_out_in_adversarials:
+            id_train_adv_set = AdversarialDataset(self.id_train_dataset,
+                                                  self.adv_attack_type.lower(),
+                                                  self.model,
+                                                  self.attack_params['epsilon'],
+                                                  self.adv_id_attack_criteria,
+                                                  self.attack_params['norm'],
+                                                  self.attack_params['step_size'],
+                                                  self.attack_params['max_steps'],
+                                                  batch_size=self.batch_size,
+                                                  device=self.device,
+                                                  adv_success_detect_type=self.adv_training_type,
+                                                  **additional_args)
         ood_train_adv_set = AdversarialDataset(self.ood_train_dataset,
                                                self.adv_attack_type.lower(),
                                                self.model,
@@ -248,6 +269,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         
         if id_train_loader is not None:
             # train on id samples separately
+            print("Training on in->out adversarial images")
             for i, (data) in enumerate(id_train_loader, 0):
                 # Get inputs
                 inputs, labels = data
@@ -272,9 +294,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 # Calculate train loss (only ID loss)
                 loss = self.id_criterion(id_outputs, labels)
                 assert torch.all(torch.isfinite(loss)).item()
+                kl_loss += loss.item()
                 # divide the loss by id precision, so that loss is inline with lr
                 loss = loss / self.id_criterion.target_precision
-                kl_loss += loss.item()
 
                 loss.backward()
                 clip_grad_norm_(self.model.parameters(), self.clip_norm)
@@ -309,6 +331,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
 
         if ood_train_loader is not None:
             # train on ood samples separately
+            print("Training on out->in adversarial images")
             for i, (ood_data) in enumerate(ood_train_loader, 0):
                 # Get inputs
                 ood_inputs, _ = ood_data
@@ -351,7 +374,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 if not os.path.exists(uncertainty_dir):
                     os.makedirs(uncertainty_dir)
                 for key in ood_uncertainties.keys():
-                    np.savetxt(os.path.join(uncertainty_dir, 'id_' + key._value_ + '.txt'),
+                    np.savetxt(os.path.join(uncertainty_dir, 'ood_' + key._value_ + '.txt'),
                             ood_uncertainties[key])
         ood_loss = kl_loss
         # for adv epoch, we cannot compute overall PriorNetWeightedLoss having both id and ood loss

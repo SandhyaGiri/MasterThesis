@@ -81,7 +81,7 @@ class PriorNetTrainer:
         self.epochs: int = 0
 
 
-    def train(self, num_epochs=None, num_steps=None, resume=False):
+    def train(self, num_epochs=None, num_steps=None, resume=False, ckpt=None):
         """
         Provide either num_epochs, or num_steps indicating total number of training
         steps to be performed.
@@ -92,10 +92,17 @@ class PriorNetTrainer:
         else:
             assert isinstance(num_epochs, int)
 
+        assert resume is False or ckpt is not None
+        if resume is True:
+            init_epoch = ckpt['epochs'] + 1
+            self.optimizer.load_state_dict(ckpt['opt_state_dict'])
+            self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
+            print(f"Model restored from checkpoint at epoch {init_epoch}")
+
         # initialize the early_stopping object
         # early_stopping = EarlyStopping(patience=self.patience, verbose=True)
 
-        for epoch in range(num_epochs):
+        for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
             self.epochs = epoch
             ###################
@@ -106,7 +113,14 @@ class PriorNetTrainer:
             train_results = self._train_single_epoch(self.id_train_loader,
                                                      self.ood_train_loader)
             end = time.time()
-
+            # save the checkpoint every epoch
+            save_model_with_params_from_ckpt(self.model, self.log_dir,
+                                             name='checkpoint.tar',
+                                             additional_params={
+                                                 'epochs': self.epochs,
+                                                 'opt_state_dict': self.optimizer.state_dict(),
+                                                 'lr_scheduler_state_dict': self.lr_scheduler.state_dict()
+                                             })
             ######################
             # validate the model #
             ######################
@@ -184,8 +198,11 @@ class PriorNetTrainer:
             kl_loss += loss.item()
 
             # Measures ID and OOD losses
+            # prev_id_loss = id_loss
             id_loss += self.id_criterion(id_outputs, labels).item()
+            # prev_ood_loss = ood_loss
             ood_loss += self.ood_criterion(ood_outputs, None).item()
+            # print(f"Epoch {self.epochs}: ID loss {id_loss - prev_id_loss}, OOD loss: {ood_loss - prev_ood_loss}")
 
             loss.backward()
             clip_grad_norm_(self.model.parameters(), self.clip_norm)

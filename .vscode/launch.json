@@ -23,7 +23,21 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "--batch_size", "64", "--dataset_size_limit", "200", "--include_adv_samples", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "50", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "--batch_size", "64", "--include_adv_samples", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
+            "name": "Module train_priornet pgd adversarial only out->in",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--include_only_out_in_adv_samples","--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
+            "name": "Module train_priornet pgd adversarial only out->in (resume)",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "10", "--batch_size", "64", "--resume_from_ckpt", "--dataset_size_limit", "1000", "--include_adv_samples", "--include_only_out_in_adv_samples","--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module setup_priornet",

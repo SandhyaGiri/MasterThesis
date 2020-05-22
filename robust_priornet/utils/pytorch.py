@@ -13,15 +13,16 @@ def save_model(model: nn.Module, model_params, model_dir):
         'model_state_dict': model.state_dict()
     }, f'{model_dir}/model.tar')
 
-def save_model_with_params_from_ckpt(model: nn.Module, model_dir):
+def save_model_with_params_from_ckpt(model: nn.Module, model_dir, name='model.tar', additional_params={}):
     _, ckpt = load_model(model_dir)
     torch.save({
         'model_constructor': model.__init__,
         'model_params': ckpt['model_params'],
-        'model_state_dict': model.state_dict()
-    }, f'{model_dir}/model.tar')
+        'model_state_dict': model.state_dict(),
+        **additional_params
+    }, f'{model_dir}/{name}')
 
-def load_model(model_dir, device=None):
+def load_model(model_dir, device=None, name='model.tar'):
     """
     Params
     ------
@@ -31,7 +32,7 @@ def load_model(model_dir, device=None):
             desrialized in CPU and move to device where it was saved from, not where it is running
             now.
     """
-    ckpt = torch.load(f'{model_dir}/model.tar', map_location=device)
+    ckpt = torch.load(f'{model_dir}/{name}', map_location=device)
     model_constructor = ckpt['model_constructor']
     model = model_constructor.__self__
     model.load_state_dict(ckpt['model_state_dict'])

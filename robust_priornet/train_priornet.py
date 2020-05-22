@@ -44,6 +44,8 @@ parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
 parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
+parser.add_argument('--resume_from_ckpt', action='store_true',
+                    help='Indicates if model needs to be laoded from checkpoint.tar for further training.')
 # adversarial training arguments
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
@@ -67,6 +69,8 @@ parser.add_argument('--adv_epsilon', type=float, default=0.3,
                     ' to generate adversarial samples.', required=True)
 parser.add_argument('--adv_persist_images', action='store_true',
                     help='Specify this if you want to save the adv images created.')
+parser.add_argument('--include_only_out_in_adv_samples', action='store_true',
+                    help='Specifies to train the model using only out->in adversarials.')
 # PGD adversarial training arguments
 parser.add_argument('--pgd_norm', type=str, choices=['inf', '2'], default='inf',
                     help='The type of norm ball to restrict the adversarial samples to.' +
@@ -76,6 +80,7 @@ parser.add_argument('--pgd_step_size', type=float, default=0.4,
                     ' in PGD attack.')
 parser.add_argument('--pgd_max_steps', type=int, default=10,
                     help='The number of the gradient update steps, to be performed for PGD attack.')
+
 def main():
     args = parser.parse_args()
 
@@ -84,7 +89,8 @@ def main():
 
     # move to device if one available
     device = choose_torch_device(args.gpu)
-    model, ckpt = load_model(args.model_dir, device=device)
+    model, ckpt = load_model(args.model_dir, device=device,
+                             name='checkpoint.tar' if args.resume_from_ckpt else 'model.tar')
     model.to(device)
 
     if args.include_adv_samples and args.adv_model_dir is not None:
@@ -186,7 +192,9 @@ def main():
                                              ],
                                              adv_training_type=args.adv_training_type,
                                              uncertainty_measure=
-                                             ATTACK_CRITERIA_TO_ENUM_MAP[args.adv_attack_criteria])
+                                             ATTACK_CRITERIA_TO_ENUM_MAP[args.adv_attack_criteria],
+                                             only_out_in_adversarials=
+                                             args.include_only_out_in_adv_samples)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
@@ -197,7 +205,7 @@ def main():
                                   batch_size=args.batch_size, device=device,
                                   log_dir=args.model_dir)
 
-    trainer.train(num_epochs=args.num_epochs)
+    trainer.train(num_epochs=args.num_epochs, resume=args.resume_from_ckpt, ckpt=ckpt)
 
 if __name__ == "__main__":
     main()

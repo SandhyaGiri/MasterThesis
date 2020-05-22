@@ -11,7 +11,7 @@ slurm:
     gres: gpu:1
     mem:  8G
     cpus-per-task: 2
-    time: 0-08:00
+    time: 03-00:00 # increase time for adv training!! like 30-00:00
     partition: gpu_all
 
 fixed:
@@ -27,6 +27,7 @@ fixed:
   drop_rate: 0.05
   target_precision: 100
   model_dir: "./runtime-model"
+  resume_from_ckpt: False
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
   batch_size: 64
