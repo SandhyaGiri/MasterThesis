@@ -1,7 +1,7 @@
 
 seml:
   executable: 'eval_seml.py'
-  db_collection: 'priornet-thesis-certify'
+  db_collection: 'priornet-thesis-attack-new'
   output_dir: '~/logs'
   
 slurm:
@@ -11,29 +11,29 @@ slurm:
     gres: gpu:1
     mem:  8G
     cpus-per-task: 2
-    time: 0-08:00
+    time: 03-00:00
     partition: gpu_all
 
 fixed:
   in_domain_dataset: MNIST
-  ood_dataset: OMNIGLOT
-  model_dir: "./runtime-model-vgg6-50epochs-robust"
+  ood_dataset: CIFAR10
+  model_dir: "./runtime-model-vgg6-50epochs"
   data_dir: "./runtime-data"
   batch_size: 64
-  use_train_dataset: True
+  use_train_dataset: False
   use_val_dataset: False
-  dataset_size_limit: 5000
+  dataset_size_limit: None
   logdir: "/nfs/homedirs/giri/priornet/logs"
   run_eval: False
-  run_attack: False
-  epsilon_list: [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
-  threshold: -0.16398
-  attack_type: "ood-detect" # one of ['misclassify', 'ood-detect']
+  run_attack: True
+  epsilon_list: [0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+  threshold: 0.27268
+  attack_type: "misclassify" # one of ['misclassify', 'ood-detect']
   attack_strategy: "PGD"
   attack_criteria: "confidence" # use ['confidence', 'diff_entropy', 'mutual_info']
   attack_norm: "inf"
   max_steps: 10
-  run_certification: True
+  run_certification: False
   certify_task: "ood-detect"
   n0: 100
   n: 1000
