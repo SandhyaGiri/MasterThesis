@@ -1,0 +1,166 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2020
+
+% ready for submission
+% \usepackage{neurips_2020}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2020}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2020}
+
+% to avoid loading the natbib package, add option nonatbib:
+\usepackage[nonatbib]{neurips_2020}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+
+
+% additional packages
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{color}
+\usepackage{amsthm}
+\usepackage{subcaption}
+\usepackage[numbers]{natbib}
+\usepackage{graphicx}
+
+
+
+% tikz pictures
+%\usepackage[usenames,dvipsnames,pdftex,table]{xcolor}
+\usepackage{tikz, ifthen}
+\usetikzlibrary{angles, arrows, arrows.meta,calc,chains,shapes,fit,positioning,decorations.pathmorphing,quotes}
+\usetikzlibrary{arrows.meta,calc,chains,shapes,fit,positioning,decorations.pathmorphing}
+\def\layersep{3.2cm}
+\usetikzlibrary{patterns, shapes, calc}
+
+\usepackage{color}
+\usepackage{colortbl}
+%\usepgfplotslibrary{colorbrewer}
+
+\usetikzlibrary{arrows,positioning} 
+\tikzset{
+	%Define standard arrow tip
+	>=stealth',
+	%Define style for boxes
+	punkt/.style={
+		rectangle,
+		rounded corners,
+		draw=black, very thick,
+		text width=6.5em,
+		minimum height=2em,
+		text centered},
+	% Define arrow style
+	pil/.style={
+		->,
+		thick,
+		shorten <=2pt,
+		shorten >=2pt,}
+	% arrows 
+	state/.style={circle,draw,minimum size=6ex},
+	arrow/.style={-latex, shorten >=1ex, shorten <=1ex}
+}
+
+\usepackage{pgf}
+
+
+\usepackage{subcaption,graphicx}
+\newcommand{\rulesep}{\unskip\ \vrule\ }
+
+\newcommand\pgfmathsinandcos[3]{% 
+	\pgfmathsetmacro#1{sin(#3)} 
+	\pgfmathsetmacro#2{cos(#3)}}
+
+
+\usepackage{booktabs}
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+
+% additional commands
+\DeclareMathOperator*{\argmin}{\arg\!\min} 
+\DeclareMathOperator*{\argmax}{\arg\!\max} 
+
+
+\newcommand{\todo}[1]{\textcolor{red}{(TODO: #1)}}
+\newcommand{\sg}[1]{\textcolor{blue}{(SG: #1)}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\title{Robustness of Predictive Uncertainty Estimation Techniques}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+\author{%
+  Anna-Kathrin Kopetzki \\
+  Department of Informatics \\
+  Technical University of Munich \\
+  Munich, Germany \\
+  \texttt{anna.k.kopetzki@tum.de} \\
+  % examples of more authors
+  \And
+   Sandhya Giri \\
+   Department of Informatics \\
+   Technical University of Munich \\
+   Munich, Germany \\
+   \texttt{sandhya.giri@tum.de} \\
+   % examples of more authors
+   \And
+    Stephan G\"unnemann \\
+    Department of Informatics \\
+    Technical University of Munich \\
+    \texttt{guennemann@in.tum.de} \\
+}
+
+\begin{document}
+
+\maketitle
+
+
+\input{experiments.tex}
+
+
+
+
+%Papers may only be up to eight pages long, including figures. Additional pages \emph{containing only a section on the broader impact, acknowledgments and/or cited references} are allowed. Papers that exceed eight pages of content will not be reviewed, or in any other way considered for presentation at the conference.
+
+
+
+
+
+
+
+
+
+\end{document}
