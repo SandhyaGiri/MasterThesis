@@ -25,7 +25,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         use_val_dataset, dataset_size_limit, logdir,
         run_eval, run_attack, epsilon_list, threshold, attack_type,
         attack_strategy, attack_criteria, attack_norm, max_steps,
-        run_certification, certify_task, n0, n, sigma, uncertainty_measure,
+        run_certification, certify_task, certify_only_ood, n0, n, sigma, uncertainty_measure,
         uncertainty_measure_threshold):
     """
     Performs both in-domain evaluation, and ood evaluation and the corresponding results
@@ -95,13 +95,14 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
 
     if run_certification is True:
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
+        only_ood = '--only_ood' if certify_only_ood else ''
         time = int(datetime.timestamp(datetime.now()))
-        out_dir =  os.path.join(model_dir, f"certify-results-{time}")
+        out_dir =  os.path.join(model_dir, f"certify-results-{certify_task}-{in_domain_dataset}-{ood_dataset}-{time}")
         certify_cmd = f"python -m robust_priornet.certify_priornet {gpu_list} \
                     --batch_size {batch_size} --model_dir {model_dir} \
                     {'--train_dataset' if use_train_dataset else ''} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit} \
-                    --certify_task {certify_task} \
+                    --certify_task {certify_task} {only_ood} \
                     --uncertainty_measure {uncertainty_measure} \
                     --uncertainty_measure_threshold {uncertainty_measure_threshold} \
                     --n0 {n0} --n {n} --sigma {sigma} \

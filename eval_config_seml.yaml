@@ -35,6 +35,7 @@ fixed:
   max_steps: 10
   run_certification: False
   certify_task: "ood-detect"
+  certify_only_ood: False
   n0: 100
   n: 1000
   sigma: 0.2

@@ -38,6 +38,8 @@ parser.add_argument('--gpu', type=int, action='append',
 parser.add_argument('--certify_task', choices=['ood-detect', 'normal'],
                     default='ood-detect',
                     help='Specifies the task for which the model needs to be certified.')
+parser.add_argument('--only_ood', action='store_true',
+                    help='Indicates if only ood-dataset needs to be certified for ood-detect task type.')
 # changing a base classifier into a binary classifer for ood-detect task
 parser.add_argument('--uncertainty_measure', choices=UncertaintyMeasuresEnum._member_map_.keys(),
                     required=True,
@@ -148,8 +150,43 @@ def certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset):
         f.write(f'Avg out-domain radius (only correctly classified samples): {np.round(avg_out_radius_correct, 4)}\n')
         f.write(f'Avg robust radius: {(np.sum(in_radius) + np.sum(out_radius)) / len(dataset)}\n')
         f.write(f'Avg robust radius ((only correctly classified samples)): {np.round(avg_radius_correct, 4)}\n')
+        f.write(f'In-domain Accuracy: {np.round(len(np.argwhere(in_pred_labels == 0))/len(in_pred_labels),4)}')
+        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}')
         f.write(f'Accuracy: {correct_preds} correct out of {total_preds}\n')
         f.write(f'Certified accuracy: {np.round(correct_preds/total_preds,4)}')
+
+def certify_ood_detect_only_ood(rand_smoother, args, device, ood_dataset):
+    # in domain = label 0, out domain = label 1
+    labels = np.ones(len(ood_dataset), dtype=np.uint8)
+    out_radius = []
+    out_pred_labels = []
+    for i in range(len(ood_dataset)):
+        image, _ = ood_dataset[i]
+        image = image.to(device)
+        label = labels[i]
+        start = time.time()
+        pred, radius = rand_smoother.certify(image, args.n0, args.n, args.alpha, args.batch_size, 'ood-detect')
+        end = time.time()
+        correct = int(pred == label)
+        out_radius.append(radius)
+        out_pred_labels.append(pred)
+        with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
+            f.write(f'Index: {i}, Label: {label}, Prediction: {pred},'+
+                    f' Correct: {correct}, TimeTaken: {np.round((end-start), 2)} sec\n')
+
+    # save collected results
+    np.savetxt(os.path.join(args.result_dir, 'out_radius.txt'), np.asarray(out_radius))
+    np.savetxt(os.path.join(args.result_dir, 'out_preds.txt'), np.asarray(out_pred_labels))
+    
+    # compute avg radius
+    avg_out_radius_all = np.sum(out_radius) / len(ood_dataset)
+    out_pred_labels = np.asarray(out_pred_labels)
+    out_radius = np.asarray(out_radius)
+    avg_out_radius_correct = np.sum(out_radius[out_pred_labels == 1]) / len(np.argwhere(out_pred_labels == 1))
+    with open(os.path.join(args.result_dir, 'radius.txt'), 'a') as f:
+        f.write(f'Avg out-domain radius: {np.round(avg_out_radius_all, 4)}\n')
+        f.write(f'Avg out-domain radius (only correctly classified samples): {np.round(avg_out_radius_correct, 4)}\n')
+        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}')
 
 def main():
     args = parser.parse_args()
@@ -227,6 +264,11 @@ def main():
     if args.certify_task == 'normal':
         certify_classification(rand_smoother, args, device, id_dataset)
     elif args.certify_task == 'ood-detect':
-        certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset)
+        if args.only_ood:
+            # only ood samples
+            certify_ood_detect_only_ood(rand_smoother, args, device, ood_dataset)
+        else:
+            # both id and ood samples
+            certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset)
 if __name__ == "__main__":
     main()

@@ -93,6 +93,7 @@ class PriorNetTrainer:
             assert isinstance(num_epochs, int)
 
         assert resume is False or ckpt is not None
+        init_epoch = 0
         if resume is True:
             init_epoch = ckpt['epochs'] + 1
             self.optimizer.load_state_dict(ckpt['opt_state_dict'])
