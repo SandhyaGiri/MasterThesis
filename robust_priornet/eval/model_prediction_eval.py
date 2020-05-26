@@ -142,6 +142,6 @@ class ClassifierPredictionEvaluator:
             threshold = (max(decision_fn_value) - min(decision_fn_value)) / 2.0
 
         y_preds = np.zeros_like(y_true)
-        y_preds[decision_fn_value >= threshold] = 1
+        y_preds[np.round(decision_fn_value, 4) >= np.round(threshold, 4)] = 1
 
         return confusion_matrix(y_true, y_preds).ravel()

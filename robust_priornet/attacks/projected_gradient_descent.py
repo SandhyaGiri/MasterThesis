@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import numpy as np
 
 from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
                                 UncertaintyMeasuresEnum)
@@ -15,9 +16,10 @@ def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measur
     logit = model(adv_input)
     uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure,
                                                                          negate_confidence=True)
-    pred = torch.zeros((logit.shape[0], 1))
-    pred[uncertainty_value >= threshold] = 1
-    return pred.item() != label.item() # adversarial success acheieved
+    uncertainty_value = uncertainty_value.detach().cpu().numpy()
+    pred = np.zeros((logit.shape[0]))
+    pred[np.round(uncertainty_value, 4) >= np.round(threshold, 4)] = 1
+    return pred != label.item() # adversarial success acheieved
 
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
