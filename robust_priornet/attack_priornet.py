@@ -1,13 +1,14 @@
 import argparse
-import os
 import copy
+import os
+import random
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.utils.data
+import torch.utils.data as data
 from torch.utils.data import Dataset
 
 from .datasets.adversarial_dataset import AdversarialDataset
@@ -251,10 +252,15 @@ def main():
     if args.dataset_size_limit is not None:
         dataset = DataSpliter.reduceSize(dataset, args.dataset_size_limit)
     print(f"In domain dataset: {len(dataset)}")
+    # save the org images
+    id_indices = np.arange(len(dataset))
+    id_chosen_indices = random.sample(list(id_indices), min(100, len(id_indices)))
     org_dataset_folder = os.path.join(args.result_dir, "org-images")
     if not os.path.exists(org_dataset_folder):
         os.makedirs(org_dataset_folder)
-    persist_image_dataset(dataset, mean, std, num_channels, org_dataset_folder)
+    np.savetxt(os.path.join(org_dataset_folder, 'img_indices.txt'), id_chosen_indices)
+    persist_image_dataset(data.Subset(dataset, id_chosen_indices),
+                          mean, std, num_channels, org_dataset_folder)
 
     # perform original evaluation on the model using unperturbed images
     logits, probs, labels = eval_model_on_dataset(model,
@@ -286,10 +292,15 @@ def main():
         if args.dataset_size_limit is not None:
             ood_dataset = DataSpliter.reduceSize(ood_dataset, args.dataset_size_limit)
         print(f"Out domain dataset: {len(ood_dataset)}")
+        # save the ood org images
+        ood_indices = np.arange(len(ood_dataset))
+        ood_chosen_indices = random.sample(list(ood_indices), min(100, len(ood_indices)))
         org_ood_dataset_folder = os.path.join(args.result_dir, "org-images-ood")
         if not os.path.exists(org_ood_dataset_folder):
             os.makedirs(org_ood_dataset_folder)
-        persist_image_dataset(ood_dataset, mean, std, num_channels, org_ood_dataset_folder)
+        np.savetxt(os.path.join(org_ood_dataset_folder, 'img_indices.txt'), ood_chosen_indices)
+        persist_image_dataset(data.Subset(ood_dataset, ood_chosen_indices),
+                              mean, std, num_channels, org_ood_dataset_folder)
 
     # perform attacks on the same dataset, using different epsilon values.
     misclass_adv_success = []
@@ -314,7 +325,8 @@ def main():
                                          ATTACK_CRITERIA_TO_ENUM_MAP[args.attack_criteria],
                                          uncertainty_threshold=args.threshold)
         print(f"In domain adversarial dataset: {len(adv_dataset)}")
-        persist_image_dataset(adv_dataset, mean, std, num_channels, out_path)
+        persist_image_dataset(data.Subset(adv_dataset, id_chosen_indices),
+                              mean, std, num_channels, out_path)
         #create adversarial dataset - out domain samples
         ood_adv_dataset = None
         if args.attack_type == 'ood-detect':
@@ -332,7 +344,8 @@ def main():
             ood_adv_folder = os.path.join(attack_folder, "adv-images-ood")
             if not os.path.exists(ood_adv_folder):
                 os.makedirs(ood_adv_folder)
-            persist_image_dataset(ood_adv_dataset, mean, std, num_channels, ood_adv_folder)
+            persist_image_dataset(data.Subset(ood_adv_dataset, ood_chosen_indices),
+                                  mean, std, num_channels, ood_adv_folder)
         # assess model perf using adv images
         adv_success = perform_epsilon_attack(model, adv_dataset, correct_classified_indices,
                                              attack_criteria_enum=
