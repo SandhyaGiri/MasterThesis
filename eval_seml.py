@@ -97,7 +97,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
         only_ood = '--only_ood' if certify_only_ood else ''
         time = int(datetime.timestamp(datetime.now()))
-        out_dir =  os.path.join(model_dir, f"certify-results-{certify_task}-{in_domain_dataset}-{ood_dataset}-{time}")
+        out_dir =  os.path.join(model_dir, f"certify-results-{certify_task}-{uncertainty_measure}-{in_domain_dataset}-{ood_dataset}-{time}")
         certify_cmd = f"python -m robust_priornet.certify_priornet {gpu_list} \
                     --batch_size {batch_size} --model_dir {model_dir} \
                     {'--train_dataset' if use_train_dataset else ''} \

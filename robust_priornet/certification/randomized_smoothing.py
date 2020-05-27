@@ -32,7 +32,7 @@ class RandomizedSmoother:
         self.base_classifier = base_classifier
         self.num_classes = num_classes
         self.uncertainty_estimator = uncertainty_estimator
-        self.threhsold = decision_threshold
+        self.threshold = decision_threshold
         self.image_normalization_params = image_normalization_params
         self.noise_std_dev = noise_std_dev
 
@@ -83,11 +83,11 @@ class RandomizedSmoother:
         log_alphas = self.base_classifier(normalized_inputs)
         uncertainty_estimates = UncertaintyEvaluatorTorch(log_alphas).get_uncertainty(
             self.uncertainty_estimator, negate_confidence=True)
-        # use threhold value to estimate prob(out dist), prob(in dist)
-        probs = torch.sigmoid(uncertainty_estimates - self.threhsold)
-        preds = torch.zeros_like(probs)
-        preds[probs > 0.5] = 1
-        return preds
+        # use threshold value to estimate the correct label, label=1 for ood, label=0 for id
+        uncertainty_estimates_numpy = uncertainty_estimates.detach().cpu().numpy()
+        preds = np.zeros_like(uncertainty_estimates_numpy)
+        preds[np.round(uncertainty_estimates_numpy, 4) >= np.round(self.threshold, 4)] = 1
+        return torch.tensor(preds).squeeze()
 
     def _eval_normal_classification_task(self, inputs: torch.tensor):
         """
