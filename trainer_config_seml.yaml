@@ -10,9 +10,10 @@ slurm:
   sbatch_options:
     gres: gpu:1
     mem:  8G
-    cpus-per-task: 2
+    cpus-per-task: 8
     time: 03-00:00 # increase time for adv training!! like 30-00:00
     partition: gpu_all
+    qos: 'studentprio'
 
 fixed:
   in_domain_dataset: MNIST
@@ -20,6 +21,7 @@ fixed:
   num_classes: 10
   ood_dataset: OMNIGLOT
   model_arch: vgg6
+  rpn_wrapper: False
   fc_layers: [100,90,80,50]
   num_epochs: 50
   num_channels: 1
@@ -32,10 +34,11 @@ fixed:
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
   batch_size: 64
+  dataset_size_limit: None
   adv_training: True
   only_out_in_adv: False
   adv_training_type: "ood-detect" # ['normal', 'ood-detect']
-  adv_attack_type: "FGSM"
+  adv_attack_type: "PGD"
   adv_epsilon: 0.5
   adv_attack_criteria: "diff_entropy"
   adv_model_dir: ""

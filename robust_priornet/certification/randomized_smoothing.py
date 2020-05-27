@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from scipy.stats import norm
 from statsmodels.stats.proportion import proportion_confint
+from scipy.stats import norm, binom_test
 
 from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
                                 UncertaintyMeasuresEnum)
@@ -18,6 +19,9 @@ class RandomizedSmoother:
     Performs both in domain data classification for classifying image correctly
     into one of the target classess (multi-class) and in-out classification (binary).
     Tasks: 'normal', 'ood-detect'
+    
+    IMP: Cannot be used to train the base_classifier, model is set to eval mode before
+    computing the predictions.
     """
     # to abstain from making a prediction/certification, this int will be returned.
     ABSTAIN = -1
@@ -37,7 +41,17 @@ class RandomizedSmoother:
         self.noise_std_dev = noise_std_dev
 
     def predict(self, image: torch.tensor, n: int, alpha: float, batch_size: int):
-        pass
+        # set model in eval mode
+        self.base_classifier.eval()
+        class_pred_counts = self._get_noisy_samples(image, n, batch_size, 'normal')
+        # get top two classes
+        top2 = class_pred_counts.argsort()[::-1][:2]
+        count1 = class_pred_counts[top2[0]]
+        count2 = class_pred_counts[top2[1]]
+        if binom_test(count1, count1 + count2, p=0.5) > alpha:
+            return self.ABSTAIN
+        else:
+            return top2[0]
 
     def certify(self, image: torch.tensor, n0: int, n: int, alpha: float, batch_size: int,
                 task_type: str):
