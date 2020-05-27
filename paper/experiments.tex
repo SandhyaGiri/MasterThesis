@@ -3,61 +3,61 @@
 
 
 
-\begin{table*}
+\begin{table}[ht]
 	\centering
 	\ra{1.3}
-	\caption{Randomized smoothing for robustness verification of prior networks with $\sigma=0.2$ on $10^3$ samples. Models are trained on an in-distribution dataset and out-distribution dataset I and additionally evaluated on a second out-distribution dataset. For verification radius~$r$ and accuracy (acc. in $[\%]$) are compted with respect to the following measures: confidence (conf.), differential entropy (diff. ent.) and distributional uncertainty (dist. uncert.). We compare a normally trained model (normal), models trained on adversarial computed with respect to the measures (conf=/diffE/distU = measure, i=train on in-to-out adversarial examples, o=trained on out-to-in adversarials) and a robustly constructed prior-network (RobPN).}
+	\caption{Randomized smoothing for robustness verification of prior networks with $\sigma=0.2$ on $10^3$ samples. For verification radius~$r$ and accuracy (acc. in $[\%]$) are computed with respect to the following measures: confidence ($m_{\mathrm{conf}}$), differential entropy ($m_{\mathrm{diffE}}$.) and distributional uncertainty ($m_{\mathrm{distU}}$). We compare a normally trained model (Normal), models trained on adversarial ($A$) computed with respect to different uncertainty measures (i=train on in-to-out adversarial examples, o=trained on out-to-in adversarials) and a robustly constructed prior-network (RPN).}
 	\begin{tiny}
 		\begin{tabular}{@{}rrrcrrcrrcrrcrrcrrcrr@{}}
 			\toprule
 			& \multicolumn{8}{c}{in-distribution} &  & \multicolumn{5}{c}{out-distribution I} &   & \multicolumn{5}{c}{out-distribution II} \\
 			\cmidrule{2-9} \cmidrule{11-15} \cmidrule{17-21}
-			& \multicolumn{2}{c}{conf.} &   & \multicolumn{2}{c}{diff. ent.} &   & \multicolumn{2}{c}{distr. uncert.} &   
-			& \multicolumn{2}{c}{diff. ent.} &   & \multicolumn{2}{c}{distr. uncert.} & 
-			& \multicolumn{2}{c}{diff. ent.} &   & \multicolumn{2}{c}{distr. uncert.} \\
+			& \multicolumn{2}{c}{$m_{\mathrm{conf}}$} &   & \multicolumn{2}{c}{$m_{\mathrm{diffE}}$} &   & \multicolumn{2}{c}{$m_{\mathrm{distU}}$} &   
+			& \multicolumn{2}{c}{$m_{\mathrm{diffE}}$} &   & \multicolumn{2}{c}{$m_{\mathrm{distU}}$} & 
+			& \multicolumn{2}{c}{$m_{\mathrm{diffE}}$} &   & \multicolumn{2}{c}{$m_{\mathrm{distU}}$} \\
 			\cmidrule{2-3}  \cmidrule{5-6} \cmidrule{8-9} \cmidrule{11-12}  \cmidrule{14-15} \cmidrule{17-18} \cmidrule{20-21}
 			model & r & acc. & & r & acc. &  & r & acc. & & r & acc. & & r & acc. & & r & acc. & & r & acc. \\
 			\midrule
 			& \multicolumn{8}{c}{MNIST} & & \multicolumn{5}{c}{OMNIGLOT} & & \multicolumn{5}{c}{CIFAR10} \\
-			Normal     & 0.4515 & 98.44 & & 0.471 & 99.98 & & 0.4384 & 98.58 & & 0.4718 & 100.0 & & 0.4717 & 100.0 & & 0.4112 & 93.46 & & 0.3427 & 90.75 \\
-			Conf.      & 0.4682 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-o    & 0.4615 & 99.00 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-io   & 0.4684 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-o    & 0.4606 & 98.96 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-io   & 0.4690 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			RobPN      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			Normal                            & 0.4515 & 98.44 & & 0.471 & 99.98 & & 0.4384 & 98.58 & & 0.4718 & 100.0 & & 0.4717 & 100.0 & & 0.4112 & 93.46 & & 0.3427 & 90.75 \\
+			$\mathrm{A}_{\mathrm{conf}}$       & 0.4682 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{o}}}$  & 0.4615 & 99.00 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{io}}}$ & 0.4684 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{o}}}$  & 0.4606 & 98.96 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{io}}}$ & 0.4690 & 99.36 & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			RPN                                & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
 			\midrule
 			& \multicolumn{8}{c}{MNIST} & & \multicolumn{5}{c}{CIFAR10} & & \multicolumn{5}{c}{OMNIGLOT} \\
-			Normal     & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			Conf.      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			RobPN      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			Normal                             & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{conf}}$       & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			RPN                                & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
 			\midrule
 			& \multicolumn{8}{c}{CIFAR10} & & \multicolumn{5}{c}{SVHN} & & \multicolumn{5}{c}{TIM} \\
-			Normal     & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			Conf.      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			RobPN      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			\midrule
+			Normal                             & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{conf}}$       & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			RPN                                & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+						\midrule
 			& \multicolumn{8}{c}{CIFAR10} & & \multicolumn{5}{c}{LSUN} & & \multicolumn{5}{c}{TIM} \\
-			Normal     & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			Conf.      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DiffE-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-o    & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			DistU-io   & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
-			RobPN      & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			Normal                             & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{conf}}$       & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{diffE_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{o}}}$  & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			$\mathrm{A}_{\mathrm{distU_{io}}}$ & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
+			RPN                                & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. & & .. & .. \\
 			\bottomrule
 		\end{tabular}
 	\end{tiny}
 	\label{tab:res_smoothing}
-\end{table*}
+\end{table}
 
 
 
