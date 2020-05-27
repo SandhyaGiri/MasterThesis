@@ -32,3 +32,13 @@ class TransformsBuilder:
     def add_rgb_channels(self, num_channels):
         if num_channels < 3:
             self._transforms_list.append(transforms.Grayscale(num_output_channels=3))
+
+    def add_padding(self, pad_size):
+        self._transforms_list.append(transforms.Pad(pad_size, padding_mode='reflect'))
+
+    def add_random_flipping(self):
+        self._transforms_list.append(transforms.RandomHorizontalFlip())
+
+    def add_rotation(self, rotation_angle):
+        self._transforms_list.append(transforms.RandomRotation(degrees=rotation_angle,
+                                                               resample=Image.BICUBIC))

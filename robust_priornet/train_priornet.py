@@ -31,6 +31,8 @@ parser.add_argument('ood_dataset', type=str, choices=DatasetEnum._member_map_.ke
                     help='Name of the out-of-domain dataset to be used.')
 parser.add_argument('--model_dir', type=str, default='./',
                     help='Absolute directory path where to load the model from.')
+parser.add_argument('--augment', action='store_true',
+                    help='Indicates whether the dataset should be augmented by flipping, rotations etc.')
 parser.add_argument('--target_precision', type=int, default=1e3,
                     help='Indicates the alpha_0 or the precision of the target dirichlet \
                     for in domain samples.')
@@ -61,12 +63,12 @@ parser.add_argument('--adv_attack_type', type=str, choices=['FGSM', 'PGD'], defa
                     help='Choose the type of attack used to generate adv samples, such that'+
                     ' resulting model is immune to the chosen attack.')
 parser.add_argument('--adv_attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
-                    required=True,
+                    required=False, default='diff_entropy',
                     help='Indicates which loss function to use to compute attack gradient'+
                     ' for generating adversarial samples.')
 parser.add_argument('--adv_epsilon', type=float, default=0.3,
                     help='Strength of perturbation in range of 0 to 1, ex: 0.25,'+
-                    ' to generate adversarial samples.', required=True)
+                    ' to generate adversarial samples.', required=False)
 parser.add_argument('--adv_persist_images', action='store_true',
                     help='Specify this if you want to save the adv images created.')
 parser.add_argument('--include_only_out_in_adv_samples', action='store_true',
@@ -103,16 +105,20 @@ def main():
 
     # build transforms
     trans = TransformsBuilder()
-    # TODO - change mean std to autoamtic calc based on dataset
     mean = (0.5,)
     std = (0.5,)
-    trans.add_resize(ckpt['model_params']['n_in'])
     num_channels = ckpt['model_params']['num_channels']
     if ckpt['model_params']['model_type'].startswith('vgg'):
         trans.add_rgb_channels(num_channels)
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
+    if args.augment:
+        trans.add_padding(4)
+        trans.add_rotation(15)
+        trans.add_random_flipping()
+    trans.add_resize(ckpt['model_params']['n_in'])
     trans.add_to_tensor()
+    # normalize images to range (-1,1)
     trans.add_normalize(mean, std)
 
     id_train_set, id_val_set = vis.get_dataset(args.in_domain_dataset,

@@ -25,7 +25,7 @@ class CustomVGG(nn.Module):
     and classification (fully connected) layers. Also uses different activation functions
     like leakyReLU when specified in either feature or classification layers.
     """
-    def __init__(self, features, classifier_layers, n_in=28, n_out=10, num_channels=1, init_weights=True):
+    def __init__(self, features, classifier_layers, n_in=28, n_out=10, num_channels=1, init_weights=True, activation_fn=nn.ReLU):
         super(CustomVGG, self).__init__()
         self.features = features
         self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
@@ -33,20 +33,21 @@ class CustomVGG(nn.Module):
             *classifier_layers,
             nn.Linear(classifier_layers[-3].out_features, n_out))
         if init_weights:
-            self._initialize_weights()
+            self._initialize_weights(activation_fn)
 
-    def _initialize_weights(self):
-        # TODO - change non-linearity to what is used in the model?
+    def _initialize_weights(self, activation_fn):
+        non_linearity = 'leaky_relu' if activation_fn == nn.LeakyReLU else 'relu'
+        print(f"Weight initialization for nonlinearity :{non_linearity}")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity=non_linearity)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity=non_linearity)
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
@@ -113,4 +114,6 @@ def vgg_model(n_in, n_out, drop_rate, model_type: str, num_channels, **kwargs):
                                        ACTIVATION_CONFIG[model_type],
                                        input_features_to_fc,
                                        drop_prob=drop_rate)
-    return CustomVGG(features, classifier_layers, n_in=n_in, n_out=n_out, num_channels=num_channels)
+    return CustomVGG(features, classifier_layers, n_in=n_in,
+                     n_out=n_out, num_channels=num_channels,
+                     activation_fn=ACTIVATION_CONFIG[model_type])

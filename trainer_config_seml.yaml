@@ -28,6 +28,7 @@ fixed:
   target_precision: 100
   model_dir: "./runtime-model-vgg6-50epochs-adgen-robust-dentropy-out"
   resume_from_ckpt: False
+  augment_data: False
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
   batch_size: 64

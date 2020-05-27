@@ -12,6 +12,14 @@
             "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6", "--num_epochs", "10", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
+            "name": "Module train_priornet cifar10",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--resume_from_ckpt", "--num_epochs", "6", "--batch_size", "64", "--lr", "0.00075", "--augment","--dataset_size_limit", "1000", "--target_precision","100", "./runtime-data", "CIFAR10", "SVHN"]
+        },
+        {
             "name": "Module train_priornet fgsm adversarial",
             "type": "python",
             "request": "launch",
@@ -30,7 +38,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "1", "--batch_size", "64", "--include_adv_samples", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "diff_entropy", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--num_epochs", "1", "--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "CIFAR10", "SVHN"]
         },
         {
             "name": "Module train_priornet pgd adversarial only out->in",
@@ -119,18 +127,18 @@
             "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.5", "0.9", "--batch_size", "64", "--dataset_size_limit", "1000", "--attack_strategy", "PGD",  "--attack_criteria", "confidence", "--max_steps", "10", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
-            "name": "Module attack_priornet pgd ood-detect confidence l2",
+            "name": "Module attack_priornet pgd ood-detect mutual_info l2",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.3", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "2000", "--attack_strategy", "PGD", "--attack_criteria", "confidence", "--threshold", "-0.16398","--ood_dataset", "OMNIGLOT", "--norm", "2", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "2000", "--attack_strategy", "PGD", "--attack_criteria", "mutual_info", "--threshold", "0.35248","--ood_dataset", "OMNIGLOT", "--norm", "2", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "Module certify_priornet val 200",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.certify_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
+            "args": ["--model_dir", "./runtime-model-vgg6-robust-dentropy","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--only_ood", "--uncertainty_measure", "DIFFERENTIAL_ENTROPY", "--uncertainty_measure_threshold", "-12.8051", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "CIFAR10"]
         },
         {
             "name": "Module certify_priornet val 200 classification",

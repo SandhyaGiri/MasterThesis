@@ -27,7 +27,6 @@ class DatasetEnum(Enum):
     def getEnum(cls, name):
         return cls._member_map_.get(name)
 
-
 class BaseData:
     """
     Cutsom wrapper on any torch vision dataset to download all available datasets -
@@ -35,20 +34,20 @@ class BaseData:
     """
     def __init__(self):
         self.train_args = {
-            DatasetEnum.MNIST: { 'train': True },
-            DatasetEnum.CIFAR10: { 'train': True },
-            DatasetEnum.CIFAR100: { 'train': True },
-            DatasetEnum.SVHN: { 'split': 'train'},
-            DatasetEnum.ImageNet: { 'split': 'train'},
-            DatasetEnum.OMNIGLOT: { 'background': True}
+            DatasetEnum.MNIST: {'train': True},
+            DatasetEnum.CIFAR10: {'train': True},
+            DatasetEnum.CIFAR100: {'train': True},
+            DatasetEnum.SVHN: {'split': 'train'},
+            DatasetEnum.ImageNet: {'split': 'train'},
+            DatasetEnum.OMNIGLOT: {'background': True}
         } 
         self.val_args = {
 
         }
         self.test_args = {
-            DatasetEnum.MNIST: { 'train': False },
-            DatasetEnum.CIFAR10: { 'train': False },
-            DatasetEnum.CIFAR100: { 'train': False },
+            DatasetEnum.MNIST: { 'train': False},
+            DatasetEnum.CIFAR10: { 'train': False},
+            DatasetEnum.CIFAR100: { 'train': False},
             DatasetEnum.SVHN: { 'split': 'test'},
             DatasetEnum.ImageNet: { 'split': 'val'},
             DatasetEnum.OMNIGLOT: { 'background': False}
