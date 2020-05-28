@@ -16,9 +16,8 @@ def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measur
     logit = model(adv_input)
     uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure,
                                                                          negate_confidence=True)
-    uncertainty_value = uncertainty_value.detach().cpu().numpy()
-    pred = np.zeros((logit.shape[0]))
-    pred[np.round(uncertainty_value, 4) >= np.round(threshold, 4)] = 1
+    uncertainty_value = uncertainty_value.item()
+    pred = 1 if np.round(uncertainty_value, 4) >= np.round(threshold, 4) else 0
     return pred != label.item() # adversarial success acheieved
 
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
