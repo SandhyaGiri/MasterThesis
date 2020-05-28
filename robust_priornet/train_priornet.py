@@ -132,6 +132,7 @@ def main():
         id_val_set = DataSpliter.reduceSize(id_val_set, args.dataset_size_limit)
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
 
+    
     ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
                                                  args.data_dir,
                                                  trans.get_transforms(),
@@ -154,6 +155,8 @@ def main():
         # duplicate the id_dataset as much as its lesser than ood dataset
         dataset_list = [id_train_set, ] * (int(ratio))
         id_train_set = data.ConcatDataset(dataset_list)
+        if len(id_train_set) > len(ood_train_set):
+            id_train_set = data.Subset(id_train_set, np.arange(0, len(ood_train_set)))
     elif len(id_train_set) > len(ood_train_set):
         ratio = np.ceil(float(len(id_train_set)) / float(len(ood_train_set)))
         dataset_list = [ood_train_set, ] * (int(ratio))
