@@ -38,7 +38,12 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
 
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x),fc_layers))
-    rpn = '--rpn' if rpn_wrapper else ''
+    if rpn_wrapper == 'count':
+        rpn = '--rpn'
+    elif rpn_wrapper == 'simple':
+        rpn = '--rpn_simple'
+    else:
+        rpn = ''
     setup_cmd = f'python -m robust_priornet.setup_priornet --model_arch {model_arch} {rpn} \
         --fc_layers {fc_layers_list} --num_classes {num_classes} --input_size {input_image_size} \
         --drop_prob {drop_rate} --num_channels {num_channels} {model_dir}'

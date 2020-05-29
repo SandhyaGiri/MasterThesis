@@ -36,7 +36,7 @@ class SmoothedPriorNet(nn.Module):
                  image_normalization_params: dict,
                  drop_rate: float,
                  noise_std_dev: float,
-                 num_mc_samples: int, **kwargs): # num_mc_samples not used now, remove later
+                 num_mc_samples: int, **kwargs):
         super(SmoothedPriorNet, self).__init__()
         self.base_classifier = base_classifier
         self.num_classes = n_out
@@ -122,3 +122,76 @@ class SmoothedPriorNet(nn.Module):
             count_vector = count_vector.unsqueeze(1)
             outputs.append(count_vector)
         return torch.log(torch.cat(outputs, dim=1).transpose(0,1))
+
+
+class SmoothedPriorNetSimple(nn.Module):
+    def __init__(self, base_classifier: nn.Module,
+                 n_in: int,
+                 n_out: int,
+                 num_channels: int,
+                 image_normalization_params: dict,
+                 drop_rate: float,
+                 noise_std_dev: float,
+                 num_mc_samples: int, **kwargs):
+        super(SmoothedPriorNetSimple, self).__init__()
+        self.base_classifier = base_classifier
+        self.num_classes = n_out
+        self.image_normalization_params = image_normalization_params
+        self.noise_std_dev = noise_std_dev
+        self.epsilon = 1e-8
+        self.num_samples = num_mc_samples
+
+    def _normalize_image(self, inputs: torch.tensor):
+        mean = inputs.new_tensor(self.image_normalization_params['mean'])
+        mean = mean.repeat(inputs.shape[0], inputs.shape[2],
+                           inputs.shape[3], 1) # (batch_size, H, W, 3)
+        mean = mean.permute(0, 3, 1, 2)
+        std = inputs.new_tensor(self.image_normalization_params['std'])
+        std = std.repeat(inputs.shape[0], inputs.shape[2],
+                         inputs.shape[3], 1) # (batch_size, H, W, 3)
+        std = std.permute(0, 3, 1, 2)
+        normalized_inputs = (inputs - mean) / std
+        return normalized_inputs
+
+    def _accumulate_logits(self, curr_logits: torch.tensor, logits: torch.tensor):
+        if curr_logits is not None:
+            return torch.sum(torch.cat((curr_logits, logits), dim=0), dim=0, keepdim=True)
+        return logits
+
+    def _eval_on_base_classifier(self, inputs):
+        logits = self.base_classifier(inputs)
+        return logits
+
+    def _do_rand_smoothing(self, image: torch.tensor, num_samples: int, batch_size: int):
+        overall_logits = None
+        for _ in range(int(np.ceil(num_samples / batch_size))):
+            this_batch_size = min(batch_size, num_samples)
+            num_samples -= this_batch_size
+
+            batch = image.repeat((this_batch_size, 1, 1, 1))
+            # sample noise from normal dist
+            noise = torch.randn_like(batch) * self.noise_std_dev
+            logits = self._eval_on_base_classifier(batch + noise)
+            overall_logits = self._accumulate_logits(overall_logits, logits)
+        return overall_logits
+
+    def forward(self, x, in_domain=True):
+        """
+        For each input, returns a mean(logits), where logits are the logits
+        outputted by the model for gaussian noise perturbed samples during MC Sampling.
+        """
+        batch_size = x.shape[0]
+
+        samples = self.num_samples
+        outputs = []
+        for i in range(batch_size):
+            image = x[i] # (C, H, W)
+            # eval on gaussian perturbed inputs
+            overall_logits = self._do_rand_smoothing(image, samples, batch_size)
+            # eval on original input
+            org_input_logits = self._eval_on_base_classifier(image.unsqueeze(0))
+            overall_logits = self._accumulate_logits(overall_logits, org_input_logits)
+
+            overall_logits = torch.div(overall_logits, samples+1)
+            outputs.append(overall_logits)
+        return torch.cat(outputs, dim=0)

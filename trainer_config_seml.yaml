@@ -21,7 +21,7 @@ fixed:
   num_classes: 10
   ood_dataset: OMNIGLOT
   model_arch: vgg6
-  rpn_wrapper: False
+  rpn_wrapper: 'simple' # ['simple', 'count']
   fc_layers: [100,90,80,50]
   num_epochs: 50
   num_channels: 1
