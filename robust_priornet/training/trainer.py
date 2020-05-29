@@ -199,11 +199,12 @@ class PriorNetTrainer:
             kl_loss += loss.item()
 
             # Measures ID and OOD losses
-            # prev_id_loss = id_loss
+            prev_id_loss = id_loss
             id_loss += self.id_criterion(id_outputs, labels).item()
-            # prev_ood_loss = ood_loss
+            prev_ood_loss = ood_loss
             ood_loss += self.ood_criterion(ood_outputs, None).item()
-            # print(f"Epoch {self.epochs}: ID loss {id_loss - prev_id_loss}, OOD loss: {ood_loss - prev_ood_loss}")
+            if self.steps % 100 == 0:
+                print(f"Step {self.steps}: ID loss {id_loss - prev_id_loss}, OOD loss: {ood_loss - prev_ood_loss}")
 
             loss.backward()
             clip_grad_norm_(self.model.parameters(), self.clip_norm)
@@ -214,7 +215,7 @@ class PriorNetTrainer:
 
             # precision of the dirichlet dist output by the model (id, ood seprately), 
             # averaged across all samples in batch
-            id_alphas = torch.exp(id_outputs) 
+            id_alphas = torch.exp(id_outputs)
             id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
             ood_alphas = torch.exp(ood_outputs)
             ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()

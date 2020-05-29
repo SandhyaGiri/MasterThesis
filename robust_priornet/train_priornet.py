@@ -19,6 +19,9 @@ from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import choose_torch_device, load_model
 
+# import torchvision
+# from torch.utils.tensorboard import SummaryWriter
+
 parser = argparse.ArgumentParser(description='Train a Prior Network model (esp Dirichlet prior) using a '
                                              'standard feed forward NN on a Torchvision '
                                              'dataset. Multi task training when both in-domain dataset '
@@ -83,6 +86,9 @@ parser.add_argument('--pgd_step_size', type=float, default=0.4,
 parser.add_argument('--pgd_max_steps', type=int, default=10,
                     help='The number of the gradient update steps, to be performed for PGD attack.')
 
+# Writer will output to ./runs/ directory by default
+# writer = SummaryWriter()
+
 def main():
     args = parser.parse_args()
 
@@ -132,6 +138,11 @@ def main():
         id_val_set = DataSpliter.reduceSize(id_val_set, args.dataset_size_limit)
     print(f"In domain dataset: Train-{len(id_train_set)}, Val-{len(id_val_set)}")
 
+    # images = torch.tensor(id_train_set[0][0]).unsqueeze(0)
+    # grid = torchvision.utils.make_grid(images)
+    # writer.add_image('images', grid, 0)
+    # writer.add_graph(model, images)
+    # writer.close()
     
     ood_train_set, ood_val_set = vis.get_dataset(args.ood_dataset,
                                                  args.data_dir,
