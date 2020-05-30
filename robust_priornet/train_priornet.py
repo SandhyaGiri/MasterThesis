@@ -43,6 +43,8 @@ parser.add_argument('--lr', type=float, default=1e-3,
                     help='Learning rate for the optimizer.')
 parser.add_argument('--num_epochs', type=int, default=10,
                     help='Specifies the number of epochs to train the model.')
+parser.add_argument('--weight_decay', type=float, default=0.0,
+                    help='Specifies the L2 regularization stength.')
 parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
@@ -187,7 +189,7 @@ def main():
     optimizer = optim.Adam
     optimizer_params = {'lr': args.lr,
                         'betas': (0.9, 0.999),
-                        'weight_decay': 0.0} # add this for other datasets
+                        'weight_decay': args.weight_decay} # add this for other datasets
 
     if args.include_adv_samples:
         trainer = AdversarialPriorNetTrainer(model,

@@ -22,11 +22,14 @@ fixed:
   ood_dataset: OMNIGLOT
   model_arch: vgg6
   rpn_wrapper: 'simple' # ['simple', 'count']
+  rpn_mc_samples: 100
+  rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
   num_epochs: 50
   num_channels: 1
   learning_rate: 0.0001
   drop_rate: 0.05
+  weight_decay: 0.0
   target_precision: 100
   model_dir: "./runtime-model-vgg6-50epochs-adgen-robust-dentropy-out"
   resume_from_ckpt: False

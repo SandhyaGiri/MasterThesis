@@ -11,3 +11,6 @@ runtime-model*/*
 # jupyter checkpoints
 .ipynb_checkpoints/*
 */.ipynb_checkpoints/*
+
+# tensorboard summaries
+runs/*

@@ -20,12 +20,20 @@
             "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","10", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
+            "name": "Module train_priornet rpn simple",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "robust_priornet.train_priornet",
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn-simple", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","10", "./runtime-data", "MNIST", "OMNIGLOT"]
+        },
+        {
             "name": "Module train_priornet cifar10",
             "type": "python",
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--resume_from_ckpt", "--num_epochs", "10", "--batch_size", "64", "--lr", "0.00075", "--augment", "--target_precision","100", "./runtime-data", "CIFAR10", "SVHN"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--num_epochs", "10", "--batch_size", "64", "--lr", "0.00075", "--augment", "--target_precision","100", "./runtime-data", "CIFAR10", "SVHN"]
         },
         {
             "name": "Module train_priornet fgsm adversarial",

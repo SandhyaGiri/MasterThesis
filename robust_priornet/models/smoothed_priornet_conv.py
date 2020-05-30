@@ -7,12 +7,12 @@ import numpy as np
 
 from torch.autograd import Variable
 
-def sample_gumbel(shape, eps=1e-20):
-    U = torch.rand(shape)
+def sample_gumbel(shape, device, eps=1e-20):
+    U = torch.rand(shape, device=device)
     return -1 * Variable(torch.log(-torch.log(U + eps) + eps))
 
 def gumbel_softmax_sample(logits, temperature):
-    y = logits + sample_gumbel(logits.size())
+    y = logits + sample_gumbel(logits.size(), device=logits.device)
     return torch.nn.functional.softmax(y / temperature, dim=-1)
 
 def gumbel_softmax(logits, temperature):
@@ -73,7 +73,10 @@ class SmoothedPriorNet(nn.Module):
     def _update_count(self, counts: torch.tensor, preds: torch.tensor):
         #for i in range(len(counts)):
         #    counts[i] += len((preds == i).nonzero())
-        counts += torch.sum(preds, dim=0)
+        if counts is not None:
+            # accumulate one hot preds
+            return torch.sum(torch.cat((counts, preds), dim=0), dim=0, keepdim=True)
+        return torch.sum(preds, dim=0, keepdim=True)
 
     def _eval_on_base_classifier(self, inputs):
         logits = self.base_classifier(inputs)
@@ -85,7 +88,8 @@ class SmoothedPriorNet(nn.Module):
     def _get_count_vector(self, image: torch.tensor, num_samples: int, batch_size: int):
         num_classes = self.num_classes
         # num_samples = int(torch.ceil(num_samples).item())
-        counts = torch.zeros((num_classes), requires_grad=True) + self.epsilon
+        # counts = torch.zeros((num_classes), requires_grad=True) + self.epsilon
+        counts = None
         for _ in range(int(np.ceil(num_samples / batch_size))):
             this_batch_size = min(batch_size, num_samples)
             num_samples -= this_batch_size
@@ -94,7 +98,7 @@ class SmoothedPriorNet(nn.Module):
             # sample noise from normal dist
             noise = torch.randn_like(batch) * self.noise_std_dev
             predictions = self._eval_on_base_classifier(batch + noise)
-            self._update_count(counts, predictions)
+            counts = self._update_count(counts, predictions)
         return counts
 
     def forward(self, x, in_domain=True):
@@ -117,11 +121,11 @@ class SmoothedPriorNet(nn.Module):
             count_vector = self._get_count_vector(image, samples, batch_size)
             # eval on original input
             org_input_pred = self._eval_on_base_classifier(image.unsqueeze(0))
-            self._update_count(count_vector, org_input_pred)
+            count_vector = self._update_count(count_vector, org_input_pred)
 
-            count_vector = count_vector.unsqueeze(1)
+            count_vector += self.epsilon
             outputs.append(count_vector)
-        return torch.log(torch.cat(outputs, dim=1).transpose(0,1))
+        return torch.log(torch.cat(outputs, dim=0))
 
 
 class SmoothedPriorNetSimple(nn.Module):
@@ -156,7 +160,7 @@ class SmoothedPriorNetSimple(nn.Module):
     def _accumulate_logits(self, curr_logits: torch.tensor, logits: torch.tensor):
         if curr_logits is not None:
             return torch.sum(torch.cat((curr_logits, logits), dim=0), dim=0, keepdim=True)
-        return logits
+        return torch.sum(logits, dim=0, keepdim=True)
 
     def _eval_on_base_classifier(self, inputs):
         logits = self.base_classifier(inputs)
