@@ -21,9 +21,9 @@ def config():
 
 @ex.automain
 def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples,
-        rpn_sigma, fc_layers, num_epochs, num_channels, learning_rate, drop_rate, weight_decay, target_precision,
-        model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones, batch_size, dataset_size_limit,
-        adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
+        rpn_sigma, fc_layers, num_epochs, num_channels, learning_rate, use_cyclic_lr, add_ce_loss, drop_rate,
+        weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
+        batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
         adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
         pgd_norm, pgd_max_steps, logdir):
 
@@ -55,6 +55,8 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     # lr_decay_milestones = " ".join(map(lambda epoch: "--lrc " + str(epoch), lr_decay_milestones))
     resume = '--resume_from_ckpt' if resume_from_ckpt else ''
     augment = '--augment' if augment_data else ''
+    use_cyclic_lr = '--use_cyclic_lr' if use_cyclic_lr else ''
+    add_ce_loss = '--add_ce_loss' if add_ce_loss else ''
     dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
     if adv_training:
         adv_model = f'--adv_model_dir {adv_model_dir}' if adv_model_dir != "" else ''
@@ -66,11 +68,12 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
             --adv_attack_type {adv_attack_type} --adv_attack_criteria {adv_attack_criteria} \
             --adv_epsilon {adv_epsilon} --pgd_norm {pgd_norm} --pgd_max_steps {pgd_max_steps} \
+            {use_cyclic_lr} {add_ce_loss} \
             {data_dir} {in_domain_dataset} {ood_dataset}'
     else:
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} {dataset_limit} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {resume} {augment} \
-            --weight_decay {weight_decay} \
+            --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")
     os.system(train_cmd)

@@ -22,6 +22,7 @@ class PriorNetTrainer:
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
+                 add_ce_loss=False,
                  batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
                  pin_memory=False, log_dir='.',
                  log_uncertainties=False):
@@ -42,9 +43,12 @@ class PriorNetTrainer:
         self.device = device
         self.clip_norm = clip_norm
         self.log_uncertainties = log_uncertainties
+        self.add_ce_loss = add_ce_loss
 
         if lr_scheduler is not None:
             self.lr_scheduler = lr_scheduler(self.optimizer, **lr_scheduler_params)
+            if lr_scheduler == torch.optim.lr_scheduler.OneCycleLR:
+                self.lr_step_after_batch = True
 
         # Dataloaders for train dataset
         self.id_train_loader = DataLoader(id_train_dataset,
@@ -148,8 +152,9 @@ class PriorNetTrainer:
             #    print("Early stopping")
             #    break
 
-            # step through lr scheduler
-            self.lr_scheduler.step()
+            # step through lr scheduler (only for epoch level steps)
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # load the last checkpoint with the best model
         # self.model.load_state_dict(torch.load('checkpoint.pt'))
@@ -197,6 +202,12 @@ class PriorNetTrainer:
             loss = self.criterion((id_outputs, ood_outputs), (labels, None))
             assert torch.all(torch.isfinite(loss)).item()
             kl_loss += loss.item()
+            if self.add_ce_loss:
+                ce_loss = torch.nn.CrossEntropyLoss()
+                ce_loss_val = ce_loss(id_outputs, labels)
+                print(f"CE loss value: {ce_loss_val}")
+                kl_loss += ce_loss_val.item()
+                loss = loss + ce_loss_val
 
             # Measures ID and OOD losses
             prev_id_loss = id_loss
@@ -224,6 +235,9 @@ class PriorNetTrainer:
             accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
                                                                       self.device).item()
             accuracies += accuracy
+
+            if self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # average the metrics over all steps (batches) in this epoch
         num_batches = len(self.id_train_loader)

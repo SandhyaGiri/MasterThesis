@@ -21,13 +21,15 @@ fixed:
   num_classes: 10
   ood_dataset: OMNIGLOT
   model_arch: vgg6
-  rpn_wrapper: 'simple' # ['simple', 'count']
+  rpn_wrapper: 'simple' # ['simple', 'count', None]
   rpn_mc_samples: 100
   rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
   num_epochs: 50
   num_channels: 1
   learning_rate: 0.0001
+  use_cyclic_lr: False
+  add_ce_loss: False
   drop_rate: 0.05
   weight_decay: 0.0
   target_precision: 100
@@ -38,7 +40,7 @@ fixed:
   lr_decay_milestones: [1]
   batch_size: 64
   dataset_size_limit: None
-  adv_training: True
+  adv_training: False
   only_out_in_adv: False
   adv_training_type: "ood-detect" # ['normal', 'ood-detect']
   adv_attack_type: "PGD"

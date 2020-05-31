@@ -64,6 +64,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
+                 add_ce_loss=False,
                  batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
                  pin_memory=False, log_dir='.',
                  attack_params: Dict[str, Any] = {},
@@ -83,6 +84,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                          id_criterion, ood_criterion,
                                                          optimizer_fn, optimizer_params,
                                                          lr_scheduler, lr_scheduler_params,
+                                                         add_ce_loss,
                                                          batch_size, patience, device,
                                                          clip_norm, num_workers,
                                                          pin_memory, log_dir,
@@ -161,8 +163,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                   Val accuracy: {val_results['id_accuracy']}")
             print(f"Time taken for train epoch: {summary['time_taken']} mins")
 
-            # step through lr scheduler
-            self.lr_scheduler.step()
+            # step through lr scheduler (only for epoch level steps)
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 

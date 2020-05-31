@@ -41,10 +41,14 @@ parser.add_argument('--target_precision', type=int, default=1e3,
                     for in domain samples.')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='Learning rate for the optimizer.')
+parser.add_argument('--use_cyclic_lr', action='store_true',
+                    help='Indicates if OneCycleLr scheduler needs to be used for training.')
 parser.add_argument('--num_epochs', type=int, default=10,
                     help='Specifies the number of epochs to train the model.')
 parser.add_argument('--weight_decay', type=float, default=0.0,
                     help='Specifies the L2 regularization stength.')
+parser.add_argument('--add_ce_loss', action='store_true',
+                    help='Specifies whether to use CE loss in addition to KL div PN loss.')
 parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
@@ -191,6 +195,21 @@ def main():
                         'betas': (0.9, 0.999),
                         'weight_decay': args.weight_decay} # add this for other datasets
 
+    # lr scheduler
+    if args.use_cyclic_lr:
+        lr_scheduler = optim.lr_scheduler.OneCycleLR
+        lr_scheduler_params = {'max_lr': 10*args.lr,
+                               'div_factor': 10,
+                               'final_div_factor': 1,
+                               'epochs': args.num_epochs,
+                               'steps_per_epoch': int(len(id_train_set)/args.batch_size),
+                               'pct_start': 0.5,
+                               'anneal_strategy': 'linear',
+                               }
+    else:
+        lr_scheduler = optim.lr_scheduler.ExponentialLR
+        lr_scheduler_params = {'gamma': 0.95}
+
     if args.include_adv_samples:
         trainer = AdversarialPriorNetTrainer(model,
                                              id_train_set, id_val_set,
@@ -198,8 +217,9 @@ def main():
                                              criterion, id_loss, ood_loss, optimizer,
                                              args.adv_attack_type, args.adv_attack_criteria,
                                              optimizer_params=optimizer_params,
-                                             lr_scheduler=optim.lr_scheduler.ExponentialLR,
-                                             lr_scheduler_params={'gamma': 0.95},
+                                             lr_scheduler=lr_scheduler,
+                                             lr_scheduler_params=lr_scheduler_params,
+                                             add_ce_loss=args.add_ce_loss,
                                              batch_size=args.batch_size, device=device,
                                              log_dir=args.model_dir, attack_params={
                                                  'epsilon': args.adv_epsilon,
@@ -222,8 +242,9 @@ def main():
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
                                   criterion, id_loss, ood_loss, optimizer,
                                   optimizer_params=optimizer_params,
-                                  lr_scheduler=optim.lr_scheduler.ExponentialLR,
-                                  lr_scheduler_params={'gamma': 0.95},
+                                  lr_scheduler=lr_scheduler,
+                                  add_ce_loss=args.add_ce_loss,
+                                  lr_scheduler_params=lr_scheduler_params,
                                   batch_size=args.batch_size, device=device,
                                   log_dir=args.model_dir)
 
