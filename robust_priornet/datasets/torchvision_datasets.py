@@ -7,6 +7,7 @@ from enum import Enum
 import numpy as np
 import torch.utils.data as torchdatautils
 import torchvision.datasets as datasets
+from .tiny_imagenet import TinyImageNet
 
 
 class DatasetEnum(Enum):
@@ -19,6 +20,8 @@ class DatasetEnum(Enum):
     SVHN = ("svhn")
     ImageNet = ("imagenet")
     OMNIGLOT = ("omniglot")
+    TIM = ("tim")
+    LSUN = ("lsun")
 
     def __init__(self, name):
         self._value_ = name
@@ -45,12 +48,14 @@ class BaseData:
 
         }
         self.test_args = {
-            DatasetEnum.MNIST: { 'train': False},
-            DatasetEnum.CIFAR10: { 'train': False},
-            DatasetEnum.CIFAR100: { 'train': False},
-            DatasetEnum.SVHN: { 'split': 'test'},
-            DatasetEnum.ImageNet: { 'split': 'val'},
-            DatasetEnum.OMNIGLOT: { 'background': False}
+            DatasetEnum.MNIST: {'train': False},
+            DatasetEnum.CIFAR10: {'train': False},
+            DatasetEnum.CIFAR100: {'train': False},
+            DatasetEnum.SVHN: {'split': 'test'},
+            DatasetEnum.ImageNet: {'split': 'val'},
+            DatasetEnum.OMNIGLOT: {'background': False},
+            DatasetEnum.TIM: {'split': 'test'},
+            DatasetEnum.LSUN: {'classes': 'test'}
         }
         self.data = {}
 
@@ -100,7 +105,9 @@ class TorchVisionDataWrapper:
             DatasetEnum.CIFAR100: datasets.CIFAR100,
             DatasetEnum.SVHN: datasets.SVHN,
             DatasetEnum.ImageNet: datasets.ImageNet,
-            DatasetEnum.OMNIGLOT: datasets.Omniglot
+            DatasetEnum.OMNIGLOT: datasets.Omniglot,
+            DatasetEnum.TIM: TinyImageNet,
+            DatasetEnum.LSUN: datasets.LSUN
         }
 
     def get_dataset(self, dataset, data_dir,
