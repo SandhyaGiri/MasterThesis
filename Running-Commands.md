@@ -24,3 +24,14 @@ python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 64 --e
 python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 64 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria mutual_info --norm inf --model_dir ./MNIST_OMNIGLOT_models/adv_dentropy --max_steps 10 --threshold 0.3838 --ood_dataset CIFAR10 ./runtime-data MNIST ./MNIST_OMNIGLOT_models/adv_dentropy/attack-pgd-mutual_info-ood-detect-cifar10
 
 python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 64 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria mutual_info --norm inf --model_dir ./MNIST_OMNIGLOT_models/adv_duncertainty --max_steps 10 --threshold 0.3657 --ood_dataset CIFAR10 ./runtime-data MNIST ./MNIST_OMNIGLOT_models/adv_duncertainty/attack-pgd-mutual_info-ood-detect-cifar10
+
+
+#### OOD-detect attacks on RPN-10 model
+
+python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 32 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria diff_entropy --norm inf --model_dir ./MNIST_OMNIGLOT_models/rpn --max_steps 10 --threshold -12.864 --ood_dataset OMNIGLOT ./runtime-data MNIST ./MNIST_OMNIGLOT_models/rpn/attack-pgd-diff_entropy-ood-detect-omniglot
+
+python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 32 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria diff_entropy --norm inf --model_dir ./MNIST_OMNIGLOT_models/rpn --max_steps 10 --threshold -12.864 --ood_dataset CIFAR10 ./runtime-data MNIST ./MNIST_OMNIGLOT_models/rpn/attack-pgd-diff_entropy-ood-detect-cifar10
+
+python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 32 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria mutual_info --norm inf --model_dir ./MNIST_OMNIGLOT_models/rpn --max_steps 10 --threshold 0.3711 --ood_dataset OMNIGLOT ./runtime-data MNIST ./MNIST_OMNIGLOT_models/rpn/attack-pgd-mutual_info-ood-detect-omniglot
+
+python -m robust_priornet.attack_priornet --gpu {gpu_number} --batch_size 32 --epsilon 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 --attack_type ood-detect --attack_strategy PGD --attack_criteria mutual_info --norm inf --model_dir ./MNIST_OMNIGLOT_models/rpn --max_steps 10 --threshold 0.3711 --ood_dataset CIFAR10 ./runtime-data MNIST ./MNIST_OMNIGLOT_models/rpn/attack-pgd-mutual_info-ood-detect-cifar10
