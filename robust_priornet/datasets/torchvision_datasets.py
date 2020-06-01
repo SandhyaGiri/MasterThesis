@@ -15,6 +15,7 @@ class DatasetEnum(Enum):
     Enum class holding dataset name mappings to lowercase values to be used internally.
     """
     MNIST = ("mnist")
+    FASHION_MNIST = ("fashon-mnist")
     CIFAR10 = ("cifar10")
     CIFAR100 = ("cifar100")
     SVHN = ("svhn")
@@ -38,6 +39,7 @@ class BaseData:
     def __init__(self):
         self.train_args = {
             DatasetEnum.MNIST: {'train': True},
+            DatasetEnum.FASHION_MNIST: {'train': True},
             DatasetEnum.CIFAR10: {'train': True},
             DatasetEnum.CIFAR100: {'train': True},
             DatasetEnum.SVHN: {'split': 'train'},
@@ -49,6 +51,7 @@ class BaseData:
         }
         self.test_args = {
             DatasetEnum.MNIST: {'train': False},
+            DatasetEnum.FASHION_MNIST: {'train': False},
             DatasetEnum.CIFAR10: {'train': False},
             DatasetEnum.CIFAR100: {'train': False},
             DatasetEnum.SVHN: {'split': 'test'},
@@ -101,6 +104,7 @@ class TorchVisionDataWrapper:
         self.supported_datasets = DatasetEnum.__dict__.keys()
         self.dataset_builders = {
             DatasetEnum.MNIST: datasets.MNIST,
+            DatasetEnum.FASHION_MNIST: datasets.FashionMNIST,
             DatasetEnum.CIFAR10: datasets.CIFAR10,
             DatasetEnum.CIFAR100: datasets.CIFAR100,
             DatasetEnum.SVHN: datasets.SVHN,
