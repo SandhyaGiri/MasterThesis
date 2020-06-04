@@ -184,6 +184,13 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
     # create a separate dir to store all visualizations
     os.makedirs(os.path.join(target_epsilon_dir, plots_dir))
 
+    # log information
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'misclassified_indices.txt'), misclassified)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_confidence.txt'), old_confidence)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_probs.txt'), old_probs)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_confidence.txt'), new_confidence)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_probs.txt'), probs)
+    
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
     figure.subplots_adjust(hspace=0.5, wspace=0.5)
@@ -350,7 +357,7 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     
     # assign labels based on thershold given
     y_preds = np.zeros_like(uncertainty_pred)
-    y_preds[uncertainty_pred >= threshold] = 1
+    y_preds[np.round(uncertainty_pred, 4) >= np.round(threshold, 4)] = 1
     fp_indices = np.intersect1d(np.argwhere(y_true == 0), np.argwhere(y_preds == 1))
     fn_indices = np.intersect1d(np.argwhere(y_true == 1), np.argwhere(y_preds == 0))
     print(f"Cross check: fp: {len(fp_indices)}")
@@ -362,6 +369,11 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     # plot false positives
     fp_dir = os.path.join(target_epsilon_dir, plots_dir, 'in-out')
     os.makedirs(fp_dir)
+    
+    # log information
+    np.savetxt(os.path.join(fp_dir, 'misclassified_indices.txt'), fp_indices)
+    np.savetxt(os.path.join(fp_dir, 'old_probs.txt'), old_id_probs)
+    np.savetxt(os.path.join(fp_dir, 'new_probs.txt'), id_probs)
     
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
@@ -415,6 +427,11 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     # plot false negatives
     fn_dir = os.path.join(target_epsilon_dir, plots_dir, 'out-in')
     os.makedirs(fn_dir)
+    
+    # log information
+    np.savetxt(os.path.join(fn_dir, 'misclassified_indices.txt'), fn_indices)
+    np.savetxt(os.path.join(fn_dir, 'old_probs.txt'), old_ood_probs)
+    np.savetxt(os.path.join(fn_dir, 'new_probs.txt'), ood_probs)
     
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))

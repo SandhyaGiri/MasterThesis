@@ -57,6 +57,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     resume = '--resume_from_ckpt' if resume_from_ckpt else ''
     augment = '--augment' if augment_data else ''
     dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
+    use_fixed_threshold = f'--use_fixed_threshold' if use_fixed_threshold else ''
     if adv_training:
         adv_model = f'--adv_model_dir {adv_model_dir}' if adv_model_dir != "" else ''
         adv_persist = '--adv_persist_images' if adv_persist_images else ''
@@ -65,7 +66,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
             --min_train_epochs {min_train_epochs} --patience {patience} \
-            --use_fixed_threshold {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
+            {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
             --adv_attack_type {adv_attack_type} --adv_attack_criteria {adv_attack_criteria} \
             --adv_epsilon {adv_epsilon} --pgd_norm {pgd_norm} --pgd_max_steps {pgd_max_steps} \
