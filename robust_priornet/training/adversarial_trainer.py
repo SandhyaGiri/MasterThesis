@@ -17,7 +17,8 @@ from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
 from ..eval.uncertainty import UncertaintyEvaluator, UncertaintyMeasuresEnum
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
-from ..utils.pytorch import save_model_with_params_from_ckpt
+from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
+from .early_stopping import EarlyStopper
 from .trainer import PriorNetTrainer
 
 
@@ -64,12 +65,15 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
-                 batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
+                 batch_size=64,
+                 min_epochs=25, patience=20,
+                 device=None, clip_norm=10.0, num_workers=4,
                  pin_memory=False, log_dir='.',
                  attack_params: Dict[str, Any] = {},
                  dataset_persistence_params=[],
                  adv_training_type: str = 'normal',
                  uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
+                 use_fixed_threshold=False, known_threshold_value=0.0,
                  only_out_in_adversarials: bool = False):
         """
         for "ood-detect adversarial training, we need to know the uncertainty_measure used to the binary
@@ -83,7 +87,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                          id_criterion, ood_criterion,
                                                          optimizer_fn, optimizer_params,
                                                          lr_scheduler, lr_scheduler_params,
-                                                         batch_size, patience, device,
+                                                         batch_size, min_epochs, patience, device,
                                                          clip_norm, num_workers,
                                                          pin_memory, log_dir,
                                                          adv_training_type == 'ood-detect')
@@ -98,6 +102,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.adv_training_type = adv_training_type
         self.uncertainty_measure = uncertainty_measure
         self.only_out_in_adversarials = only_out_in_adversarials
+        self.use_fixed_threshold = use_fixed_threshold
+        self.known_threshold_value = known_threshold_value
 
     def train(self, num_epochs=None, num_steps=None, resume=False, ckpt=None):
         """
@@ -117,6 +123,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             self.optimizer.load_state_dict(ckpt['opt_state_dict'])
             self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
             print(f"Model restored from checkpoint at epoch {init_epoch}")
+
+        # initialize the early_stopping object
+        early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
 
         for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
@@ -161,8 +170,23 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                   Val accuracy: {val_results['id_accuracy']}")
             print(f"Time taken for train epoch: {summary['time_taken']} mins")
 
+            # early_stopping needs the validation loss to check if it has decresed, 
+            # and if it has, it will make a checkpoint of the current model
+            early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
+
+            if early_stopping.do_early_stop:
+                print("Early stopping")
+                self.training_early_stopped = True
+                break
+
             # step through lr scheduler
             self.lr_scheduler.step()
+
+        # load the last checkpoint with the best model
+        if self.training_early_stopped:
+            self.model, _ = load_model(self.log_dir,
+                                    device=self.device,
+                                    name=early_stopping.best_model_name)
 
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
@@ -207,9 +231,12 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                  num_workers=self.num_workers,
                                                  pin_memory=self.pin_memory)
         elif self.adv_training_type == "ood-detect":
-            threshold = get_optimal_threshold(os.path.join(self.log_dir,
-                                                           f'epoch-{self.epochs+1}-uncertainties'),
-                                              self.uncertainty_measure)
+            if not self.use_fixed_threshold:
+                threshold = get_optimal_threshold(os.path.join(self.log_dir,
+                                                               f'epoch-{self.epochs+1}-uncertainties'),
+                                                  self.uncertainty_measure)
+            else:
+                threshold = self.known_threshold_value
             additional_args = {'only_true_adversaries': True,
                                'uncertainty_measure': self.uncertainty_measure,
                                'uncertainty_threshold': threshold

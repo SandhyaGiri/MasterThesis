@@ -26,6 +26,8 @@ fixed:
   rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
   num_epochs: 50
+  min_train_epochs: 25
+  patience: 10
   num_channels: 1
   learning_rate: 0.0001
   drop_rate: 0.05
@@ -44,6 +46,8 @@ fixed:
   adv_attack_type: "PGD"
   adv_epsilon: 0.5
   adv_attack_criteria: "diff_entropy"
+  use_fixed_threshold: False
+  known_threshold_value: 0.0
   adv_model_dir: ""
   adv_persist_images: True
   pgd_norm: "inf"

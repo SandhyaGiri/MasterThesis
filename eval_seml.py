@@ -67,7 +67,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
     if run_attack is True:
         epsilons = " ".join(map(lambda x: str(x),epsilon_list))
         time = int(datetime.timestamp(datetime.now()))
-        out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{time}")
+        out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{ood_dataset}-{time}")
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
         if attack_strategy == 'FGSM':
             fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \

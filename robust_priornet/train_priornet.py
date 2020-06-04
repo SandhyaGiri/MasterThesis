@@ -53,6 +53,11 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--resume_from_ckpt', action='store_true',
                     help='Indicates if model needs to be laoded from checkpoint.tar for further training.')
+# early stopping arguments
+parser.add_argument('--min_train_epochs', type=int, default=10,
+                    help='Indicates min num of epochs to train before val loss monitoring starts for early stopping.')
+parser.add_argument('--patience', type=int, default=3,
+                    help='Number of epochs to wait before terminating training, once val loss starts increasing.')
 # adversarial training arguments
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
@@ -78,6 +83,10 @@ parser.add_argument('--adv_persist_images', action='store_true',
                     help='Specify this if you want to save the adv images created.')
 parser.add_argument('--include_only_out_in_adv_samples', action='store_true',
                     help='Specifies to train the model using only out->in adversarials.')
+parser.add_argument('--use_fixed_threshold', action='store_true',
+                    help='Specifies whether to use the same threshold to identify adversarials during training.')
+parser.add_argument('--known_threshold_value', type=float,
+                    help='Fixed threshold value to be used during training.')
 # PGD adversarial training arguments
 parser.add_argument('--pgd_norm', type=str, choices=['inf', '2'], default='inf',
                     help='The type of norm ball to restrict the adversarial samples to.' +
@@ -201,6 +210,7 @@ def main():
                                              lr_scheduler=optim.lr_scheduler.ExponentialLR,
                                              lr_scheduler_params={'gamma': 0.95},
                                              batch_size=args.batch_size, device=device,
+                                             min_epochs=args.min_train_epochs, patience=args.patience,
                                              log_dir=args.model_dir, attack_params={
                                                  'epsilon': args.adv_epsilon,
                                                  'adv_persist_images': args.adv_persist_images,
@@ -216,7 +226,9 @@ def main():
                                              uncertainty_measure=
                                              ATTACK_CRITERIA_TO_ENUM_MAP[args.adv_attack_criteria],
                                              only_out_in_adversarials=
-                                             args.include_only_out_in_adv_samples)
+                                             args.include_only_out_in_adv_samples,
+                                             use_fixed_threshold=args.use_fixed_threshold,
+                                             known_threshold_value=args.known_threshold_value)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
@@ -225,6 +237,7 @@ def main():
                                   lr_scheduler=optim.lr_scheduler.ExponentialLR,
                                   lr_scheduler_params={'gamma': 0.95},
                                   batch_size=args.batch_size, device=device,
+                                  min_epochs=args.min_train_epochs, patience=args.patience,
                                   log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs, resume=args.resume_from_ckpt, ckpt=ckpt)

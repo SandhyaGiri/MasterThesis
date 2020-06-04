@@ -9,9 +9,10 @@ import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
-from ..utils.pytorch import save_model_with_params_from_ckpt
 from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
 from ..eval.uncertainty import UncertaintyEvaluator
+from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
+from .early_stopping import EarlyStopper
 
 
 class PriorNetTrainer:
@@ -22,10 +23,12 @@ class PriorNetTrainer:
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
-                 batch_size=64, patience=20, device=None, clip_norm=10.0, num_workers=4,
+                 batch_size=64,
+                 min_epochs=25, patience=20,
+                 device=None, clip_norm=10.0, num_workers=4,
                  pin_memory=False, log_dir='.',
                  log_uncertainties=False):
-
+                # may be make num_workers 0 if you have problems with concurrency (in RPN)
         # validate if both datasets are of same size (to avoid inductive bias in model)
         assert len(id_train_dataset) == len(ood_train_dataset)
         assert len(id_val_dataset) == len(ood_val_dataset)
@@ -38,6 +41,7 @@ class PriorNetTrainer:
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.log_dir = log_dir
+        self.min_epochs = min_epochs
         self.patience = patience
         self.device = device
         self.clip_norm = clip_norm
@@ -79,6 +83,9 @@ class PriorNetTrainer:
         # Training step counter
         self.steps: int = 0
         self.epochs: int = 0
+        
+        # Early stopping
+        self.training_early_stopped = False
 
 
     def train(self, num_epochs=None, num_steps=None, resume=False, ckpt=None):
@@ -101,7 +108,7 @@ class PriorNetTrainer:
             print(f"Model restored from checkpoint at epoch {init_epoch}")
 
         # initialize the early_stopping object
-        # early_stopping = EarlyStopping(patience=self.patience, verbose=True)
+        early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
 
         for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
@@ -142,17 +149,22 @@ class PriorNetTrainer:
 
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
-            #early_stopping(val_results['loss'], self.model)
+            early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
 
-            #if early_stopping.early_stop:
-            #    print("Early stopping")
-            #    break
+            if early_stopping.do_early_stop:
+                print("Early stopping")
+                self.training_early_stopped = True
+                break
 
             # step through lr scheduler
             self.lr_scheduler.step()
 
         # load the last checkpoint with the best model
-        # self.model.load_state_dict(torch.load('checkpoint.pt'))
+        if self.training_early_stopped:
+            self.model, _ = load_model(self.log_dir,
+                                    device=self.device,
+                                    name=early_stopping.best_model_name)
+
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
     def _eval_logits_id_ood_samples(self, id_inputs, ood_inputs):
@@ -267,6 +279,7 @@ class PriorNetTrainer:
         id_loss, ood_loss = 0.0, 0.0
         id_precision, ood_precision = 0.0, 0.0
 
+        kl_loss_all_steps = []
         with torch.no_grad():
             for i, (data, ood_data) in enumerate(
                     zip(self.id_val_loader, self.ood_val_loader), 0):
@@ -285,6 +298,7 @@ class PriorNetTrainer:
                 loss = self.criterion((id_outputs, ood_outputs), (labels, None))
                 assert torch.all(torch.isfinite(loss)).item()
                 kl_loss += loss.item()
+                kl_loss_all_steps.append(loss.item())
 
                 # Measures ID and OOD losses
                 id_loss += self.id_criterion(id_outputs, labels).item()
@@ -317,5 +331,6 @@ class PriorNetTrainer:
             'ood_loss': np.round(ood_loss, 4),
             'id_accuracy': np.round(100.0 * accuracies, 2),
             'id_precision': np.round(id_precision, 4),
-            'ood_precision': np.round(ood_precision, 4)
+            'ood_precision': np.round(ood_precision, 4),
+            'step_wise_kl_loss': kl_loss_all_steps
         }

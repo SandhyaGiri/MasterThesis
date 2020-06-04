@@ -13,8 +13,8 @@ def save_model(model: nn.Module, model_params, model_dir):
         'model_state_dict': model.state_dict()
     }, f'{model_dir}/model.tar')
 
-def save_model_with_params_from_ckpt(model: nn.Module, model_dir, name='model.tar', additional_params={}):
-    _, ckpt = load_model(model_dir)
+def save_model_with_params_from_ckpt(model: nn.Module, model_dir, name='model.tar', ckpt_model_name='model.tar', additional_params={}):
+    _, ckpt = load_model(model_dir, name=ckpt_model_name)
     torch.save({
         'model_constructor': model.__init__,
         'model_params': ckpt['model_params'],
