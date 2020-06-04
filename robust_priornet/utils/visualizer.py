@@ -57,6 +57,7 @@ def get_epoch_summaries(model_dir, num_epochs, verbose=False):
     val_id_accuracy = []
     train_loss = []
     val_loss = []
+    time_taken = []
     for epoch in range(num_epochs):
         summary = torch.load(os.path.join(model_dir, f'epoch_summary_{epoch+1}.pt'))
         if verbose:
@@ -69,11 +70,12 @@ def get_epoch_summaries(model_dir, num_epochs, verbose=False):
         val_ood_loss.append(summary['val_results']['ood_loss'])
         val_loss.append(summary['val_results']['loss'])
         val_id_accuracy.append(summary['val_results']['id_accuracy'])
+        time_taken.append(summary['time_taken'])
 
-    return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss
+    return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, time_taken
 
 def plot_loss_accuracy_curve(model_dir, num_epochs):
-    train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss = get_epoch_summaries(model_dir, num_epochs)
+    train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, _ = get_epoch_summaries(model_dir, num_epochs)
     figure, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
 
     # ID axis for loss curve
