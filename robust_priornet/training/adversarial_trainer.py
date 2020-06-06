@@ -190,14 +190,30 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
 
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
-    def _adv_train_single_epoch(self):
+    def _persist_adv_dataset(self, adv_dataset, dir_name):
+        indices = np.arange(len(adv_dataset))
+        adv_dataset = data.Subset(adv_dataset,
+                                  random.sample(list(indices),
+                                                min(100, len(indices))))
+        adv_dir = os.path.join(self.log_dir, dir_name)
+        os.makedirs(adv_dir)
+        persist_image_dataset(adv_dataset,
+                              *self.dataset_persistence_params,
+                              adv_dir)
+
+    def _generate_adversarial_dataset(self):
         """
-        Generates adversarial dataset and trains the model on them.
+        Creates an adversarial dataset based on the current trained model.
+        For ood-detect adv training, generates both in->out adversarials and
+        out->in adversarials. While for normal adv training, generates only
+        misclassification adversarials on in domain dataset.
+
+        Also persists the generated adv images, if needed.
         """
-        id_train_adv_loader = None
-        ood_train_adv_loader = None
+        id_train_adv_set = []
+        ood_train_adv_set = []
         if self.adv_training_type == "normal":
-            # only works on in domain samples which get misclassified under attack
+                # only works on in domain samples which get misclassified under attack
             additional_args = {'only_true_adversaries': True}
             id_train_adv_set = AdversarialDataset(self.id_train_dataset,
                                                   self.adv_attack_type.lower(),
@@ -214,22 +230,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             print(f"Number of misclassification adversarials generated: {len(id_train_adv_set)}")
             if self.attack_params['adv_persist_images']:
                 # persist only random sampled 100 images
-                indices = np.arange(len(id_train_adv_set))
-                id_train_adv_subset = data.Subset(id_train_adv_set,
-                                                  random.sample(list(indices),
-                                                                min(100, len(indices))))
-                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
-                os.makedirs(adv_dir)
-                persist_image_dataset(id_train_adv_subset,
-                                      *self.dataset_persistence_params,
-                                      adv_dir)
-            # data loader for the adv dataset generated
-            if len(id_train_adv_set) > 0:
-                id_train_adv_loader = DataLoader(id_train_adv_set,
-                                                 batch_size=self.batch_size,
-                                                 shuffle=True,
-                                                 num_workers=self.num_workers,
-                                                 pin_memory=self.pin_memory)
+                self._persist_adv_dataset(id_train_adv_set, f'epoch-{self.epochs+1}-adv-images')
         elif self.adv_training_type == "ood-detect":
             if not self.use_fixed_threshold:
                 threshold = get_optimal_threshold(os.path.join(self.log_dir,
@@ -241,7 +242,6 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                'uncertainty_measure': self.uncertainty_measure,
                                'uncertainty_threshold': threshold
                                }
-            id_train_adv_set = []
             if not self.only_out_in_adversarials:
                 id_train_adv_set = AdversarialDataset(self.id_train_dataset,
                                                       self.adv_attack_type.lower(),
@@ -274,46 +274,41 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # persist images. as model progresses in training, attack gradients
             # will differ and we should get different adv images
             if self.attack_params['adv_persist_images']:
-                # persist only random sampled 100 images
-                indices = np.arange(len(id_train_adv_set))
+                self._persist_adv_dataset(id_train_adv_set, f'epoch-{self.epochs+1}-adv-images')
+                self._persist_adv_dataset(ood_train_adv_set, f'epoch-{self.epochs+1}-adv-images-ood')
+            
+        return id_train_adv_set, ood_train_adv_set
 
-                id_train_adv_subset = data.Subset(id_train_adv_set,
-                                                  random.sample(list(indices),
-                                                                min(100, len(indices))))
-                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images')
-                os.makedirs(adv_dir)
-                persist_image_dataset(id_train_adv_subset,
-                                      *self.dataset_persistence_params,
-                                      adv_dir)
+    def _get_adv_data_loaders(self, id_train_adv_set, ood_train_adv_set):
+        id_train_adv_loader = None
+        ood_train_adv_loader = None
+        if len(id_train_adv_set) > 0:
+            id_train_adv_loader = DataLoader(id_train_adv_set,
+                                             batch_size=self.batch_size,
+                                             shuffle=True,
+                                             num_workers=self.num_workers,
+                                             pin_memory=self.pin_memory)
 
-                indices = np.arange(len(ood_train_adv_set))
-                ood_train_adv_subset = data.Subset(ood_train_adv_set,
-                                                   random.sample(list(indices),
-                                                                 min(100, len(indices))))
-                adv_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-adv-images-ood')
-                os.makedirs(adv_dir)
-                persist_image_dataset(ood_train_adv_subset,
-                                      *self.dataset_persistence_params,
-                                      adv_dir)
+        if len(ood_train_adv_set) > 0:
+            ood_train_adv_loader = DataLoader(ood_train_adv_set,
+                                              batch_size=self.batch_size,
+                                              shuffle=True,
+                                              num_workers=self.num_workers,
+                                              pin_memory=self.pin_memory)
+        return id_train_adv_loader, ood_train_adv_loader
 
-            # Dataloaders for adv train dataset
-            if len(id_train_adv_set) > 0:
-                id_train_adv_loader = DataLoader(id_train_adv_set,
-                                                 batch_size=self.batch_size,
-                                                 shuffle=True,
-                                                 num_workers=self.num_workers,
-                                                 pin_memory=self.pin_memory)
-
-            if len(ood_train_adv_set) > 0:
-                ood_train_adv_loader = DataLoader(ood_train_adv_set,
-                                                  batch_size=self.batch_size,
-                                                  shuffle=True,
-                                                  num_workers=self.num_workers,
-                                                  pin_memory=self.pin_memory)
+    def _adv_train_single_epoch(self):
+        """
+        Generates adversarial dataset and trains the model on them.
+        """
+        id_train_adv_set, ood_train_adv_set = self._generate_adversarial_dataset()
+        # Dataloaders for adv train dataset
+        id_train_adv_loader, ood_train_adv_loader = self._get_adv_data_loaders(id_train_adv_set,
+                                                                               ood_train_adv_set)
 
         return self._train_single_epoch_adversarial(id_train_adv_loader,
-                                        ood_train_adv_loader)
-        
+                                                    ood_train_adv_loader)
+
     def _train_single_epoch_adversarial(self, id_train_loader, ood_train_loader):
         """
         Overriding normal training epoch, as for adversarial datasets
@@ -330,50 +325,24 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         id_precision, ood_precision = 0.0, 0.0
         id_outputs_all = None
         ood_outputs_all = None
-        
+
         if id_train_loader is not None:
             # train on id samples separately
             print("Training on in->out adversarial images")
             for i, (data) in enumerate(id_train_loader, 0):
-                # Get inputs
-                inputs, labels = data
-                # print("In domain tensor shape: ", inputs.shape)
-                # print("Out domain tensor shape: ", ood_inputs.shape)
-                if self.device is not None:
-                    inputs, labels = map(lambda x: x.to(self.device,
-                                                        non_blocking=self.pin_memory),
-                                        (inputs, labels))
+                adv_batch_result = self._train_single_batch_criteria(data,
+                                                                     self.id_criterion,
+                                                                     is_ood=False)
+                loss, precision, accuracy, id_outputs = adv_batch_result
 
-                # zero the parameter gradients
-                self.optimizer.zero_grad()
-
-                # eval id_samples
-                id_outputs = self.model(inputs)
                 # accumulate all outputs by the model
                 if id_outputs_all is None:
                     id_outputs_all = id_outputs
                 else:
                     id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
 
-                # Calculate train loss (only ID loss)
-                loss = self.id_criterion(id_outputs, labels)
-                assert torch.all(torch.isfinite(loss)).item()
-                kl_loss += loss.item()
-                # divide the loss by id precision, so that loss is inline with lr
-                loss = loss / self.id_criterion.target_precision
-
-                loss.backward()
-                clip_grad_norm_(self.model.parameters(), self.clip_norm)
-                self.optimizer.step()
-
-                # precision of the dirichlet dist outputed by the model (id), 
-                # averaged across all samples in batch
-                id_alphas = torch.exp(id_outputs)
-                id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
-
-                probs = F.softmax(id_outputs, dim=1)
-                accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
-                                                                        self.device).item()
+                kl_loss += loss
+                id_precision += precision
                 accuracies += accuracy
 
             # average the metrics over all steps (batches) in this epoch
@@ -397,35 +366,19 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # train on ood samples separately
             print("Training on out->in adversarial images")
             for i, (ood_data) in enumerate(ood_train_loader, 0):
-                # Get inputs
-                ood_inputs, _ = ood_data
-                if self.device is not None:
-                    ood_inputs = ood_inputs.to(self.device, non_blocking=self.pin_memory)
+                adv_batch_result = self._train_single_batch_criteria(ood_data,
+                                                                     self.ood_criterion,
+                                                                     is_ood=True)
+                loss, precision, _ , ood_outputs = adv_batch_result
 
-                # zero the parameter gradients
-                self.optimizer.zero_grad()
-
-                # eval ood_samples
-                ood_outputs = self.model(ood_inputs)
                 # accumulate all outputs by the model
                 if ood_outputs_all is None:
                     ood_outputs_all = ood_outputs
                 else:
                     ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
 
-                # Calculate train loss (only OOD loss)
-                loss = self.ood_criterion(ood_outputs, None)
-                assert torch.all(torch.isfinite(loss)).item()
-                kl_loss += loss.item()
-
-                loss.backward()
-                clip_grad_norm_(self.model.parameters(), self.clip_norm)
-                self.optimizer.step()
-
-                # precision of the dirichlet dist outputed by the model (ood),
-                # averaged across all samples in batch
-                ood_alphas = torch.exp(ood_outputs)
-                ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
+                kl_loss += loss
+                ood_precision += precision
 
             # average the metrics over all steps (batches) in this epoch
             num_batches = len(self.ood_train_loader)

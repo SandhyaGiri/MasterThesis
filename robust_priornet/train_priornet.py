@@ -11,6 +11,7 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.adversarial_trainer import AdversarialPriorNetTrainer
+from .training.adversarial_trainer_batch import AdversarialPriorNetBatchTrainer
 from .training.trainer import PriorNetTrainer
 from .utils.common_data import (ATTACK_CRITERIA_MAP,
                                 ATTACK_CRITERIA_TO_ENUM_MAP,
@@ -201,7 +202,7 @@ def main():
                         'weight_decay': args.weight_decay} # add this for other datasets
 
     if args.include_adv_samples:
-        trainer = AdversarialPriorNetTrainer(model,
+        trainer = AdversarialPriorNetBatchTrainer(model,
                                              id_train_set, id_val_set,
                                              ood_train_set, ood_val_set,
                                              criterion, id_loss, ood_loss, optimizer,
@@ -228,7 +229,8 @@ def main():
                                              only_out_in_adversarials=
                                              args.include_only_out_in_adv_samples,
                                              use_fixed_threshold=args.use_fixed_threshold,
-                                             known_threshold_value=args.known_threshold_value)
+                                             known_threshold_value=args.known_threshold_value,
+                                             validate_after_steps=10)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,

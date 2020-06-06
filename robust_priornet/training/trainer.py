@@ -172,32 +172,108 @@ class PriorNetTrainer:
         ood_outputs = self.model(ood_inputs)
         return id_outputs, ood_outputs
 
-    def _train_single_epoch(self, id_train_loader, ood_train_loader, is_adversarial_epoch=False):
+    def _train_single_batch_criteria(self, data, criterion, is_ood=False):
+        """
+        Trains on the given samples (may be id or ood batch) on
+        the specified criertion - KL div loss for peaky target dirichlet
+        on id samples, KL div loss for flat target dirichlet on ood
+        samples.
+        """
+        self.model.train()
+        
+        inputs, labels = data
+        if self.device is not None:
+            inputs, labels = map(lambda x: x.to(self.device,
+                                                non_blocking=self.pin_memory),
+                                 (inputs, labels))
+        # zero the parameter gradients
+        self.optimizer.zero_grad()
+
+        # eval samples
+        outputs = self.model(inputs)
+        
+        # Calculate train loss
+        loss = criterion(outputs, None if is_ood else labels)
+        assert torch.all(torch.isfinite(loss)).item()
+
+        # divide the loss by target dirichlet precision (if any), so that loss is inline with lr
+        if criterion.target_precision > 0:
+            loss = loss / criterion.target_precision
+
+        loss.backward()
+        clip_grad_norm_(self.model.parameters(), self.clip_norm)
+        self.optimizer.step()
+
+        alphas = torch.exp(outputs)
+        precision = torch.mean(torch.sum(alphas, dim=1)).item()
+
+        accuracy = None
+        if not is_ood:
+            # measure classification accuracy
+            probs = F.softmax(outputs, dim=1)
+            accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
+                                                                      self.device).item()
+
+        return (loss.item(), precision, accuracy, outputs)
+
+    def _train_single_batch(self, id_data, ood_data):
+        """
+        Trains on both id and ood samples on the combined kl div loss/criterion.
+        """
         # Set model in train mode
         self.model.train()
+        # Get inputs
+        inputs, labels = id_data
+        ood_inputs, _ = ood_data
+        if self.device is not None:
+            inputs, labels, ood_inputs = map(lambda x: x.to(self.device,
+                                                            non_blocking=self.pin_memory),
+                                             (inputs, labels, ood_inputs))
 
+        # zero the parameter gradients
+        self.optimizer.zero_grad()
+
+        # eval the id and ood inputs
+        id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
+
+        # Calculate train loss (overall loss including both id, ood samples)
+        loss = self.criterion((id_outputs, ood_outputs), (labels, None))
+        assert torch.all(torch.isfinite(loss)).item()
+
+        # Measures ID and OOD losses
+        id_loss = self.id_criterion(id_outputs, labels).item()
+        ood_loss = self.ood_criterion(ood_outputs, None).item()
+
+        loss.backward()
+        clip_grad_norm_(self.model.parameters(), self.clip_norm)
+        self.optimizer.step()
+
+        # precision of the dirichlet dist output by the model (id, ood seprately)
+        id_alphas = torch.exp(id_outputs)
+        id_precision = torch.mean(torch.sum(id_alphas, dim=1)).item()
+        ood_alphas = torch.exp(ood_outputs)
+        ood_precision = torch.mean(torch.sum(ood_alphas, dim=1)).item()
+
+        probs = F.softmax(id_outputs, dim=1)
+        accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
+                                                                  self.device).item()
+        return (loss.item(), id_loss, ood_loss, id_precision, ood_precision, accuracy, id_outputs, ood_outputs)
+
+    def _train_single_epoch(self, id_train_loader, ood_train_loader, is_adversarial_epoch=False):
         # metrics to be collected
         accuracies = 0.0
-        kl_loss = 0.0
-        id_loss, ood_loss = 0.0, 0.0
-        id_precision, ood_precision = 0.0, 0.0
+        total_kl_loss = 0.0
+        total_id_loss, total_ood_loss = 0.0, 0.0
+        total_id_precision, total_ood_precision = 0.0, 0.0
         id_outputs_all = None
         ood_outputs_all = None
         for i, (data, ood_data) in enumerate(
                 zip(id_train_loader, ood_train_loader), 0):
-            # Get inputs
-            inputs, labels = data
-            ood_inputs, _ = ood_data
-            if self.device is not None:
-                inputs, labels, ood_inputs = map(lambda x: x.to(self.device,
-                                                                non_blocking=self.pin_memory),
-                                                 (inputs, labels, ood_inputs))
-
-            # zero the parameter gradients
-            self.optimizer.zero_grad()
-
-            # append id samples with ood samples
-            id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
+            
+            batch_result = self._train_single_batch(data, ood_data)
+            kl_loss, id_loss, ood_loss, id_precision, ood_precision, accuracy, id_outputs, ood_outputs = batch_result
+            # Update the number of steps
+            self.steps += 1
             # accumulate all outputs by the model
             if id_outputs_all is None:
                 id_outputs_all = id_outputs
@@ -205,46 +281,22 @@ class PriorNetTrainer:
             else:
                 id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
                 ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
-            # Calculate train loss
-            loss = self.criterion((id_outputs, ood_outputs), (labels, None))
-            assert torch.all(torch.isfinite(loss)).item()
-            kl_loss += loss.item()
 
-            # Measures ID and OOD losses
-            prev_id_loss = id_loss
-            id_loss += self.id_criterion(id_outputs, labels).item()
-            prev_ood_loss = ood_loss
-            ood_loss += self.ood_criterion(ood_outputs, None).item()
-            if self.steps % 100 == 0:
-                print(f"Step {self.steps}: ID loss {id_loss - prev_id_loss}, OOD loss: {ood_loss - prev_ood_loss}")
-
-            loss.backward()
-            clip_grad_norm_(self.model.parameters(), self.clip_norm)
-            self.optimizer.step()
-
-            # Update the number of steps
-            self.steps += 1
-
-            # precision of the dirichlet dist output by the model (id, ood seprately), 
-            # averaged across all samples in batch
-            id_alphas = torch.exp(id_outputs)
-            id_precision += torch.mean(torch.sum(id_alphas, dim=1)).item()
-            ood_alphas = torch.exp(ood_outputs)
-            ood_precision += torch.mean(torch.sum(ood_alphas, dim=1)).item()
-
-            probs = F.softmax(id_outputs, dim=1)
-            accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels,
-                                                                      self.device).item()
+            total_kl_loss += kl_loss
+            total_id_loss += id_loss
+            total_ood_loss += ood_loss
+            total_id_precision += id_precision
+            total_ood_precision += ood_precision
             accuracies += accuracy
 
         # average the metrics over all steps (batches) in this epoch
         num_batches = len(self.id_train_loader)
         accuracies /= num_batches
-        kl_loss /= num_batches
-        id_loss /= num_batches
-        ood_loss /= num_batches
-        id_precision /= num_batches
-        ood_precision /= num_batches
+        total_kl_loss /= num_batches
+        total_id_loss /= num_batches
+        total_ood_loss /= num_batches
+        total_id_precision /= num_batches
+        total_ood_precision /= num_batches
 
         if self.log_uncertainties:
             id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
@@ -261,12 +313,12 @@ class PriorNetTrainer:
                            id_uncertainties[key])
         # returns average metrics (loss, accuracy, dirichlet_dist_precision)
         return {
-            'loss': np.round(kl_loss, 4),
-            'id_loss': np.round(id_loss, 4),
-            'ood_loss': np.round(ood_loss, 4),
+            'loss': np.round(total_kl_loss, 4),
+            'id_loss': np.round(total_id_loss, 4),
+            'ood_loss': np.round(total_ood_loss, 4),
             'id_accuracy': np.round(100.0 * accuracies, 2),
-            'id_precision': np.round(id_precision, 4),
-            'ood_precision': np.round(ood_precision, 4)
+            'id_precision': np.round(total_id_precision, 4),
+            'ood_precision': np.round(total_ood_precision, 4)
         }
 
 
@@ -279,7 +331,6 @@ class PriorNetTrainer:
         id_loss, ood_loss = 0.0, 0.0
         id_precision, ood_precision = 0.0, 0.0
 
-        kl_loss_all_steps = []
         with torch.no_grad():
             for i, (data, ood_data) in enumerate(
                     zip(self.id_val_loader, self.ood_val_loader), 0):
@@ -298,7 +349,6 @@ class PriorNetTrainer:
                 loss = self.criterion((id_outputs, ood_outputs), (labels, None))
                 assert torch.all(torch.isfinite(loss)).item()
                 kl_loss += loss.item()
-                kl_loss_all_steps.append(loss.item())
 
                 # Measures ID and OOD losses
                 id_loss += self.id_criterion(id_outputs, labels).item()
@@ -331,6 +381,5 @@ class PriorNetTrainer:
             'ood_loss': np.round(ood_loss, 4),
             'id_accuracy': np.round(100.0 * accuracies, 2),
             'id_precision': np.round(id_precision, 4),
-            'ood_precision': np.round(ood_precision, 4),
-            'step_wise_kl_loss': kl_loss_all_steps
+            'ood_precision': np.round(ood_precision, 4)
         }
