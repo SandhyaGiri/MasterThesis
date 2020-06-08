@@ -7,6 +7,7 @@ class EarlyStopper:
         self.min_delta = min_delta
         self.verbose = verbose
         self.best_val_loss = None
+        self.best_epoch = None
         self.best_model_name = 'early-stopping-best-model.tar'
         self.do_early_stop = False
         self.epochs = 0
@@ -17,6 +18,7 @@ class EarlyStopper:
             # calculate and store the best model after min_epochs reached
             if self.best_val_loss is None or val_loss <= (self.best_val_loss + self.min_delta):
                 self.best_val_loss = val_loss
+                self.best_epoch = self.epochs
                 save_model_with_params_from_ckpt(model, model_dir, name=self.best_model_name)
                 # reset the counter on seeing a smaller val loss
                 self.counter = 0

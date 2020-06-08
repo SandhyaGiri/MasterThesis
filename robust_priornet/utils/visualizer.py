@@ -71,43 +71,99 @@ def get_epoch_summaries(model_dir, num_epochs, verbose=False):
         val_loss.append(summary['val_results']['loss'])
         val_id_accuracy.append(summary['val_results']['id_accuracy'])
         time_taken.append(summary['time_taken'])
-
     return train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, time_taken
 
-def plot_loss_accuracy_curve(model_dir, num_epochs):
-    train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, _ = get_epoch_summaries(model_dir, num_epochs)
-    figure, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 8))
+def get_step_summaries(model_dir, step_size):
+    """
+    Accumulates loss, accuracy values for train, val phases for every step summary
+    written during training.
+    """
+    train_id_loss = []
+    train_ood_loss = []
+    val_id_loss = []
+    val_ood_loss = []
+    train_id_accuracy = []
+    val_id_accuracy = []
+    train_loss = []
+    val_loss = []
+    time_taken = []
+    step = 0
+    steps = []
+    curr_path = os.path.join(model_dir, f'step_summary_{step+step_size}.pt')
+    while os.path.exists(curr_path):
+        summary = torch.load(curr_path)
+        train_id_loss.append(summary['train_results']['id_loss'])
+        train_ood_loss.append(summary['train_results']['ood_loss'])
+        train_loss.append(summary['train_results']['loss'])
+        train_id_accuracy.append(summary['train_results']['id_accuracy'])
+        val_id_loss.append(summary['val_results']['id_loss'])
+        val_ood_loss.append(summary['val_results']['ood_loss'])
+        val_loss.append(summary['val_results']['loss'])
+        val_id_accuracy.append(summary['val_results']['id_accuracy'])
+        time_taken.append(summary['time_taken'])
+        step += step_size
+        steps.append(step)
+        curr_path = os.path.join(model_dir, f'step_summary_{step+step_size}.pt')
+    return steps, train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, time_taken
+
+def plot_loss_accuracy_curve(model_dir, num_epochs, step_size=None):
+    if step_size is not None:
+        x_values, train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, _ = get_step_summaries(model_dir, step_size)
+    else:
+        train_id_loss, train_ood_loss, val_id_loss, val_ood_loss, train_id_accuracy, val_id_accuracy, train_loss, val_loss, _ = get_epoch_summaries(model_dir, num_epochs)
+
+    figure, axes = plt.subplots(nrows=3, ncols=2, figsize=(10, 8))
+    x_axis_label = 'Epochs' if step_size is None else 'Steps'
 
     # ID axis for loss curve
-    x_values = np.arange(num_epochs)
-    plot_curve(x_values, train_id_loss, axes[0,0], x_label='Epochs',
+    if step_size is None:
+        x_values = np.arange(num_epochs)
+    plot_curve(x_values, train_id_loss, axes[0,0], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='ID - Train loss', show_legend=True)
-    plot_curve(x_values, val_id_loss, axes[0,0], x_label='Epochs',
+    plot_curve(x_values, val_id_loss, axes[0,0], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='ID - Validation loss', show_legend=True)
 
     # OOD axis for loss curve
-    plot_curve(x_values, train_ood_loss, axes[0,1], x_label='Epochs',
+    plot_curve(x_values, train_ood_loss, axes[0,1], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='OOD - Train loss', show_legend=True)
-    plot_curve(x_values, val_ood_loss, axes[0,1], x_label='Epochs',
+    plot_curve(x_values, val_ood_loss, axes[0,1], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='OOD - Validation loss', show_legend=True)
 
+    # ID axis for loss curve (zoomed)
+    if step_size is None:
+        x_values = np.arange(num_epochs)
+    plot_curve(x_values, train_id_loss, axes[1,0], x_label=x_axis_label,
+               y_label='Loss', title='Loss curve',
+               curve_title='ID - Train loss', show_legend=True, y_lim=[0, 5])
+    plot_curve(x_values, val_id_loss, axes[1,0], x_label=x_axis_label,
+               y_label='Loss', title='Loss curve',
+               curve_title='ID - Validation loss', show_legend=True, y_lim=[0, 5])
+
+    # OOD axis for loss curve (zoomed)
+    plot_curve(x_values, train_ood_loss, axes[1,1], x_label=x_axis_label,
+               y_label='Loss', title='Loss curve',
+               curve_title='OOD - Train loss', show_legend=True, y_lim=[0, 0.1])
+    plot_curve(x_values, val_ood_loss, axes[1,1], x_label=x_axis_label,
+               y_label='Loss', title='Loss curve',
+               curve_title='OOD - Validation loss', show_legend=True, y_lim=[0, 0.1])
+
     # ID axis for accuracy curve
-    plot_curve(x_values, train_id_accuracy, axes[1,0], x_label='Epochs',
+    plot_curve(x_values, train_id_accuracy, axes[2,0], x_label=x_axis_label,
                y_label='Accuracy', title='Accuracy curve',
                curve_title='ID - Train accuracy', show_legend=True)
-    plot_curve(x_values, val_id_accuracy, axes[1,0], x_label='Epochs',
+    plot_curve(x_values, val_id_accuracy, axes[2,0], x_label=x_axis_label,
                y_label='Accuracy', title='Accuracy curve',
                curve_title='ID - Validation accuracy', show_legend=True)
 
     # Overall loss axis
-    plot_curve(x_values, train_loss, axes[1,1], x_label='Epochs',
+    plot_curve(x_values, train_loss, axes[2,1], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='Train loss', show_legend=True)
-    plot_curve(x_values, val_loss, axes[1,1], x_label='Epochs',
+    plot_curve(x_values, val_loss, axes[2,1], x_label=x_axis_label,
                y_label='Loss', title='Loss curve',
                curve_title='Validation loss', show_legend=True)
     

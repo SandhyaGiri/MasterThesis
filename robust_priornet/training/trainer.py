@@ -152,7 +152,7 @@ class PriorNetTrainer:
             early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
 
             if early_stopping.do_early_stop:
-                print("Early stopping")
+                print(f"Early stopping. Restoring model to epoch {early_stopping.best_epoch+1}")
                 self.training_early_stopped = True
                 break
 

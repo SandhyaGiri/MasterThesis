@@ -108,6 +108,8 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
         step_id_loss, step_ood_loss = 0.0, 0.0
         step_id_precision, step_ood_precision = 0.0, 0.0
         last_validated_step = 0
+        # overflow from previous epoch
+        overflow = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
             self.epochs = epoch
@@ -200,7 +202,14 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                     step_kl_loss = 0.0
                     step_id_loss, step_ood_loss = 0.0, 0.0
                     step_id_precision, step_ood_precision = 0.0, 0.0
-            # accumulate epoch level metrics (for last unaccounted val step)
+            # accumulate epoch level metrics (subtract previous overflow)
+            total_kl_loss -= overflow[0]
+            total_id_loss -= overflow[1]
+            total_ood_loss -= overflow[2]
+            total_id_precision -= overflow[3]
+            total_ood_precision -= overflow[4]
+            accuracies -= overflow[5]
+            #  (for last unaccounted val step)
             if self.steps > last_validated_step:
                 total_kl_loss += step_kl_loss
                 total_id_loss += step_id_loss
@@ -208,6 +217,8 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                 total_id_precision += step_id_precision
                 total_ood_precision += step_ood_precision
                 accuracies += step_accuracies
+                # these values will be extra in the next epoch, so should be subtracted later
+                overflow = (step_kl_loss, step_id_loss, step_ood_loss, step_id_precision, step_ood_precision, step_accuracies)
             epoch_end = time.time()
             # log uncertainties needed for ood-detect adv generation
             if self.log_uncertainties:
@@ -252,6 +263,9 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                     },
                 'val_results': val_results,
                 'time_taken': np.round(((epoch_end-epoch_start) / 60.0), 2),
+                'num_steps': self.steps, # number of steps completed when epoch finished
+                'num_in-out_adv': len(id_adv_dataset) if id_adv_dataset is not None else 0,
+                'num_out-in_adv': len(ood_adv_dataset) if ood_adv_dataset is not None else 0
             }
             torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
             print(f"Train loss: {summary['train_results']['loss']}, \
@@ -267,7 +281,7 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
             early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
 
             if early_stopping.do_early_stop:
-                print("Early stopping")
+                print(f"Early stopping. Restoring model to epoch {early_stopping.best_epoch + 1}")
                 self.training_early_stopped = True
                 break
 
