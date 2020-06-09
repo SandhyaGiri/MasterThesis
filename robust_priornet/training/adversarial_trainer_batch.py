@@ -19,7 +19,7 @@ from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
 from .adversarial_trainer import AdversarialPriorNetTrainer
-from .early_stopping import EarlyStopper
+from .early_stopping import EarlyStopperSteps
 
 
 class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
@@ -95,8 +95,8 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
             self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
             print(f"Model restored from checkpoint at epoch {init_epoch}")
 
-        # initialize the early_stopping object
-        early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
+        # initialize the early_stopping object - consider min_epochs as steps here
+        early_stopping = EarlyStopperSteps(self.min_epochs, self.patience, self.validate_after_steps, verbose=True)
 
         # initialize adv datasets and dataloaders
         id_adv_dataset = None
@@ -195,6 +195,14 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                         'time_taken': np.round(((end-start) / 60.0), 2),
                     }
                     torch.save(step_summary, os.path.join(self.log_dir, f'step_summary_{self.steps}.pt'))
+                    # early_stopping needs the validation loss to check if it has decresed, 
+                    # and if it has, it will make a checkpoint of the current model
+                    early_stopping.register_step(step_val_results['loss'], self.model, self.log_dir)
+                    
+                    if early_stopping.do_early_stop:
+                        print(f"Early stopping. Restoring model to step {early_stopping.best_step}")
+                        self.training_early_stopped = True
+                        break
                     # reset timer for next _ steps
                     start = time.time()
                     # reset step metric variables
@@ -202,6 +210,8 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                     step_kl_loss = 0.0
                     step_id_loss, step_ood_loss = 0.0, 0.0
                     step_id_precision, step_ood_precision = 0.0, 0.0
+            if self.training_early_stopped:
+                break
             # accumulate epoch level metrics (subtract previous overflow)
             total_kl_loss -= overflow[0]
             total_id_loss -= overflow[1]
@@ -219,7 +229,6 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                 accuracies += step_accuracies
                 # these values will be extra in the next epoch, so should be subtracted later
                 overflow = (step_kl_loss, step_id_loss, step_ood_loss, step_id_precision, step_ood_precision, step_accuracies)
-            epoch_end = time.time()
             # log uncertainties needed for ood-detect adv generation
             if self.log_uncertainties:
                 id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
@@ -237,6 +246,7 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                 id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset()
                 id_adv_loader, ood_adv_loader = self._get_adv_data_loaders(id_adv_dataset,
                                                                             ood_adv_dataset)
+            epoch_end = time.time()
             # save the checkpoint every epoch
             save_model_with_params_from_ckpt(self.model, self.log_dir,
                                              name='checkpoint.tar',
@@ -275,15 +285,6 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
             print(f"Val loss: {val_results['loss']}, \
                   Val accuracy: {val_results['id_accuracy']}")
             print(f"Time taken for train epoch: {summary['time_taken']} mins")
-                
-            # early_stopping needs the validation loss to check if it has decresed, 
-            # and if it has, it will make a checkpoint of the current model
-            early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
-
-            if early_stopping.do_early_stop:
-                print(f"Early stopping. Restoring model to epoch {early_stopping.best_epoch + 1}")
-                self.training_early_stopped = True
-                break
 
             # step through lr scheduler
             self.lr_scheduler.step()
