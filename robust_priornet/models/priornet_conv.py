@@ -16,7 +16,7 @@ FC_CONFIG = {
 
 ACTIVATION_CONFIG = {
     'vgg6': nn.ReLU,
-    'vgg16': nn.LeakyReLU
+    'vgg16': nn.ReLU
 }
 
 class CustomVGG(nn.Module):

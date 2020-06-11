@@ -33,7 +33,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--num_epochs", "10", "--batch_size", "64", "--lr", "0.00075", "--augment", "--target_precision","100", "./runtime-data", "CIFAR10", "SVHN"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg16", "--num_epochs", "3", "--batch_size", "64", "--lr", "0.00075","--augment", "--weight_decay", "0.0", "--target_precision","100", "./runtime-data", "CIFAR10", "SVHN"]
         },
         {
             "name": "Module train_priornet fgsm adversarial",
@@ -91,7 +91,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "TIM"]
         },
         {
             "name": "Module eval_priornet ood train",

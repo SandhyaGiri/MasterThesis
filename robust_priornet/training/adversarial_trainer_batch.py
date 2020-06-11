@@ -36,6 +36,7 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
+                 add_ce_loss=False,
                  batch_size=64,
                  min_epochs=25, patience=20,
                  device=None, clip_norm=10.0, num_workers=4,
@@ -57,6 +58,7 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                                                               adv_attack_type, adv_attack_criteria,
                                                               optimizer_params,
                                                               lr_scheduler, lr_scheduler_params,
+                                                              add_ce_loss,
                                                               batch_size, min_epochs, patience, device,
                                                               clip_norm, num_workers,
                                                               pin_memory, log_dir,
@@ -210,6 +212,10 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                     step_kl_loss = 0.0
                     step_id_loss, step_ood_loss = 0.0, 0.0
                     step_id_precision, step_ood_precision = 0.0, 0.0
+
+                # step through lr scheduler for batch level ones
+                if self.lr_step_after_batch:
+                    self.lr_scheduler.step()
             if self.training_early_stopped:
                 break
             # accumulate epoch level metrics (subtract previous overflow)
@@ -287,7 +293,8 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
             print(f"Time taken for train epoch: {summary['time_taken']} mins")
 
             # step through lr scheduler
-            self.lr_scheduler.step()
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # load the last checkpoint with the best model
         if self.training_early_stopped:

@@ -68,7 +68,7 @@ class KLDivDirchletDistLoss:
         self.smooothing_factor = smoothing_factor
 
     def __call__(self, logits, labels, reduction='mean'):
-        # logits = logits - torch.max(logits, dim=0)[0]
+        logits = logits - torch.max(logits, dim=0)[0]
         alphas = torch.exp(logits)
         return self.forward(alphas, labels, reduction=reduction)
 

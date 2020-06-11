@@ -65,6 +65,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
+                 add_ce_loss=False,
                  batch_size=64,
                  min_epochs=25, patience=20,
                  device=None, clip_norm=10.0, num_workers=4,
@@ -87,6 +88,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                          id_criterion, ood_criterion,
                                                          optimizer_fn, optimizer_params,
                                                          lr_scheduler, lr_scheduler_params,
+                                                         add_ce_loss,
                                                          batch_size, min_epochs, patience, device,
                                                          clip_norm, num_workers,
                                                          pin_memory, log_dir,
@@ -170,7 +172,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                   Val accuracy: {val_results['id_accuracy']}")
             print(f"Time taken for train epoch: {summary['time_taken']} mins")
 
-            # early_stopping needs the validation loss to check if it has decresed, 
+            # early_stopping needs the validation loss to check if it has decreased, 
             # and if it has, it will make a checkpoint of the current model
             early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
 
@@ -180,7 +182,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 break
 
             # step through lr scheduler
-            self.lr_scheduler.step()
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # load the last checkpoint with the best model
         if self.training_early_stopped:

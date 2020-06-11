@@ -23,6 +23,7 @@ class PriorNetTrainer:
                  optimizer_params: Dict[str, Any] = {},
                  lr_scheduler=None,
                  lr_scheduler_params={},
+                 add_ce_loss=False,
                  batch_size=64,
                  min_epochs=25, patience=20,
                  device=None, clip_norm=10.0, num_workers=4,
@@ -46,9 +47,12 @@ class PriorNetTrainer:
         self.device = device
         self.clip_norm = clip_norm
         self.log_uncertainties = log_uncertainties
+        self.add_ce_loss = add_ce_loss
 
         if lr_scheduler is not None:
             self.lr_scheduler = lr_scheduler(self.optimizer, **lr_scheduler_params)
+            if lr_scheduler == torch.optim.lr_scheduler.OneCycleLR:
+                self.lr_step_after_batch = True
 
         # Dataloaders for train dataset
         self.id_train_loader = DataLoader(id_train_dataset,
@@ -156,8 +160,9 @@ class PriorNetTrainer:
                 self.training_early_stopped = True
                 break
 
-            # step through lr scheduler
-            self.lr_scheduler.step()
+            # step through lr scheduler (only for epoch level steps)
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # load the last checkpoint with the best model
         if self.training_early_stopped:
@@ -240,6 +245,12 @@ class PriorNetTrainer:
         loss = self.criterion((id_outputs, ood_outputs), (labels, None))
         assert torch.all(torch.isfinite(loss)).item()
 
+        # include CE loss if needed
+        if self.add_ce_loss:
+            ce_loss = torch.nn.CrossEntropyLoss()
+            ce_loss_val = ce_loss(id_outputs, labels)
+            loss = loss + ce_loss_val
+
         # Measures ID and OOD losses
         id_loss = self.id_criterion(id_outputs, labels).item()
         ood_loss = self.ood_criterion(ood_outputs, None).item()
@@ -288,6 +299,9 @@ class PriorNetTrainer:
             total_id_precision += id_precision
             total_ood_precision += ood_precision
             accuracies += accuracy
+
+            if self.lr_step_after_batch:
+                self.lr_scheduler.step()
 
         # average the metrics over all steps (batches) in this epoch
         num_batches = len(self.id_train_loader)
