@@ -5,8 +5,8 @@ import torch.nn as nn
 
 CONV_CONFIG = {
     'vgg6': [64, 64, 'M', 128, 128, 'M'],
-    'vgg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M',
-              512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M']
+    'vgg16': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M',
+              512, 512, 512, 'M', 512, 512, 512, 'M']
 }
 
 FC_CONFIG = {
@@ -16,7 +16,7 @@ FC_CONFIG = {
 
 ACTIVATION_CONFIG = {
     'vgg6': nn.ReLU,
-    'vgg16': nn.LeakyReLU
+    'vgg16': nn.ReLU
 }
 
 class CustomVGG(nn.Module):

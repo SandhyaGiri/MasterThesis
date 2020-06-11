@@ -159,6 +159,7 @@ def main():
     if args.dataset_size_limit is not None:
         ood_train_set = DataSpliter.reduceSize(ood_train_set, args.dataset_size_limit)
         ood_val_set = DataSpliter.reduceSize(ood_val_set, args.dataset_size_limit)
+    # ood_train_set = DataSpliter.reduceSize(ood_train_set, 45000)
     print(f"OOD domain dataset: Train-{len(ood_train_set)}, Val-{len(ood_val_set)}")
 
     # make both datasets (id, ood) same size
@@ -200,10 +201,10 @@ def main():
         lr_scheduler = optim.lr_scheduler.OneCycleLR
         lr_scheduler_params = {'max_lr': 10*args.lr,
                                'div_factor': 10,
-                               'final_div_factor': 1,
+                               'final_div_factor': args.lr / 1e-6,
                                'epochs': args.num_epochs,
                                'steps_per_epoch': int(len(id_train_set)/args.batch_size),
-                               'pct_start': 0.5,
+                               'pct_start': 0.33,
                                'anneal_strategy': 'linear',
                                }
     else:
@@ -246,6 +247,7 @@ def main():
                                   add_ce_loss=args.add_ce_loss,
                                   lr_scheduler_params=lr_scheduler_params,
                                   batch_size=args.batch_size, device=device,
+                                  clip_norm=5.0,
                                   log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs, resume=args.resume_from_ckpt, ckpt=ckpt)

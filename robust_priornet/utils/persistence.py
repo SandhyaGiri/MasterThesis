@@ -18,7 +18,7 @@ def persist_images(images, mean, std, n_channels, image_dir):
             # images were added new channels (3) to go through VGG, so remove unnecessary channels
             Image.fromarray(image[0, :, :]).save(os.path.join(image_dir, f"{i}.png"))
         else:
-            Image.fromarray(image).save(os.path.join(image_dir, f"{i}.png"))
+            Image.fromarray(np.transpose(image, (1,2,0)), mode='RGB').save(os.path.join(image_dir, f"{i}.png"))
 
 def persist_image_dataset(dataset, mean, std, n_channels, image_dir):
     assert isinstance(dataset, Dataset), ("Dataset is not of right type. Cannot be persisted.")
