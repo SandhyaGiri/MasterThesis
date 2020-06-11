@@ -1,4 +1,5 @@
 import argparse
+import math
 import os
 
 import numpy as np
@@ -58,6 +59,8 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--resume_from_ckpt', action='store_true',
                     help='Indicates if model needs to be laoded from checkpoint.tar for further training.')
+parser.add_argument('--grad_clip_value', type=float, default=10.0,
+                    help='Specifies the clip value for gradient clipping, to prevent exploding gradients.')
 # early stopping arguments
 parser.add_argument('--min_train_epochs', type=int, default=10,
                     help='Indicates min num of epochs to train before val loss monitoring starts for early stopping.')
@@ -213,7 +216,7 @@ def main():
                                'div_factor': 10,
                                'final_div_factor': args.lr / 1e-6,
                                'epochs': args.num_epochs,
-                               'steps_per_epoch': int(len(id_train_set)/args.batch_size),
+                               'steps_per_epoch': math.ceil(len(id_train_set)/args.batch_size),
                                'pct_start': 0.33,
                                'anneal_strategy': 'linear',
                                }
@@ -233,6 +236,7 @@ def main():
                                              add_ce_loss=args.add_ce_loss,
                                              batch_size=args.batch_size, device=device,
                                              min_epochs=args.min_train_epochs, patience=args.patience,
+                                             clip_norm=args.grad_clip_value,
                                              log_dir=args.model_dir, attack_params={
                                                  'epsilon': args.adv_epsilon,
                                                  'adv_persist_images': args.adv_persist_images,
@@ -251,7 +255,7 @@ def main():
                                              args.include_only_out_in_adv_samples,
                                              use_fixed_threshold=args.use_fixed_threshold,
                                              known_threshold_value=args.known_threshold_value,
-                                             validate_after_steps=10)
+                                             validate_after_steps=100)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
@@ -262,7 +266,7 @@ def main():
                                   lr_scheduler_params=lr_scheduler_params,
                                   batch_size=args.batch_size, device=device,
                                   min_epochs=args.min_train_epochs, patience=args.patience,
-                                  clip_norm=5.0,
+                                  clip_norm=args.grad_clip_value,
                                   log_dir=args.model_dir)
 
     trainer.train(num_epochs=args.num_epochs, resume=args.resume_from_ckpt, ckpt=ckpt)

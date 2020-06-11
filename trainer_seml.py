@@ -22,7 +22,7 @@ def config():
 @ex.automain
 def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples,
         rpn_sigma, fc_layers, num_epochs, min_train_epochs, patience, num_channels, learning_rate,
-        use_cyclic_lr, add_ce_loss, drop_rate, use_fixed_threshold, known_threshold_value,
+        use_cyclic_lr, add_ce_loss, drop_rate, use_fixed_threshold, known_threshold_value, grad_clip_value,
         weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
         batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
         adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
@@ -67,7 +67,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
-            --min_train_epochs {min_train_epochs} --patience {patience} \
+            --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
             {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
             --adv_attack_type {adv_attack_type} --adv_attack_criteria {adv_attack_criteria} \
@@ -77,7 +77,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     else:
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} {dataset_limit} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {resume} {augment} \
-            --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} \
+            --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} --grad_clip_value {grad_clip_value} \
             --min_train_epochs {min_train_epochs} --patience {patience} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")

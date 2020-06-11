@@ -29,6 +29,7 @@ fixed:
   patience: 10
   num_channels: 1
   learning_rate: 0.0001
+  grad_clip_value: 10.0
   use_cyclic_lr: False
   add_ce_loss: False
   drop_rate: 0.05

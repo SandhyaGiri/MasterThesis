@@ -50,9 +50,10 @@ class PriorNetTrainer:
         self.add_ce_loss = add_ce_loss
 
         if lr_scheduler is not None:
+            self.lr_step_after_batch = False
             self.lr_scheduler = lr_scheduler(self.optimizer, **lr_scheduler_params)
-            if lr_scheduler == torch.optim.lr_scheduler.OneCycleLR:
-                self.lr_step_after_batch = True
+            # if lr_scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            #     self.lr_step_after_batch = True
 
         # Dataloaders for train dataset
         self.id_train_loader = DataLoader(id_train_dataset,
