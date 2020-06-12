@@ -88,11 +88,13 @@ def certify_classification(rand_smoother, args, device, id_dataset):
     avg_radius_correct = np.sum(radius_list[pred_labels == expected_labels]) / len(id_dataset)
     correct_preds = len(np.argwhere(pred_labels == expected_labels))
     total_preds = len(id_dataset)
+    abstains = len(np.argwhere(pred_labels == -1))
     with open(os.path.join(args.result_dir, 'radius.txt'), 'a') as f:
         f.write(f'Avg robust radius: {np.round(avg_radius_all, 4)}\n')
         f.write(f'Avg robust radius (only correctly classified samples): {np.round(avg_radius_correct, 4)}\n')
         f.write(f'Accuracy: {correct_preds} correct out of {total_preds}\n')
-        f.write(f'Certified accuracy: {np.round(correct_preds/total_preds,4)}')
+        f.write(f'Certified accuracy: {np.round(correct_preds/total_preds,4)}\n')
+        f.write(f'Certified accuracy (excluding ABSTAIN): {np.round(correct_preds/(total_preds - abstains),4)}')
 
 def certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset):
     dataset = data.ConcatDataset((id_dataset, ood_dataset))
@@ -143,6 +145,8 @@ def certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset):
                           )
     correct_preds = len(np.argwhere(in_pred_labels == 0)) + len(np.argwhere(out_pred_labels == 1))
     total_preds = len(in_pred_labels) + len(out_pred_labels)
+    in_abstains = len(np.argwhere(in_pred_labels == -1))
+    out_abstains = len(np.argwhere(out_pred_labels == -1))
     with open(os.path.join(args.result_dir, 'radius.txt'), 'a') as f:
         f.write(f'Avg in-domain radius: {np.round(avg_in_radius_all, 4)}\n')
         f.write(f'Avg out-domain radius: {np.round(avg_out_radius_all, 4)}\n')
@@ -150,8 +154,10 @@ def certify_ood_detect(rand_smoother, args, device, id_dataset, ood_dataset):
         f.write(f'Avg out-domain radius (only correctly classified samples): {np.round(avg_out_radius_correct, 4)}\n')
         f.write(f'Avg robust radius: {(np.sum(in_radius) + np.sum(out_radius)) / len(dataset)}\n')
         f.write(f'Avg robust radius ((only correctly classified samples)): {np.round(avg_radius_correct, 4)}\n')
-        f.write(f'In-domain Accuracy: {np.round(len(np.argwhere(in_pred_labels == 0))/len(in_pred_labels),4)}')
-        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}')
+        f.write(f'In-domain Accuracy: {np.round(len(np.argwhere(in_pred_labels == 0))/len(in_pred_labels),4)}\n')
+        f.write(f'In-domain Accuracy (no ABSTAIN): {np.round(len(np.argwhere(in_pred_labels == 0))/(len(in_pred_labels) - in_abstains),4)}\n')
+        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}\n')
+        f.write(f'Out-domain Accuracy (no ABSTAIN): {np.round(len(np.argwhere(out_pred_labels == 1))/(len(out_pred_labels) - out_abstains),4)}\n')
         f.write(f'Accuracy: {correct_preds} correct out of {total_preds}\n')
         f.write(f'Certified accuracy: {np.round(correct_preds/total_preds,4)}')
 
@@ -182,11 +188,13 @@ def certify_ood_detect_only_ood(rand_smoother, args, device, ood_dataset):
     avg_out_radius_all = np.sum(out_radius) / len(ood_dataset)
     out_pred_labels = np.asarray(out_pred_labels)
     out_radius = np.asarray(out_radius)
+    out_abstains = len(np.argwhere(out_pred_labels == -1))
     avg_out_radius_correct = np.sum(out_radius[out_pred_labels == 1]) / len(np.argwhere(out_pred_labels == 1))
     with open(os.path.join(args.result_dir, 'radius.txt'), 'a') as f:
         f.write(f'Avg out-domain radius: {np.round(avg_out_radius_all, 4)}\n')
         f.write(f'Avg out-domain radius (only correctly classified samples): {np.round(avg_out_radius_correct, 4)}\n')
-        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}')
+        f.write(f'Out-domain Accuracy: {np.round(len(np.argwhere(out_pred_labels == 1))/len(out_pred_labels),4)}\n')
+        f.write(f'Out-domain Accuracy (no ABSTAIN): {np.round(len(np.argwhere(out_pred_labels == 1))/(len(out_pred_labels) - out_abstains),4)}\n')
 
 def main():
     args = parser.parse_args()

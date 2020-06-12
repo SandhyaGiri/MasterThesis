@@ -104,16 +104,20 @@ class PriorNetTrainer:
         else:
             assert isinstance(num_epochs, int)
 
+        # initialize the early_stopping object
+        early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
+
+        # resume model from previous checkpoint
         assert resume is False or ckpt is not None
         init_epoch = 0
         if resume is True:
             init_epoch = ckpt['epochs'] + 1
             self.optimizer.load_state_dict(ckpt['opt_state_dict'])
             self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
+            early_stopping.resume_from_ckpt(ckpt['early_stopping_best_epoch'],
+                                            ckpt['early_stopping_best_val_loss'],
+                                            ckpt['early_stopping_patience_counter'])
             print(f"Model restored from checkpoint at epoch {init_epoch}")
-
-        # initialize the early_stopping object
-        early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
 
         for epoch in range(init_epoch, num_epochs):
             print(f'Epoch: {epoch + 1} / {num_epochs}')
@@ -132,7 +136,10 @@ class PriorNetTrainer:
                                              additional_params={
                                                  'epochs': self.epochs,
                                                  'opt_state_dict': self.optimizer.state_dict(),
-                                                 'lr_scheduler_state_dict': self.lr_scheduler.state_dict()
+                                                 'lr_scheduler_state_dict': self.lr_scheduler.state_dict(),
+                                                 'early_stopping_best_epoch': early_stopping.best_epoch,
+                                                 'early_stopping_best_val_loss': early_stopping.best_val_loss,
+                                                 'early_stopping_patience_counter': early_stopping.counter
                                              })
             ######################
             # validate the model #
@@ -154,7 +161,7 @@ class PriorNetTrainer:
 
             # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
-            early_stopping.register_epoch(val_results['loss'], self.model, self.log_dir)
+            early_stopping.register_epoch(self.epochs+1, val_results['loss'], self.model, self.log_dir)
 
             if early_stopping.do_early_stop:
                 print(f"Early stopping. Restoring model to epoch {early_stopping.best_epoch+1}")

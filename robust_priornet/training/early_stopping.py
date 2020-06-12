@@ -10,15 +10,22 @@ class EarlyStopper:
         self.best_epoch = None
         self.best_model_name = 'early-stopping-best-model.tar'
         self.do_early_stop = False
-        self.epochs = 0
         self.counter = 0
 
-    def register_epoch(self, val_loss, model, model_dir):
-        if self.epochs >= self.min_epochs:
+    def resume_from_ckpt(self, best_epoch, best_val_loss, counter):
+        """
+        May be useful when resuming training from a checkpoint, then we start with right patience counter.
+        """
+        self.best_epoch = best_epoch
+        self.best_val_loss = best_val_loss
+        self.counter = counter
+
+    def register_epoch(self, epoch, val_loss, model, model_dir):
+        if epoch > self.min_epochs:
             # calculate and store the best model after min_epochs reached
             if self.best_val_loss is None or val_loss <= (self.best_val_loss + self.min_delta):
                 self.best_val_loss = val_loss
-                self.best_epoch = self.epochs
+                self.best_epoch = epoch
                 save_model_with_params_from_ckpt(model, model_dir, name=self.best_model_name)
                 # reset the counter on seeing a smaller val loss
                 self.counter = 0
@@ -29,7 +36,6 @@ class EarlyStopper:
             if self.counter >= self.patience:
                 # stop when loss has increased continuously for #patience epochs
                 self.do_early_stop = True
-        self.epochs += 1
 
 
 class EarlyStopperSteps:
@@ -43,16 +49,14 @@ class EarlyStopperSteps:
         self.best_step = None
         self.best_model_name = 'early-stopping-best-model.tar'
         self.do_early_stop = False
-        self.steps = 0
         self.counter = 0
 
-    def register_step(self, val_loss, model, model_dir):
-        self.steps += self.step_interval
-        if self.steps >= self.min_steps:
+    def register_step(self, step, val_loss, model, model_dir):
+        if step > self.min_steps:
             # calculate and store the best model after min_steps reached
             if self.best_val_loss is None or val_loss <= (self.best_val_loss + self.min_delta):
                 self.best_val_loss = val_loss
-                self.best_step = self.steps
+                self.best_step = step
                 save_model_with_params_from_ckpt(model, model_dir, name=self.best_model_name)
                 # reset the counter on seeing a smaller val loss
                 self.counter = 0

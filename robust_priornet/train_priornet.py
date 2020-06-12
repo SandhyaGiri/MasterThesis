@@ -51,6 +51,8 @@ parser.add_argument('--weight_decay', type=float, default=0.0,
                     help='Specifies the L2 regularization stength.')
 parser.add_argument('--add_ce_loss', action='store_true',
                     help='Specifies whether to use CE loss in addition to KL div PN loss.')
+parser.add_argument('--reverse_KL', action='store_true',
+                    help='Indicates if distributions need to be reversed while computing the KL div loss.')
 parser.add_argument('--batch_size', type=int, default=16,
                     help='Specifies the number of samples to be batched while training the model.')
 parser.add_argument('--gpu', type=int, action='append',
@@ -199,8 +201,8 @@ def main():
     print(f"(After equalizing) Validation dataset length: {len(id_val_set)}")
 
     # loss criteria
-    id_loss = KLDivDirchletDistLoss(target_precision=args.target_precision)
-    ood_loss = KLDivDirchletDistLoss(target_precision=0.0)
+    id_loss = KLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
+    ood_loss = KLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
     criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, 1.0])
 
     # optimizer

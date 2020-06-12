@@ -63,9 +63,10 @@ class KLDivDirchletDistLoss:
     expected or target dirichlet distribution.
     """
 
-    def __init__(self, target_precision=1e3, smoothing_factor=1e-2):
+    def __init__(self, target_precision=1e3, smoothing_factor=1e-2, reverse_KL=False):
         self.target_precision = target_precision
         self.smooothing_factor = smoothing_factor
+        self.reverse_KL = reverse_KL
 
     def __call__(self, logits, labels, reduction='mean'):
         logits = logits - torch.max(logits, dim=0)[0]
@@ -121,5 +122,8 @@ class KLDivDirchletDistLoss:
             target_mean = torch.clone(target_mean).scatter_(1, labels[:, None],
                                                             1-(k-1) * self.smooothing_factor)
             target_precision = alphas.new_ones((alphas.shape[0], 1)) * self.target_precision
-        loss = self.compute_kl_div_dirichlets(target_mean, mean, target_precision, precision)
+        if self.reverse_KL:
+            loss = self.compute_kl_div_dirichlets(mean, target_mean, precision, target_precision)
+        else:
+            loss = self.compute_kl_div_dirichlets(target_mean, mean, target_precision, precision)
         return loss

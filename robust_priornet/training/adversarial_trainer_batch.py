@@ -199,7 +199,7 @@ class AdversarialPriorNetBatchTrainer(AdversarialPriorNetTrainer):
                     torch.save(step_summary, os.path.join(self.log_dir, f'step_summary_{self.steps}.pt'))
                     # early_stopping needs the validation loss to check if it has decresed, 
                     # and if it has, it will make a checkpoint of the current model
-                    early_stopping.register_step(step_val_results['loss'], self.model, self.log_dir)
+                    early_stopping.register_step(self.steps, step_val_results['loss'], self.model, self.log_dir)
                     
                     if early_stopping.do_early_stop:
                         print(f"Early stopping. Restoring model to step {early_stopping.best_step}")

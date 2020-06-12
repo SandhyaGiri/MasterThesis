@@ -32,6 +32,7 @@ fixed:
   grad_clip_value: 10.0
   use_cyclic_lr: False
   add_ce_loss: False
+  reverse_KL: False
   drop_rate: 0.05
   weight_decay: 0.0
   target_precision: 100
