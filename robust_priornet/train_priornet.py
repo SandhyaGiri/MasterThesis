@@ -12,7 +12,6 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
 from .training.adversarial_trainer import AdversarialPriorNetTrainer
-from .training.adversarial_trainer_batch import AdversarialPriorNetBatchTrainer
 from .training.trainer import PriorNetTrainer
 from .utils.common_data import (ATTACK_CRITERIA_MAP,
                                 ATTACK_CRITERIA_TO_ENUM_MAP,
@@ -63,11 +62,16 @@ parser.add_argument('--resume_from_ckpt', action='store_true',
                     help='Indicates if model needs to be laoded from checkpoint.tar for further training.')
 parser.add_argument('--grad_clip_value', type=float, default=10.0,
                     help='Specifies the clip value for gradient clipping, to prevent exploding gradients.')
+# step wise training arguments
+parser.add_argument('--train_stepwise', action='store_true',
+                    help='Indicates if the model needs to be trained at step level and not epoch level.')
+parser.add_argument('--val_every_steps', type=int, default=100,
+                    help='Indicates the step interval after which the validation needs to be done.')
 # early stopping arguments
 parser.add_argument('--min_train_epochs', type=int, default=10,
-                    help='Indicates min num of epochs to train before val loss monitoring starts for early stopping.')
+                    help='Indicates min num of epochs(steps) to train before val loss monitoring starts for early stopping.')
 parser.add_argument('--patience', type=int, default=3,
-                    help='Number of epochs to wait before terminating training, once val loss starts increasing.')
+                    help='Number of epochs(steps) to wait before terminating training, once val loss starts increasing.')
 # adversarial training arguments
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
@@ -227,7 +231,7 @@ def main():
         lr_scheduler_params = {'gamma': 0.95}
 
     if args.include_adv_samples:
-        trainer = AdversarialPriorNetBatchTrainer(model,
+        trainer = AdversarialPriorNetTrainer(model,
                                              id_train_set, id_val_set,
                                              ood_train_set, ood_val_set,
                                              criterion, id_loss, ood_loss, optimizer,
@@ -256,8 +260,7 @@ def main():
                                              only_out_in_adversarials=
                                              args.include_only_out_in_adv_samples,
                                              use_fixed_threshold=args.use_fixed_threshold,
-                                             known_threshold_value=args.known_threshold_value,
-                                             validate_after_steps=100)
+                                             known_threshold_value=args.known_threshold_value)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,
@@ -271,7 +274,11 @@ def main():
                                   clip_norm=args.grad_clip_value,
                                   log_dir=args.model_dir)
 
-    trainer.train(num_epochs=args.num_epochs, resume=args.resume_from_ckpt, ckpt=ckpt)
+    trainer.train(num_epochs=args.num_epochs,
+                  resume=args.resume_from_ckpt,
+                  ckpt=ckpt,
+                  stepwise_train=args.train_stepwise,
+                  val_after_steps=args.val_every_steps)
 
 if __name__ == "__main__":
     main()

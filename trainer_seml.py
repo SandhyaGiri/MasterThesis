@@ -21,7 +21,7 @@ def config():
 
 @ex.automain
 def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples,
-        rpn_sigma, fc_layers, num_epochs, min_train_epochs, patience, num_channels, learning_rate,
+        rpn_sigma, fc_layers, num_epochs, train_stepwise, val_every_steps, min_train_epochs, patience, num_channels, learning_rate,
         use_cyclic_lr, add_ce_loss, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value, grad_clip_value,
         weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
         batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
@@ -37,8 +37,11 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     else:
         gpu_list = "--gpu -1"
 
+    # needed to be executed before model setup (for torch >=1.5)
+    os.system('export MKL_SERVICE_FORCE_INTEL=1')
+
     # set up the model
-    fc_layers_list = " ".join(map(lambda x: str(x),fc_layers))
+    fc_layers_list = " ".join(map(lambda x: str(x), fc_layers))
     if rpn_wrapper == 'count':
         rpn = '--rpn'
     elif rpn_wrapper == 'simple':
@@ -61,6 +64,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
     use_fixed_threshold = f'--use_fixed_threshold' if use_fixed_threshold else ''
     reverse_kl = '--reverse_KL' if reverse_KL else ''
+    train_stepwise = '--train_stepwise' if train_stepwise else ''
     if adv_training:
         adv_model = f'--adv_model_dir {adv_model_dir}' if adv_model_dir != "" else ''
         adv_persist = '--adv_persist_images' if adv_persist_images else ''
@@ -68,6 +72,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
+            {train_stepwise} --val_every_steps {val_every_steps} \
             --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
             {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
@@ -79,6 +84,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} {dataset_limit} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {resume} {augment} \
             --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} --grad_clip_value {grad_clip_value} \
+            {train_stepwise} --val_every_steps {val_every_steps} \
             --min_train_epochs {min_train_epochs} --patience {patience} {reverse_kl} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")

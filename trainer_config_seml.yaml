@@ -24,6 +24,8 @@ fixed:
   rpn_mc_samples: 100
   rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
+  train_stepwise: False
+  val_every_steps: 100
   num_epochs: 50
   min_train_epochs: 25
   patience: 10

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
 from ..eval.uncertainty import UncertaintyEvaluator
 from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
-from .early_stopping import EarlyStopper
+from .early_stopping import EarlyStopper, EarlyStopperSteps
 
 
 class PriorNetTrainer:
@@ -26,7 +26,7 @@ class PriorNetTrainer:
                  add_ce_loss=False,
                  batch_size=64,
                  min_epochs=25, patience=20,
-                 device=None, clip_norm=10.0, num_workers=4,
+                 device=None, clip_norm=10.0, num_workers=0,
                  pin_memory=False, log_dir='.',
                  log_uncertainties=False):
                 # may be make num_workers 0 if you have problems with concurrency (in RPN)
@@ -93,16 +93,199 @@ class PriorNetTrainer:
         self.training_early_stopped = False
 
 
-    def train(self, num_epochs=None, num_steps=None, resume=False, ckpt=None):
+    def train_stepwise(self, num_epochs, val_after_steps, resume=False, ckpt=None):
+        assert resume is False or ckpt is not None
+        init_epoch = 0
+        if resume is True:
+            init_epoch = ckpt['epochs'] + 1
+            self.optimizer.load_state_dict(ckpt['opt_state_dict'])
+            self.lr_scheduler.load_state_dict(ckpt['lr_scheduler_state_dict'])
+            print(f"Model restored from checkpoint at epoch {init_epoch}")
+
+        # initialize the early_stopping object - consider min_epochs as steps here
+        early_stopping = EarlyStopperSteps(self.min_epochs, self.patience, val_after_steps, verbose=True)
+
+        # metrics to be collected (for every val steps)
+        step_accuracies = 0.0
+        step_kl_loss = 0.0
+        step_id_loss, step_ood_loss = 0.0, 0.0
+        step_id_precision, step_ood_precision = 0.0, 0.0
+        last_validated_step = 0
+        # overflow from previous epoch
+        overflow = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        for epoch in range(init_epoch, num_epochs):
+            self.epochs = epoch
+            ###################
+            # train the model #
+            ###################
+            epoch_start = time.time()
+            # metrics to be collected (epoch_level)
+            accuracies = 0.0
+            total_kl_loss = 0.0
+            total_id_loss, total_ood_loss = 0.0, 0.0
+            total_id_precision, total_ood_precision = 0.0, 0.0
+            id_outputs_all = None
+            ood_outputs_all = None
+            
+            num_steps_per_epoch = len(self.id_train_loader)
+            # iterators for the data loaders, as we don't have common num_batches across them
+            id_train_iterator = iter(self.id_train_loader)
+            ood_train_iterator = iter(self.ood_train_loader)
+            # beginning of training epoch
+            start = time.time()
+            for i in range(num_steps_per_epoch): # each batch
+                # train on normal images
+                batch_train_results = self._train_single_batch(next(id_train_iterator),
+                                                               next(ood_train_iterator))
+                kl_loss, id_loss, ood_loss, id_precision, ood_precision, accuracy, id_outputs, ood_outputs = batch_train_results
+                # increment 1 step
+                self.steps += 1
+                
+                # accumulate all outputs by the model
+                if id_outputs_all is None:
+                    id_outputs_all = id_outputs
+                    ood_outputs_all = ood_outputs
+                else:
+                    id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
+                    ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
+                # accumulate the metrics
+                step_kl_loss += kl_loss
+                step_id_loss += id_loss
+                step_ood_loss += ood_loss
+                step_id_precision += id_precision
+                step_ood_precision += ood_precision
+                step_accuracies += accuracy
+                
+                # validate on valset
+                if self.steps % val_after_steps == 0:
+                    # marks end of training now we need to validate
+                    end = time.time()
+                    last_validated_step = self.steps
+                    step_val_results = self._val_single_epoch()
+                    # accumulate epoch level metrics
+                    total_kl_loss += step_kl_loss
+                    total_id_loss += step_id_loss
+                    total_ood_loss += step_ood_loss
+                    total_id_precision += step_id_precision
+                    total_ood_precision += step_ood_precision
+                    accuracies += step_accuracies
+                    # log step results so far
+                    step_summary = {
+                        'train_results': {
+                            'loss': np.round(step_kl_loss/val_after_steps, 4),
+                            'id_loss': np.round(step_id_loss/val_after_steps, 4),
+                            'ood_loss': np.round(step_ood_loss/val_after_steps, 4),
+                            'id_accuracy': np.round(100.0 * step_accuracies/val_after_steps, 2),
+                            'id_precision': np.round(step_id_precision/val_after_steps, 4),
+                            'ood_precision': np.round(step_ood_precision/val_after_steps, 4)
+                        },
+                        'val_results': step_val_results,
+                        'time_taken': np.round(((end-start) / 60.0), 2),
+                    }
+                    torch.save(step_summary, os.path.join(self.log_dir, f'step_summary_{self.steps}.pt'))
+                    print(f"Step {self.steps}:")
+                    print(f"Train loss: {step_summary['train_results']['loss']}, \
+                        Train accuracy: {step_summary['train_results']['id_accuracy']}")
+                    print(f"Val loss: {step_val_results['loss']}, \
+                        Val accuracy: {step_val_results['id_accuracy']}")
+                    print(f"Time taken for train epoch: {step_summary['time_taken']} mins")
+                    # early_stopping needs the validation loss to check if it has decresed, 
+                    # and if it has, it will make a checkpoint of the current model
+                    early_stopping.register_step(self.steps, step_val_results['loss'], self.model, self.log_dir)
+                    
+                    if early_stopping.do_early_stop:
+                        print(f"Early stopping. Restoring model to step {early_stopping.best_step}")
+                        self.training_early_stopped = True
+                        break
+                    # reset timer for next _ steps
+                    start = time.time()
+                    # reset step metric variables
+                    step_accuracies = 0.0
+                    step_kl_loss = 0.0
+                    step_id_loss, step_ood_loss = 0.0, 0.0
+                    step_id_precision, step_ood_precision = 0.0, 0.0
+
+                # step through lr scheduler for batch level ones
+                if self.lr_step_after_batch:
+                    self.lr_scheduler.step()
+            if self.training_early_stopped:
+                break
+            # accumulate epoch level metrics (subtract previous overflow)
+            total_kl_loss -= overflow[0]
+            total_id_loss -= overflow[1]
+            total_ood_loss -= overflow[2]
+            total_id_precision -= overflow[3]
+            total_ood_precision -= overflow[4]
+            accuracies -= overflow[5]
+            #  (for last unaccounted val step)
+            if self.steps > last_validated_step:
+                total_kl_loss += step_kl_loss
+                total_id_loss += step_id_loss
+                total_ood_loss += step_ood_loss
+                total_id_precision += step_id_precision
+                total_ood_precision += step_ood_precision
+                accuracies += step_accuracies
+                # these values will be extra in the next epoch, so should be subtracted later
+                overflow = (step_kl_loss, step_id_loss, step_ood_loss, step_id_precision, step_ood_precision, step_accuracies)
+            epoch_end = time.time()
+            # save the checkpoint every epoch
+            save_model_with_params_from_ckpt(self.model, self.log_dir,
+                                             name='checkpoint.tar',
+                                             additional_params={
+                                                 'epochs': self.epochs,
+                                                 'opt_state_dict': self.optimizer.state_dict(),
+                                                 'lr_scheduler_state_dict': self.lr_scheduler.state_dict()
+                                             })
+
+            ######################
+            # validate the model #
+            ######################
+            val_results = self._val_single_epoch() # validate and update metrics list
+
+            # store and print epoch summary
+            summary = {
+                'train_results': {
+                    'loss': np.round(total_kl_loss/num_steps_per_epoch, 4),
+                    'id_loss': np.round(total_id_loss/num_steps_per_epoch, 4),
+                    'ood_loss': np.round(total_ood_loss/num_steps_per_epoch, 4),
+                    'id_accuracy': np.round(100.0 * accuracies/num_steps_per_epoch, 2),
+                    'id_precision': np.round(total_id_precision/num_steps_per_epoch, 4),
+                    'ood_precision': np.round(total_ood_precision/num_steps_per_epoch, 4)
+                    },
+                'val_results': val_results,
+                'time_taken': np.round(((epoch_end-epoch_start) / 60.0), 2),
+                'num_steps': self.steps, # number of steps completed when epoch finished
+            }
+            torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
+            print(f'Epoch: {epoch + 1} / {num_epochs}')
+            print(f"Train loss: {summary['train_results']['loss']}, \
+                  Train accuracy: {summary['train_results']['id_accuracy']}")
+            print(f"Val loss: {val_results['loss']}, \
+                  Val accuracy: {val_results['id_accuracy']}")
+            print(f"Time taken for train epoch: {summary['time_taken']} mins")
+
+            # step through lr scheduler (epoch level schedulers)
+            if not self.lr_step_after_batch:
+                self.lr_scheduler.step()
+
+        # load the last checkpoint with the best model
+        if self.training_early_stopped:
+            self.model, _ = load_model(self.log_dir,
+                                    device=self.device,
+                                    name=early_stopping.best_model_name)
+
+        save_model_with_params_from_ckpt(self.model, self.log_dir)
+
+    def train(self, num_epochs=None, resume=False, ckpt=None, stepwise_train=False, val_after_steps=100):
         """
-        Provide either num_epochs, or num_steps indicating total number of training
-        steps to be performed.
+        Provide either num_epochs for epoch level training or along with stepwise_train indicating
+        that validation needs to happen every 'val_after_steps' steps.
         """
-        if num_epochs is None:
-            assert isinstance(num_steps, int)
-            num_epochs = math.ceil(num_steps / len(self.id_train_loader))
-        else:
-            assert isinstance(num_epochs, int)
+        assert isinstance(num_epochs, int)
+
+        if stepwise_train:
+            self.train_stepwise(num_epochs, val_after_steps, resume, ckpt)
+            return
 
         # initialize the early_stopping object
         early_stopping = EarlyStopper(self.min_epochs, self.patience, verbose=True)
@@ -120,7 +303,6 @@ class PriorNetTrainer:
             print(f"Model restored from checkpoint at epoch {init_epoch}")
 
         for epoch in range(init_epoch, num_epochs):
-            print(f'Epoch: {epoch + 1} / {num_epochs}')
             self.epochs = epoch
             ###################
             # train the model #
@@ -153,6 +335,7 @@ class PriorNetTrainer:
                 'time_taken': np.round(((end-start) / 60.0), 2),
             }
             torch.save(summary, os.path.join(self.log_dir, f'epoch_summary_{epoch+1}.pt'))
+            print(f'Epoch: {epoch + 1} / {num_epochs}')
             print(f"Train loss: {train_results['loss']}, \
                   Train accuracy: {train_results['id_accuracy']}")
             print(f"Val loss: {val_results['loss']}, \
