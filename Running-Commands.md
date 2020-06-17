@@ -5,6 +5,30 @@ Target home dir for the github repository: '/nfs/homedirs/giri/masterthesis'
 
 This directory contains the runtime-data/* directory where all datasets used will be downloaded and stored.
 
+### Model training commands
+
+#### Adversarial training - dentropy - 0.05 (MNIST + OMNIGLOT)
+
+python -m robust_priornet.setup_priornet --model_arch vgg6 --num_classes 10 --input_size 28 --drop_prob 0.05 --num_channels 1 ./runtime-model-adv-dentropy-05
+
+python -m robust_priornet.train_priornet --gpu {gpu_number} --model_dir ./runtime-model-adv-dentropy-05  --num_epochs 50 --batch_size 64 --lr 0.0001 --weight_decay 0.0 --target_precision 100 --include_adv_samples  --train_stepwise --val_every_steps 100 --min_train_epochs 20000 --patience 100   --adv_training_type ood-detect --adv_attack_type PGD --adv_attack_criteria diff_entropy --adv_epsilon 0.05 --pgd_norm inf --pgd_max_steps 10 ./runtime-data MNIST OMNIGLOT
+
+#### Adversarial training - duncertainty - 0.05 (MNIST + OMNIGLOT)
+python -m robust_priornet.setup_priornet --model_arch vgg6 --num_classes 10 --input_size 28 --drop_prob 0.05 --num_channels 1 ./runtime-model-adv-duncertainty-05
+
+python -m robust_priornet.train_priornet --gpu {gpu_number} --model_dir ./runtime-model-adv-duncertainty-05  --num_epochs 50 --batch_size 64 --lr 0.0001 --weight_decay 0.0 --target_precision 100 --include_adv_samples  --train_stepwise --val_every_steps 100 --min_train_epochs 20000 --patience 100   --adv_training_type ood-detect --adv_attack_type PGD --adv_attack_criteria mutual_info --adv_epsilon 0.05 --pgd_norm inf --pgd_max_steps 10 ./runtime-data MNIST OMNIGLOT
+
+#### Adversarial training - dentropy - 0.1 (MNIST + OMNIGLOT)
+
+python -m robust_priornet.setup_priornet --model_arch vgg6 --num_classes 10 --input_size 28 --drop_prob 0.05 --num_channels 1 ./runtime-model-adv-dentropy-1
+
+python -m robust_priornet.train_priornet --gpu {gpu_number} --model_dir ./runtime-model-adv-dentropy-1  --num_epochs 50 --batch_size 64 --lr 0.0001 --weight_decay 0.0 --target_precision 100 --include_adv_samples  --train_stepwise --val_every_steps 100 --min_train_epochs 20000 --patience 100   --adv_training_type ood-detect --adv_attack_type PGD --adv_attack_criteria diff_entropy --adv_epsilon 0.1 --pgd_norm inf --pgd_max_steps 10 ./runtime-data MNIST OMNIGLOT
+
+#### Adversarial training - duncertainty - 0.05 (MNIST + OMNIGLOT)
+python -m robust_priornet.setup_priornet --model_arch vgg6 --num_classes 10 --input_size 28 --drop_prob 0.05 --num_channels 1 ./runtime-model-adv-duncertainty-1
+
+python -m robust_priornet.train_priornet --gpu {gpu_number} --model_dir ./runtime-model-adv-duncertainty-1  --num_epochs 50 --batch_size 64 --lr 0.0001 --weight_decay 0.0 --target_precision 100 --include_adv_samples  --train_stepwise --val_every_steps 100 --min_train_epochs 20000 --patience 100   --adv_training_type ood-detect --adv_attack_type PGD --adv_attack_criteria mutual_info --adv_epsilon 0.1 --pgd_norm inf --pgd_max_steps 10 ./runtime-data MNIST OMNIGLOT
+
 ### Attack commands
 
 #### Mutual Info PGD attacks (OMNIGLOT)
