@@ -27,7 +27,12 @@ class TransformsBuilder:
 
     def add_resize(self, target_img_size):
         self._transforms_list.append(transforms.Resize(target_img_size, Image.BICUBIC))
+
+    def add_center_crop(self, target_img_size):
         self._transforms_list.append(transforms.CenterCrop(target_img_size))
+
+    def add_random_crop(self, target_img_size):
+        self._transforms_list.append(transforms.RandomCrop(target_img_size))
 
     def add_rgb_channels(self, num_channels):
         if num_channels < 3:

@@ -216,6 +216,7 @@ def main():
     trans = TransformsBuilder()
     # for certification, load the dataset first without normalization
     trans.add_resize(ckpt['model_params']['n_in'])
+    trans.add_center_crop(ckpt['model_params']['n_in'])
     mean = (0.5,)
     std = (0.5,)
     num_channels = ckpt['model_params']['num_channels']

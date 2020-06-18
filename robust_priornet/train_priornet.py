@@ -139,7 +139,9 @@ def main():
     mean = (0.5,)
     std = (0.5,)
     num_channels = ckpt['model_params']['num_channels']
+    trans.add_resize(ckpt['model_params']['n_in'])
     if ckpt['model_params']['model_type'].startswith('vgg'):
+        trans.add_center_crop(ckpt['model_params']['n_in'])
         trans.add_rgb_channels(num_channels)
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
@@ -147,7 +149,7 @@ def main():
         trans.add_padding(4)
         trans.add_rotation(15)
         trans.add_random_flipping()
-    trans.add_resize(ckpt['model_params']['n_in'])
+        trans.add_random_crop(ckpt['model_params']['n_in'])
     trans.add_to_tensor()
     # normalize images to range (-1,1)
     trans.add_normalize(mean, std)

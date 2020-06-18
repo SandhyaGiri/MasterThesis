@@ -81,6 +81,7 @@ def main():
     std = (0.5,)
     num_channels = ckpt['model_params']['num_channels']
     trans.add_resize(ckpt['model_params']['n_in'])
+    trans.add_center_crop(ckpt['model_params']['n_in'])
     if ckpt['model_params']['model_type'].startswith('vgg'):
         trans.add_rgb_channels(num_channels)
         mean = (0.5, 0.5, 0.5)
