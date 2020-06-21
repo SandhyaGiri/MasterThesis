@@ -53,7 +53,7 @@ parser.add_argument('--sigma', type=float, default=0.2,
                     ' for robust radius certification.')
 parser.add_argument('--n0', type=int, default=100,
                     help='small number of samples for estimating prob using MC')
-parser.add_argument('--n', type=int, default=100000,
+parser.add_argument('--n', type=int, default=10000,
                     help='large number of samples for accurately estimating prob using MC')
 parser.add_argument('--alpha', type=float, default=0.0001,
                     help='acceptable error estimate in MC estimate of prob dist')

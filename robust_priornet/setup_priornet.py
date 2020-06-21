@@ -3,7 +3,7 @@ import os
 
 from .models.priornet_conv import vgg_model
 from .models.priornet_mlp import PriorNetMLP
-from .models.smoothed_priornet_conv import SmoothedPriorNet, SmoothedPriorNetSimple
+from .models.smoothed_priornet_conv import SmoothedPriorNetCount, SmoothedPriorNetSimple, SmoothedPriorNet
 from .utils.pytorch import save_model
 
 parser = argparse.ArgumentParser(description='Sets up a Prior Network model ' +
@@ -27,15 +27,19 @@ parser.add_argument('--num_channels', type=int, default=3,
 parser.add_argument('--drop_prob', type=float, default=0.5,
                     help='Indicates the probability of dropping out hidden units.')
 # robust PN params
-parser.add_argument('--rpn', action='store_true',
+parser.add_argument('--rpn_count', action='store_true',
                     help='Indicates if the model should be wrapped with a randomized smoothing layer (count vector based).')
 parser.add_argument('--rpn_simple', action='store_true',
                     help='Indicates if the model should be wrapped with a randomized smoothing layer (logits summing based).')
+parser.add_argument('--rpn', action='store_true',
+                    help='Indicates if the model should be wrapped with a randomized smoothing layer (different training and eval behaviors)')
 parser.add_argument('--rpn_sigma', type=float, default=0.2,
                     help='Specifies the std deviation of the gaussian dist to be used'+
                     ' for perturbing the input samples.')
 parser.add_argument('--rpn_num_samples', type=int, default=1000,
                     help='large number of samples for accurately estimating prob using MC')
+parser.add_argument('--rpn_reduction_method', choices=['mean', 'median'], default='mean',
+                    help='Specifies how to reduce the logits generated from various noisy samples for a single image.')
 
 def main():
     args = parser.parse_args()
@@ -49,6 +53,7 @@ def main():
     model_params['n_out'] = args.num_classes
     model_params['drop_rate'] = args.drop_prob
     model_params['model_type'] = args.model_arch
+    model_params['rpn_model'] = False
     if args.model_arch == 'mlp':
         mean = (0.5,)
         std = (0.5,)
@@ -59,14 +64,18 @@ def main():
         std = (0.5, 0.5, 0.5)
         model = vgg_model(**model_params)
     # additional wrapper
-    if args.rpn or args.rpn_simple:
+    if args.rpn_count or args.rpn_simple or args.rpn:
         model_params['base_classifier'] = model
         model_params['image_normalization_params'] = {'mean': mean, 'std': std}
         model_params['noise_std_dev'] = args.rpn_sigma
         model_params['num_mc_samples'] = args.rpn_num_samples
+        model_params['reduction_method'] = args.rpn_reduction_method
+        model_params['rpn_model'] = True
         if args.rpn_simple:
             model = SmoothedPriorNetSimple(**model_params)
-        else:
+        elif args.rpn_count:
+            model = SmoothedPriorNetCount(**model_params)
+        elif args.rpn:
             model = SmoothedPriorNet(**model_params)
 
     print(model)

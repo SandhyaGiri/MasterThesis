@@ -24,6 +24,7 @@ class PriorNetTrainer:
                  lr_scheduler=None,
                  lr_scheduler_params={},
                  add_ce_loss=False,
+                 ce_weight=0.5,
                  batch_size=64,
                  min_epochs=25, patience=20,
                  device=None, clip_norm=10.0, num_workers=0,
@@ -48,6 +49,7 @@ class PriorNetTrainer:
         self.clip_norm = clip_norm
         self.log_uncertainties = log_uncertainties
         self.add_ce_loss = add_ce_loss
+        self.ce_weight = ce_weight
 
         if lr_scheduler is not None:
             self.lr_step_after_batch = False
@@ -440,7 +442,7 @@ class PriorNetTrainer:
         if self.add_ce_loss:
             ce_loss = torch.nn.CrossEntropyLoss()
             ce_loss_val = ce_loss(id_outputs, labels)
-            loss = loss + ce_loss_val
+            loss.add_(self.ce_weight * ce_loss_val)
 
         # Measures ID and OOD losses
         id_loss = self.id_criterion(id_outputs, labels).item()
@@ -553,6 +555,12 @@ class PriorNetTrainer:
                 # Calculate train loss
                 loss = self.criterion((id_outputs, ood_outputs), (labels, None))
                 assert torch.all(torch.isfinite(loss)).item()
+                
+                # include CE loss if needed
+                if self.add_ce_loss:
+                    ce_loss = torch.nn.CrossEntropyLoss()
+                    ce_loss_val = ce_loss(id_outputs, labels)
+                    loss.add_(self.ce_weight * ce_loss_val)
                 kl_loss += loss.item()
 
                 # Measures ID and OOD losses

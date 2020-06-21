@@ -28,7 +28,7 @@ def gumbel_softmax(logits, temperature):
     y_hard = y_hard.view(*shape)
     return (y_hard - y).detach() + y
 
-class SmoothedPriorNet(nn.Module):
+class SmoothedPriorNetCount(nn.Module):
     def __init__(self, base_classifier: nn.Module,
                  n_in: int,
                  n_out: int,
@@ -101,7 +101,7 @@ class SmoothedPriorNet(nn.Module):
             counts = self._update_count(counts, predictions)
         return counts
 
-    def forward(self, x, in_domain=True):
+    def forward(self, x):
         """
         For each input, returns a log(count vector), where count vector
         is a vector of class label counts accumulated during MC Sampling.
@@ -179,7 +179,7 @@ class SmoothedPriorNetSimple(nn.Module):
             overall_logits = self._accumulate_logits(overall_logits, logits)
         return overall_logits
 
-    def forward(self, x, in_domain=True):
+    def forward(self, x):
         """
         For each input, returns a mean(logits), where logits are the logits
         outputted by the model for gaussian noise perturbed samples during MC Sampling.
@@ -197,5 +197,94 @@ class SmoothedPriorNetSimple(nn.Module):
             overall_logits = self._accumulate_logits(overall_logits, org_input_logits)
 
             overall_logits = torch.div(overall_logits, samples+1)
+            outputs.append(overall_logits)
+        return torch.cat(outputs, dim=0)
+
+class SmoothedPriorNet(nn.Module):
+    """
+    Simply has a noise layer during training which converts input images into
+    a gaussian noise perturbed image (1 noisy image for every input image).
+    During eval, several noise draws are used to make a final prediction.
+    """
+    def __init__(self, base_classifier: nn.Module,
+                 n_in: int,
+                 n_out: int,
+                 num_channels: int,
+                 image_normalization_params: dict,
+                 drop_rate: float,
+                 noise_std_dev: float,
+                 num_mc_samples: int, 
+                 reduction_method, **kwargs):
+        super(SmoothedPriorNet, self).__init__()
+        self.base_classifier = base_classifier
+        self.num_classes = n_out
+        self.image_normalization_params = image_normalization_params
+        self.noise_std_dev = noise_std_dev
+        self.epsilon = 1e-8
+        self.num_samples = num_mc_samples
+        self.reduction_method = reduction_method
+    
+    def _normalize_image(self, inputs: torch.tensor):
+        mean = inputs.new_tensor(self.image_normalization_params['mean'])
+        mean = mean.repeat(inputs.shape[0], inputs.shape[2],
+                           inputs.shape[3], 1) # (batch_size, H, W, 3)
+        mean = mean.permute(0, 3, 1, 2)
+        std = inputs.new_tensor(self.image_normalization_params['std'])
+        std = std.repeat(inputs.shape[0], inputs.shape[2],
+                         inputs.shape[3], 1) # (batch_size, H, W, 3)
+        std = std.permute(0, 3, 1, 2)
+        normalized_inputs = (inputs - mean) / std
+        return normalized_inputs
+
+    def _noise_layer(self, inputs: torch.tensor):
+        # add gaussian noise to entire batch
+        noise = torch.randn_like(inputs) * self.noise_std_dev
+        inputs = inputs + noise
+        # normalize the images
+        return self._normalize_image(inputs)
+
+    def forward(self, x):
+        """
+        Used during training/validation phase
+        """
+        x = self._noise_layer(x)
+        x = self.base_classifier(x) # train on noisy images
+        return x
+
+    def _do_rand_smoothing(self, image: torch.tensor, num_samples: int, batch_size: int):
+        overall_logits = []
+        for _ in range(int(np.ceil(num_samples / batch_size))):
+            this_batch_size = min(batch_size, num_samples)
+            num_samples -= this_batch_size
+
+            batch = image.repeat((this_batch_size, 1, 1, 1))
+            # sample noise from normal dist
+            noise = torch.randn_like(batch) * self.noise_std_dev
+            logits = self.base_classifier(batch + noise)
+            overall_logits.append(logits)
+        return overall_logits
+
+    def test(self, x):
+        """
+        Used during testing phase
+        """
+        assert self.reduction_method in ['mean', 'median']
+        batch_size = x.shape[0]
+
+        samples = self.num_samples
+        outputs = []
+        for i in range(batch_size):
+            image = x[i] # (C, H, W)
+            # eval on gaussian perturbed inputs
+            overall_logits = self._do_rand_smoothing(image, samples, batch_size)
+            # eval on original input
+            # org_input_logits = self._eval_on_base_classifier(image.unsqueeze(0)) ?
+            # overall_logits.append(org_input_logits)
+
+            overall_logits = torch.cat(overall_logits, dim=0)
+            if self.reduction_method == 'mean':
+                overall_logits = torch.mean(overall_logits, dim=0, keepdim=True)
+            elif self.reduction_method == 'median':
+                overall_logits = torch.median(overall_logits, dim=0, keepdim=True)
             outputs.append(overall_logits)
         return torch.cat(outputs, dim=0)

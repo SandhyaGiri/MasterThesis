@@ -87,7 +87,8 @@ def main():
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
     trans.add_to_tensor()
-    trans.add_normalize(mean, std)
+    if not ckpt['model_params']['rpn_model']:
+        trans.add_normalize(mean, std)
 
     if args.val_dataset:
         _, id_test_set = vis.get_dataset(args.in_domain_dataset,

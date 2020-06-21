@@ -20,9 +20,9 @@ def config():
 
 
 @ex.automain
-def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples,
+def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples, rpn_reduction,
         rpn_sigma, fc_layers, num_epochs, train_stepwise, val_every_steps, min_train_epochs, patience, num_channels, learning_rate,
-        use_cyclic_lr, add_ce_loss, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value, grad_clip_value,
+        use_cyclic_lr, add_ce_loss, ce_weight, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value, grad_clip_value,
         weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
         batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
         adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
@@ -43,14 +43,16 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x), fc_layers))
     if rpn_wrapper == 'count':
-        rpn = '--rpn'
+        rpn = '--rpn_count'
     elif rpn_wrapper == 'simple':
         rpn = '--rpn_simple'
+    elif rpn_wrapper == 'normal':
+        rpn = '--rpn'
     else:
         rpn = ''
     setup_cmd = f'python -m robust_priornet.setup_priornet --model_arch {model_arch} {rpn} \
         --fc_layers {fc_layers_list} --num_classes {num_classes} --input_size {input_image_size} \
-        --rpn_sigma {rpn_sigma} --rpn_num_samples {rpn_mc_samples} \
+        --rpn_sigma {rpn_sigma} --rpn_num_samples {rpn_mc_samples} --rpn_reduction_method {rpn_reduction} \
         --drop_prob {drop_rate} --num_channels {num_channels} {model_dir}'
     logging.info(f"Setup command being executed: {setup_cmd}")
     os.system(setup_cmd)
@@ -72,7 +74,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
-            {train_stepwise} --val_every_steps {val_every_steps} \
+            {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} \
             --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
             {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
@@ -84,7 +86,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} {dataset_limit} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {resume} {augment} \
             --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} --grad_clip_value {grad_clip_value} \
-            {train_stepwise} --val_every_steps {val_every_steps} \
+            {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight}\
             --min_train_epochs {min_train_epochs} --patience {patience} {reverse_kl} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")

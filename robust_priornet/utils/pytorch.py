@@ -54,7 +54,10 @@ def eval_model_on_dataset(model: nn.Module, dataset : Dataset,
                 inputs, labels = map(lambda x: x.to(device),
                                      (inputs, labels))
             # eval the inputs
-            logits = model(inputs)
+            try:
+                logits = model.test(inputs)
+            except:
+                logits = model(inputs)
 
             logits_list.append(logits)
             labels_list.append(labels)

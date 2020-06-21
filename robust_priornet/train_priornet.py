@@ -50,6 +50,8 @@ parser.add_argument('--weight_decay', type=float, default=0.0,
                     help='Specifies the L2 regularization stength.')
 parser.add_argument('--add_ce_loss', action='store_true',
                     help='Specifies whether to use CE loss in addition to KL div PN loss.')
+parser.add_argument('--ce_weight', type=float, default=0.5,
+                    help='Specifies the weight to be used for CE loss when adding to KL div loss.')
 parser.add_argument('--reverse_KL', action='store_true',
                     help='Indicates if distributions need to be reversed while computing the KL div loss.')
 parser.add_argument('--batch_size', type=int, default=16,
@@ -151,8 +153,9 @@ def main():
         trans.add_random_flipping()
         trans.add_random_crop(ckpt['model_params']['n_in'])
     trans.add_to_tensor()
-    # normalize images to range (-1,1)
-    trans.add_normalize(mean, std)
+    # normalize images to range (-1,1) - don't do it for RPN model
+    if not ckpt['model_params']['rpn_model']:
+        trans.add_normalize(mean, std)
 
     id_train_set, id_val_set = vis.get_dataset(args.in_domain_dataset,
                                                args.data_dir,
@@ -242,6 +245,7 @@ def main():
                                              lr_scheduler=lr_scheduler,
                                              lr_scheduler_params=lr_scheduler_params,
                                              add_ce_loss=args.add_ce_loss,
+                                             ce_weight=args.ce_weight,
                                              batch_size=args.batch_size, device=device,
                                              min_epochs=args.min_train_epochs, patience=args.patience,
                                              clip_norm=args.grad_clip_value,
@@ -270,6 +274,7 @@ def main():
                                   optimizer_params=optimizer_params,
                                   lr_scheduler=lr_scheduler,
                                   add_ce_loss=args.add_ce_loss,
+                                  ce_weight=args.ce_weight,
                                   lr_scheduler_params=lr_scheduler_params,
                                   batch_size=args.batch_size, device=device,
                                   min_epochs=args.min_train_epochs, patience=args.patience,

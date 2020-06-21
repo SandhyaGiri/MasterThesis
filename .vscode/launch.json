@@ -17,7 +17,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","10", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","100", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet rpn simple",
@@ -54,7 +54,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--train_stepwise", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial only out->in",
@@ -92,6 +92,14 @@
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
             "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "TIM"]
+        },
+        {
+            "name": "Module eval_priornet rpn ood",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "robust_priornet.eval_priornet",
+            "args": ["--model_dir", "./runtime-model-rpn", "--gpu", "-1", "--result_dir", "./eval", "--dataset_size_limit", "100", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood train",
@@ -154,7 +162,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.certify_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-robust-dentropy","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--only_ood", "--uncertainty_measure", "DIFFERENTIAL_ENTROPY", "--uncertainty_measure_threshold", "-12.8051", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "CIFAR10"]
+            "args": ["--model_dir", "./runtime-model-rpn","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--uncertainty_measure", "DIFFERENTIAL_ENTROPY", "--uncertainty_measure_threshold", "-12.8051", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "CIFAR10"]
         },
         {
             "name": "Module certify_priornet val 200 classification",
