@@ -260,7 +260,9 @@ class SmoothedPriorNet(nn.Module):
             batch = image.repeat((this_batch_size, 1, 1, 1))
             # sample noise from normal dist
             noise = torch.randn_like(batch) * self.noise_std_dev
-            logits = self.base_classifier(batch + noise)
+            # normalize the input images
+            normalized_inputs = self._normalize_image(batch + noise)
+            logits = self.base_classifier(normalized_inputs)
             overall_logits.append(logits)
         return overall_logits
 

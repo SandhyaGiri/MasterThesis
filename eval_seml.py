@@ -58,11 +58,11 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         # ood detection evaluation (as a binary classification task)
         out_dir = os.path.join(model_dir, "ood-eval")
         cmd = f"python -m robust_priornet.eval_priornet {gpu_list} --batch_size {batch_size} \
-                --model_dir {model_dir} --task ood_detect {data_dir} \
+                --model_dir {model_dir} --task ood_detect --result_dir {out_dir} \
                 {'--train_dataset' if use_train_dataset else ''} \
                 {'--val_dataset' if use_val_dataset else ''} \
                 --rpn_num_samples {rpn_mc_samples} --rpn_reduction_method {rpn_reduction} \
-                {in_domain_dataset} {ood_dataset} {out_dir}"
+                {data_dir} {in_domain_dataset} {ood_dataset}"
         logging.info(f"OOD EVAL command being executed: {cmd}")
         os.system(cmd)
 
