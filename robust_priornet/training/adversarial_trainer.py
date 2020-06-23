@@ -34,23 +34,22 @@ def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum)
         decision_fn_value *= -1.0
     fpr, tpr, thresholds = roc_curve(target_labels, decision_fn_value)
     opt_fn_value = (tpr - fpr)
-    indices = np.argwhere(opt_fn_value == np.amax(opt_fn_value)).flatten().tolist()
-    median_indices = []
-    num_optimal_thresholds = len(indices)
-    if num_optimal_thresholds % 2 == 0:
-        index1 = indices[math.floor(num_optimal_thresholds/2)]
-        index2 = indices[math.floor(num_optimal_thresholds/2) -1]
-        if fpr[index2] < fpr[index1]:
-            median_indices.append(index2)
-        else:
-            median_indices.append(index1)
-    else:
-        median_indices.append(indices[math.floor(num_optimal_thresholds/2)])
-    # log the TPR and FPR at these thresholds
-    for ind in median_indices:
-        print("Max fn value: ", opt_fn_value[ind])
-        print(f"Threshold: {thresholds[ind]}, TPR: {tpr[ind]}, FPR: {fpr[ind]}")
-    return np.mean(thresholds[median_indices])
+    indices = []
+    sorted_opt_fn_values = np.argsort(opt_fn_value)
+    print(sorted_opt_fn_values)
+    argmax = sorted_opt_fn_values[-1]
+    print(f"argmax: {argmax}, threshold: {thresholds[argmax]}, tpr: {tpr[argmax]}, fpr: {fpr[argmax]}")
+    indices.append(argmax)
+    # find next index larger than argmax
+    secondmax = -1
+    for i in range(2, len(opt_fn_value)):
+        secondmax = sorted_opt_fn_values[-i]
+        print(f"threshold: {thresholds[secondmax]}, tpr: {tpr[secondmax]}, fpr: {fpr[secondmax]}")
+        # use this second argmax only when TPR and FPR is in a valid range
+        if secondmax > argmax and abs(tpr[secondmax] - tpr[argmax]) < 0.4 and abs(fpr[secondmax] - fpr[argmax]) < 0.4:
+            indices.append(secondmax)
+            break
+    return np.mean(thresholds[indices])
 
 class AdversarialPriorNetTrainer(PriorNetTrainer):
     """

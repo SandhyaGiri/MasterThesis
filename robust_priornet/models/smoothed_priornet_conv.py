@@ -285,6 +285,6 @@ class SmoothedPriorNet(nn.Module):
             if self.reduction_method == 'mean':
                 overall_logits = torch.mean(overall_logits, dim=0, keepdim=True)
             elif self.reduction_method == 'median':
-                overall_logits = torch.median(overall_logits, dim=0, keepdim=True)
+                overall_logits = torch.median(overall_logits, dim=0, keepdim=True)[0]
             outputs.append(overall_logits)
         return torch.cat(outputs, dim=0)

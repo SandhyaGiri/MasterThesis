@@ -57,6 +57,11 @@ parser.add_argument('--n', type=int, default=10000,
                     help='large number of samples for accurately estimating prob using MC')
 parser.add_argument('--alpha', type=float, default=0.0001,
                     help='acceptable error estimate in MC estimate of prob dist')
+# specific to RPN model
+parser.add_argument('--rpn_num_samples', type=int, default=1000,
+                    help='large number of samples for accurately estimating prob using MC')
+parser.add_argument('--rpn_reduction_method', choices=['mean', 'median'], default='mean',
+                    help='Specifies how to reduce the logits generated from various noisy samples for a single image.')
 
 def certify_classification(rand_smoother, args, device, id_dataset):
     radius_list = []
@@ -208,6 +213,11 @@ def main():
     # move to device if one available
     device = choose_torch_device(args.gpu)
     model, ckpt = load_model(args.model_dir, device=device)
+
+    # customize the model parameters (needed only for RPN)
+    if ckpt['model_params']['rpn_model']:
+        model.num_samples = args.rpn_num_samples
+        model.reduction_method = args.rpn_reduction_method
 
     # load the datasets
     vis = TorchVisionDataWrapper()

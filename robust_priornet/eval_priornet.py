@@ -45,6 +45,11 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
+# specific to RPN model
+parser.add_argument('--rpn_num_samples', type=int, default=1000,
+                    help='large number of samples for accurately estimating prob using MC')
+parser.add_argument('--rpn_reduction_method', choices=['mean', 'median'], default='mean',
+                    help='Specifies how to reduce the logits generated from various noisy samples for a single image.')
 
 def log_model_predictions(logits, probs, labels,
                           uncertainty_measures : dict, prefix_name='model', result_dir='./'):
@@ -71,6 +76,10 @@ def main():
     device = choose_torch_device(args.gpu)
     model, ckpt = load_model(args.model_dir, device=device)
 
+    # customize the model parameters (needed only for RPN)
+    if ckpt['model_params']['rpn_model']:
+        model.num_samples = args.rpn_num_samples
+        model.reduction_method = args.rpn_reduction_method
     # load the datasets
     vis = TorchVisionDataWrapper()
 

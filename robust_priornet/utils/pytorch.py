@@ -57,6 +57,7 @@ def eval_model_on_dataset(model: nn.Module, dataset : Dataset,
             try:
                 logits = model.test(inputs)
             except:
+                print("Not using test method to evaluate!! So model's forward() is used.")
                 logits = model(inputs)
 
             logits_list.append(logits)
