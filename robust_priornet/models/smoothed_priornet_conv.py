@@ -1,11 +1,15 @@
 """
 This module contains the VGG based convolution model.
 """
+import math
+
+import gurobipy as gp
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-
+from gurobipy import GRB
 from torch.autograd import Variable
+
 
 def sample_gumbel(shape, device, eps=1e-20):
     U = torch.rand(shape, device=device)
@@ -266,11 +270,65 @@ class SmoothedPriorNet(nn.Module):
             overall_logits.append(logits)
         return overall_logits
 
+    def _log_cosh_reduction(self, logits):
+        n = logits.shape[0] # number of samples
+        u = logits.new_zeros((1, self.num_classes))
+        for c in range(self.num_classes):
+            z_c = logits[:,c]
+            try:
+                # Create a new model
+                m = gp.Model("logcosh-opt")
+                print("created new model")
+                # to turn off unnecessary comments being logged during optimization
+                m.setParam('OutputFlag', False)
+                # Add variables
+                u_c = m.addVar(name='uc', lb=-GRB.INFINITY, ub=GRB.INFINITY)
+                y = m.addVars(n, name='y', lb=-GRB.INFINITY) # log cosh value across n samples
+                x = m.addVars(n, name='x', lb=-GRB.INFINITY) # z_ic - u_c
+                xneg = m.addVars(n, name='xneg', lb=-GRB.INFINITY) # -1 * (z_ic - u_c)
+                exp1 = m.addVars(n, name='exp1', lb=-GRB.INFINITY)
+                exp2 = m.addVars(n, name='exp2', lb=-GRB.INFINITY)
+                cosh_result = m.addVars(n, name='cosh_result', lb=0)
+                # set the non-linear constraints which make up the final log cosh loss fn
+                for i in range(n):
+                    m.addLConstr(z_c[i].item() - u_c, GRB.EQUAL, x[i])
+                    m.addLConstr(-1 * (z_c[i].item() - u_c), GRB.EQUAL, xneg[i])
+                    m.addGenConstrExp(x[i], exp1[i])
+                    m.addGenConstrExp(xneg[i], exp2[i])
+                    m.addLConstr((exp1[i] + exp2[i])/2, GRB.EQUAL, cosh_result[i])
+                    m.addGenConstrLog(cosh_result[i], y[i])
+                # set objective and optimize
+                m.setObjective(y.sum(), GRB.MINIMIZE)
+                m.optimize()
+                
+                # get the solution and print it
+                obj = m.getObjective()
+                print(f"The objective value is: {obj.getValue()}")
+                v = m.getVars()
+                print(f"Optimal u_c: {v[0].varName} {v[0].x}")
+                u[:, c] = v[0].x # storing value of u_c variable which is the minimizer
+                
+                # Status checking
+                status = m.Status
+                if status in (GRB.INF_OR_UNBD, GRB.INFEASIBLE, GRB.UNBOUNDED):
+                    print("The model cannot be solved because it is infeasible or "
+                        "unbounded")
+                if status != GRB.OPTIMAL:
+                    print('Optimization was stopped with status ' + str(status))
+            except gp.GurobiError as e:
+                print('Error code ' + str(e.errno) + ': ' + str(e))
+            except AttributeError:
+                print('Encountered an attribute error')
+            except:
+                print("some exception occured!!")
+                print(e)
+        return u
+
     def test(self, x):
         """
         Used during testing phase
         """
-        assert self.reduction_method in ['mean', 'median']
+        assert self.reduction_method in ['mean', 'median', 'log_cosh']
         batch_size = x.shape[0]
 
         samples = self.num_samples
@@ -288,5 +346,7 @@ class SmoothedPriorNet(nn.Module):
                 overall_logits = torch.mean(overall_logits, dim=0, keepdim=True)
             elif self.reduction_method == 'median':
                 overall_logits = torch.median(overall_logits, dim=0, keepdim=True)[0]
+            elif self.reduction_method == 'log_cosh':
+                overall_logits = self._log_cosh_reduction(overall_logits)
             outputs.append(overall_logits)
         return torch.cat(outputs, dim=0)

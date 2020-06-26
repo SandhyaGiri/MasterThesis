@@ -48,7 +48,7 @@ parser.add_argument('--gpu', type=int, action='append',
 # specific to RPN model
 parser.add_argument('--rpn_num_samples', type=int, default=1000,
                     help='large number of samples for accurately estimating prob using MC')
-parser.add_argument('--rpn_reduction_method', choices=['mean', 'median'], default='mean',
+parser.add_argument('--rpn_reduction_method', choices=['mean', 'median', 'log_cosh'], default='mean',
                     help='Specifies how to reduce the logits generated from various noisy samples for a single image.')
 
 def log_model_predictions(logits, probs, labels,
