@@ -74,7 +74,7 @@ def make_conv_layers(config, activation, drop_prob=0.5, batch_norm=False, stitch
     in_channels = 3
     for v in config:
         if v == 'M':
-            layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+            layers += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
         else:
             conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
             if batch_norm:

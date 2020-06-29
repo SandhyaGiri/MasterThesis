@@ -38,7 +38,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         gpu_list = "--gpu -1"
 
     # needed to be executed before model setup (for torch >=1.5)
-    os.system('export MKL_SERVICE_FORCE_INTEL=1')
+    os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x), fc_layers))
