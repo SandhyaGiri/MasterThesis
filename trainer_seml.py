@@ -22,9 +22,9 @@ def config():
 @ex.automain
 def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arch, rpn_wrapper, rpn_mc_samples, rpn_reduction,
         rpn_sigma, fc_layers, num_epochs, train_stepwise, val_every_steps, min_train_epochs, patience, num_channels, learning_rate,
-        use_cyclic_lr, add_ce_loss, ce_weight, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value, grad_clip_value,
-        weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
-        batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type,
+        use_cyclic_lr, add_ce_loss, cyclic_lr_pct_start, ce_weight, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value,
+        grad_clip_value, weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
+        batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type, gamma,
         adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
         pgd_norm, pgd_max_steps, logdir):
 
@@ -76,18 +76,19 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
             {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} \
             --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
-            {use_fixed_threshold} --known_threshold_value {known_threshold_value} \
+            {use_fixed_threshold} --known_threshold_value {known_threshold_value} --gamma {gamma} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
             --adv_attack_type {adv_attack_type} --adv_attack_criteria {adv_attack_criteria} \
             --adv_epsilon {adv_epsilon} --pgd_norm {pgd_norm} --pgd_max_steps {pgd_max_steps} \
-            {use_cyclic_lr} {add_ce_loss} {reverse_kl} \
+            {use_cyclic_lr} {add_ce_loss} {reverse_kl} --cyclic_lr_pct_start {cyclic_lr_pct_start} \
             {data_dir} {in_domain_dataset} {ood_dataset}'
     else:
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} {dataset_limit} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} {resume} {augment} \
             --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} --grad_clip_value {grad_clip_value} \
-            {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight}\
+            {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} --gamma {gamma} \
             --min_train_epochs {min_train_epochs} --patience {patience} {reverse_kl} \
+            --cyclic_lr_pct_start {cyclic_lr_pct_start} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")
     os.system(train_cmd)

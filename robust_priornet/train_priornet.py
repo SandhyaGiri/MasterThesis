@@ -40,6 +40,8 @@ parser.add_argument('--augment', action='store_true',
 parser.add_argument('--target_precision', type=int, default=1e3,
                     help='Indicates the alpha_0 or the precision of the target dirichlet \
                     for in domain samples.')
+parser.add_argument('--gamma', type=float, default=1.0,
+                    help='Weight for OOD loss.')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='Learning rate for the optimizer.')
 parser.add_argument('--use_cyclic_lr', action='store_true',
@@ -112,6 +114,9 @@ parser.add_argument('--pgd_step_size', type=float, default=0.4,
                     ' in PGD attack.')
 parser.add_argument('--pgd_max_steps', type=int, default=10,
                     help='The number of the gradient update steps, to be performed for PGD attack.')
+# cyclic -lr arguments
+parser.add_argument('--cyclic_lr_pct_start', type=float, default=0.33,
+                    help='Indicates percentage of the cycle the LR needs to increases.')
 
 # Writer will output to ./runs/ directory by default
 # writer = SummaryWriter()
@@ -212,7 +217,7 @@ def main():
     # loss criteria
     id_loss = KLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
     ood_loss = KLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
-    criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, 1.0])
+    criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
 
     # optimizer
     optimizer = optim.Adam
@@ -228,7 +233,7 @@ def main():
                                'final_div_factor': args.lr / 1e-6,
                                'epochs': args.num_epochs,
                                'steps_per_epoch': math.ceil(len(id_train_set)/args.batch_size),
-                               'pct_start': 0.33,
+                               'pct_start': args.cyclic_lr_pct_start,
                                'anneal_strategy': 'linear',
                                }
     else:

@@ -34,9 +34,11 @@ fixed:
   learning_rate: 0.0001
   grad_clip_value: 10.0
   use_cyclic_lr: False
+  cyclic_lr_pct_start: 0.35
   add_ce_loss: False
   ce_weight: 0.05
   reverse_KL: False
+  gamma: 1.0 # OOD loss weight
   drop_rate: 0.05
   weight_decay: 0.0
   target_precision: 100
