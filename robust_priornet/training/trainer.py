@@ -10,8 +10,10 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 
 from ..eval.model_prediction_eval import ClassifierPredictionEvaluator
+from ..eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from ..eval.uncertainty import UncertaintyEvaluator
-from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
+from ..utils.pytorch import (eval_model_on_dataset, load_model,
+                             save_model_with_params_from_ckpt)
 from .early_stopping import EarlyStopper, EarlyStopperSteps
 
 
@@ -57,6 +59,10 @@ class PriorNetTrainer:
             # if lr_scheduler == torch.optim.lr_scheduler.OneCycleLR:
             #     self.lr_step_after_batch = True
 
+        # Retain val datasets
+        self.id_val_dataset = id_val_dataset
+        self.ood_val_dataset = ood_val_dataset
+
         # Dataloaders for train dataset
         self.id_train_loader = DataLoader(id_train_dataset,
                                           batch_size=batch_size,
@@ -94,6 +100,32 @@ class PriorNetTrainer:
         # Early stopping
         self.training_early_stopped = False
 
+    def eval(self):
+        # evaluate on ID samples (val)
+        id_logits, id_probs, id_labels = eval_model_on_dataset(self.model,
+                                                               self.id_val_dataset,
+                                                               128,
+                                                               device=self.device)
+        id_uncertainties = UncertaintyEvaluator(id_logits).get_all_uncertainties()
+        # evaluate on OOD samples (val)
+        ood_logits, ood_probs, ood_labels = eval_model_on_dataset(self.model,
+                                                                  self.ood_val_dataset,
+                                                                  128,
+                                                                  device=self.device)
+        ood_uncertainties = UncertaintyEvaluator(ood_logits).get_all_uncertainties()
+        
+        eval_dir = os.path.join(self.log_dir, 'ood-eval-val')
+        os.makedirs(eval_dir)
+        # Accuracy on classification task
+        model_accuracy = ClassifierPredictionEvaluator.compute_accuracy(id_probs, id_labels)
+        model_nll = ClassifierPredictionEvaluator.compute_nll(id_probs, id_labels)
+        with open(os.path.join(eval_dir, 'results.txt'), 'a') as f:
+            f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
+            f.write(f'NLL: {np.round(model_nll, 3)} \n')
+        # ROC, PR curve analysis on ood-detection task
+        OutOfDomainDetectionEvaluator(id_uncertainties,
+                                      ood_uncertainties,
+                                      eval_dir).eval()
 
     def train_stepwise(self, num_epochs, val_after_steps, resume=False, ckpt=None):
         assert resume is False or ckpt is not None
@@ -276,6 +308,8 @@ class PriorNetTrainer:
                                     device=self.device,
                                     name=early_stopping.best_model_name)
 
+        # do an evaluation on val set (using the final model) and save the results
+        self.eval()
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
     def train(self, num_epochs=None, resume=False, ckpt=None, stepwise_train=False, val_after_steps=100):
@@ -363,6 +397,8 @@ class PriorNetTrainer:
                                     device=self.device,
                                     name=early_stopping.best_model_name)
 
+        # do an evaluation on val set (using the final model) and save the results
+        self.eval()
         save_model_with_params_from_ckpt(self.model, self.log_dir)
 
     def _eval_logits_id_ood_samples(self, id_inputs, ood_inputs):

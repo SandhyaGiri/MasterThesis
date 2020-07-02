@@ -1,7 +1,7 @@
 
 seml:
   executable: 'trainer_seml.py'
-  db_collection: 'priornet-thesis-advgen-train'
+  db_collection: 'priornet-thesis-advgen-train-cifar10-new'
   output_dir: '~/logs'
 
 slurm:
@@ -13,41 +13,57 @@ slurm:
     cpus-per-task: 8
     time: 30-00:00
     partition: gpu_all
+    nodelist: gpu04
+
+grid:
+  learning_rate:
+    type: loguniform
+    min: 1e-3
+    max: 1e-6
+    num: 3
+  target_precision:
+    type: choice
+    options:
+      - 100
+      - 1000
+  gamma: # OOD loss weight
+    type: choice
+    options:
+      - 1.0
+      - 5.0
+      - 10.0
 
 fixed:
-  in_domain_dataset: MNIST
-  input_image_size: 28
+  in_domain_dataset: CIFAR10
+  input_image_size: 32
   num_classes: 10
-  ood_dataset: OMNIGLOT
-  model_arch: vgg6
+  ood_dataset: CIFAR100
+  model_arch: vgg16
   rpn_wrapper: None # ['simple', 'count', 'normal', None]
   rpn_mc_samples: 100
   rpn_reduction: 'mean' # ['mean', 'median', 'log_cosh']
   rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
-  train_stepwise: False
+  train_stepwise: True
   val_every_steps: 100
-  num_epochs: 50
-  min_train_epochs: 25
+  num_epochs: 100
+  min_train_epochs: 24000
   patience: 10
-  num_channels: 1
-  learning_rate: 0.0001
+  num_channels: 3
   grad_clip_value: 10.0
-  use_cyclic_lr: False
+  use_cyclic_lr: True
   cyclic_lr_pct_start: 0.35
-  add_ce_loss: False
-  ce_weight: 0.05
+  add_ce_loss: True
+  ce_weight: 1.0
   reverse_KL: False
-  gamma: 1.0 # OOD loss weight
   drop_rate: 0.05
   weight_decay: 0.0
-  target_precision: 100
-  model_dir: "./runtime-model-vgg6-50epochs-adgen-robust-dentropy-out"
+  model_dir: "./runtime-model-vgg16-100epochs-cifar10"
   resume_from_ckpt: False
-  augment_data: False
+  augment_data: True
   data_dir: "./runtime-data"
   lr_decay_milestones: [1]
-  batch_size: 64
+  batch_size: 128
   dataset_size_limit: None
   adv_training: False
   only_out_in_adv: False

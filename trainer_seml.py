@@ -40,6 +40,8 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     # needed to be executed before model setup (for torch >=1.5)
     os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
+    # modify model_dir with grid search params
+    model_dir = f'{model_dir}-{learning_rate}-{target_precision}-{gamma}'
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x), fc_layers))
     if rpn_wrapper == 'count':
