@@ -25,7 +25,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         use_cyclic_lr, add_ce_loss, cyclic_lr_pct_start, ce_weight, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value,
         grad_clip_value, weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
         batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type, gamma,
-        adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images,
+        adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images, optimizer,
         pgd_norm, pgd_max_steps, logdir):
 
     logging.info('Received the following configuration:')
@@ -77,6 +77,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
             {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} \
+            --optimizer {optimizer} \
             --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
             {use_fixed_threshold} --known_threshold_value {known_threshold_value} --gamma {gamma} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
@@ -90,7 +91,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
             --weight_decay {weight_decay} {use_cyclic_lr} {add_ce_loss} --grad_clip_value {grad_clip_value} \
             {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} --gamma {gamma} \
             --min_train_epochs {min_train_epochs} --patience {patience} {reverse_kl} \
-            --cyclic_lr_pct_start {cyclic_lr_pct_start} \
+            --cyclic_lr_pct_start {cyclic_lr_pct_start} --optimizer {optimizer} \
             --target_precision {target_precision} {data_dir} {in_domain_dataset} {ood_dataset}'
     logging.info(f"Training command being executed: {train_cmd}")
     os.system(train_cmd)

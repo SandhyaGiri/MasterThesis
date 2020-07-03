@@ -48,6 +48,8 @@ parser.add_argument('--use_cyclic_lr', action='store_true',
                     help='Indicates if OneCycleLr scheduler needs to be used for training.')
 parser.add_argument('--num_epochs', type=int, default=10,
                     help='Specifies the number of epochs to train the model.')
+parser.add_argument('--optimizer', choices=['ADAM', 'SGD'], default='ADAM',
+                    help='Specifies the type of optimizer to be used during training.')
 parser.add_argument('--weight_decay', type=float, default=0.0,
                     help='Specifies the L2 regularization stength.')
 parser.add_argument('--add_ce_loss', action='store_true',
@@ -220,10 +222,15 @@ def main():
     criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
 
     # optimizer
-    optimizer = optim.Adam
-    optimizer_params = {'lr': args.lr,
-                        'betas': (0.9, 0.999),
-                        'weight_decay': args.weight_decay} # add this for other datasets
+    if args.optimizer == 'ADAM':
+        optimizer = optim.Adam
+        optimizer_params = {'lr': args.lr,
+                            'betas': (0.9, 0.999),
+                            'weight_decay': args.weight_decay} # add this for other datasets
+    elif args.optimizer == 'SGD':
+        optimizer = optim.SGD
+        optimizer_params = {'lr': args.lr,
+                            'momentum': 0.9}
 
     # lr scheduler
     if args.use_cyclic_lr:

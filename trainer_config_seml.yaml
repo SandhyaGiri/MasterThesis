@@ -53,6 +53,7 @@ fixed:
   grad_clip_value: 10.0
   use_cyclic_lr: True
   cyclic_lr_pct_start: 0.35
+  optimizer: ADAM
   add_ce_loss: True
   ce_weight: 1.0
   reverse_KL: False
