@@ -209,6 +209,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
         adv_success: number of previously correctly classified samples that got misclassified under attack.
     """
     target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
+    logits = np.loadtxt(f"{target_epsilon_dir}/eval/logits.txt")
+    alphas = np.exp(logits) # exp(log(alpha)) => alphas
     probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
     labels = np.loadtxt(f"{target_epsilon_dir}/eval/labels.txt")
     # current confidence on attack images
@@ -223,6 +225,8 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
     # real adversarial samples - original model correctly classified them, but now misclassified!
     # prob dist outputed by model on non-perturbed images.
     old_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
+    old_logits = np.loadtxt(f"{org_eval_dir}/id_logits.txt")
+    old_alphas = np.exp(old_logits)
     # confidence of all attack_images from normal eval phase.
     old_confidence = np.loadtxt(f"{org_eval_dir}/id_confidence.txt")
 
@@ -244,8 +248,10 @@ def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
     np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'misclassified_indices.txt'), misclassified)
     np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_confidence.txt'), old_confidence)
     np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_probs.txt'), old_probs)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_alphas.txt'), old_alphas)
     np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_confidence.txt'), new_confidence)
     np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_probs.txt'), probs)
+    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_alphas.txt'), alphas)
     
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
@@ -395,7 +401,11 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     old_id_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
     old_ood_probs = np.loadtxt(f"{org_eval_dir}/ood_probs.txt")
     old_probs = np.concatenate((old_id_probs, old_ood_probs), axis=0)
-    
+    old_id_logits = np.loadtxt(f"{org_eval_dir}/id_logits.txt")
+    old_id_alphas = np.exp(old_id_logits)
+    old_ood_logits = np.loadtxt(f"{org_eval_dir}/ood_logits.txt")
+    old_ood_alphas = np.exp(old_ood_logits)
+
     # new (under attack)
     target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
     id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{decision_measure._value_}.txt")
@@ -406,6 +416,10 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     id_probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
     ood_probs = np.loadtxt(f"{target_epsilon_dir}/ood_eval/probs.txt")
     probs = np.concatenate((id_probs, ood_probs), axis=0)
+    id_logits = np.loadtxt(f"{target_epsilon_dir}/eval/logits.txt")
+    id_alphas = np.exp(id_logits)
+    ood_logits = np.loadtxt(f"{target_epsilon_dir}/ood_eval/logits.txt")
+    ood_alphas = np.exp(ood_logits)
     
     id_labels = np.zeros_like(id_uncertainty)
     ood_labels = np.ones_like(ood_uncertainty)
@@ -429,7 +443,9 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     # log information
     np.savetxt(os.path.join(fp_dir, 'misclassified_indices.txt'), fp_indices)
     np.savetxt(os.path.join(fp_dir, 'old_probs.txt'), old_id_probs)
+    np.savetxt(os.path.join(fp_dir, 'old_alphas.txt'), old_id_alphas)
     np.savetxt(os.path.join(fp_dir, 'new_probs.txt'), id_probs)
+    np.savetxt(os.path.join(fp_dir, 'new_alphas.txt'), id_alphas)
     
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
@@ -487,7 +503,9 @@ def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
     # log information
     np.savetxt(os.path.join(fn_dir, 'misclassified_indices.txt'), fn_indices)
     np.savetxt(os.path.join(fn_dir, 'old_probs.txt'), old_ood_probs)
+    np.savetxt(os.path.join(fn_dir, 'old_alphas.txt'), old_ood_alphas)
     np.savetxt(os.path.join(fn_dir, 'new_probs.txt'), ood_probs)
+    np.savetxt(os.path.join(fn_dir, 'new_alphas.txt'), ood_alphas)
     
     # first plot
     figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
