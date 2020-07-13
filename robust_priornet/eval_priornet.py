@@ -45,6 +45,9 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
+parser.add_argument('--target_precision', type=int, required=True,
+                    help='Indicates the alpha_0 or the precision of the target dirichlet \
+                    for in domain samples.')
 # specific to RPN model
 parser.add_argument('--rpn_num_samples', type=int, default=1000,
                     help='large number of samples for accurately estimating prob using MC')
@@ -77,7 +80,7 @@ def main():
     model, ckpt = load_model(args.model_dir, device=device)
 
     # customize the model parameters (needed only for RPN)
-    if ckpt['model_params']['rpn_model']:
+    if 'rpn_model' in ckpt['model_params'] and ckpt['model_params']['rpn_model']:
         model.num_samples = args.rpn_num_samples
         model.reduction_method = args.rpn_reduction_method
     # load the datasets
@@ -96,7 +99,7 @@ def main():
         mean = (0.5, 0.5, 0.5)
         std = (0.5, 0.5, 0.5)
     trans.add_to_tensor()
-    if not ckpt['model_params']['rpn_model']:
+    if 'rpn_model' not in ckpt['model_params'] or not ckpt['model_params']['rpn_model']:
         trans.add_normalize(mean, std)
 
     if args.val_dataset:
@@ -135,6 +138,13 @@ def main():
             ood_test_set = DataSpliter.reduceSize(ood_test_set, args.dataset_size_limit)
         # persist_image_dataset(ood_test_set, mean, std, num_channels, args.result_dir)
         print(f"OOD domain dataset: {len(ood_test_set)}")
+        ood_logits, ood_probs, ood_labels = eval_model_on_dataset(model,
+                                                                  ood_test_set,
+                                                                  args.batch_size,
+                                                                  device=device)
+        out_analysis = ClassifierPredictionEvaluator.compute_out_accuracy_from_precision(ood_probs,
+                                                                                         ood_logits,
+                                                                                         args.target_precision)
 
     # Compute model predictions by passing the test set through the model.
     id_logits, id_probs, id_labels = eval_model_on_dataset(model,
@@ -148,9 +158,16 @@ def main():
                           prefix_name='id', result_dir=args.result_dir)
     model_accuracy = ClassifierPredictionEvaluator.compute_accuracy(id_probs, id_labels)
     model_nll = ClassifierPredictionEvaluator.compute_nll(id_probs, id_labels)
+    in_analysis = ClassifierPredictionEvaluator.compute_in_accuracy_from_precision(id_probs,
+                                                                                   id_labels,
+                                                                                   id_logits,
+                                                                                   args.target_precision)
     with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
         f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
         f.write(f'NLL: {np.round(model_nll, 3)} \n')
+        f.write(f'IN data analysis: Correct-{in_analysis[0]}, Wrong-{in_analysis[1]}, Reject-{in_analysis[2]}')
+        if args.task == 'ood_detect':
+            f.write(f'OUT data analysis: Problem-{out_analysis[0]}, Reject-{out_analysis[1]}')
 
     if args.task == 'ood_detect':
         ood_logits, ood_probs, ood_labels = eval_model_on_dataset(model,

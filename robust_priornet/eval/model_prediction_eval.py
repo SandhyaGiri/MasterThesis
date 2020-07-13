@@ -134,7 +134,7 @@ class ClassifierPredictionEvaluator:
             threshold: If threshold value is given, decision_fn_values above this threshold
                 are classified as label=1, and those below are classified as label=0.
                 Otherwise, threshold value is chosen (max-min)/2 from the decision_fn_values.
-        
+
         Returns:
             tn, fp, fn, tp (in the same order)
         """
@@ -145,3 +145,39 @@ class ClassifierPredictionEvaluator:
         y_preds[np.round(decision_fn_value, 4) >= np.round(threshold, 4)] = 1
 
         return confusion_matrix(y_true, y_preds).ravel()
+    
+    @staticmethod
+    def compute_in_accuracy_from_precision(y_probs, y_true, logits, target_precision):
+        num_samples = y_probs.shape[0]
+        k = y_probs.shape[1] # num_classes
+        b = target_precision
+        alphas = np.exp(logits)
+        alpha_0 = np.sum(alphas, axis=1)
+        correct_indices = np.argwhere(np.argmax(y_probs, axis=1) == y_true)
+        wrong_indices = np.argwhere(np.argmax(y_probs, axis=1) != y_true)
+        # correctly classified samples
+        correct_with_alpha = len(np.argwhere(alpha_0[correct_indices] >= ((k-1)/k * b)))
+        reject_with_alpha = len(np.argwhere(alpha_0[correct_indices] < ((k-1)/k * b)))
+        # wrongly classified samples
+        wrong_with_alpha = len(np.argwhere(alpha_0[wrong_indices] >= ((k-1)/k * b)))
+        reject_with_alpha += len(np.argwhere(alpha_0[wrong_indices] < ((k-1)/k * b)))
+        
+        # normalize the numbers to get percentage values
+        correct_with_alpha /= num_samples
+        wrong_with_alpha /= num_samples
+        reject_with_alpha /= num_samples
+        return (correct_with_alpha, wrong_with_alpha, reject_with_alpha)
+    
+    @staticmethod
+    def compute_out_accuracy_from_precision(y_probs, logits, target_precision):
+        num_samples = y_probs.shape[0]
+        k = y_probs.shape[1] # num_classes
+        b = target_precision
+        alphas = np.exp(logits)
+        alpha_0 = np.sum(alphas, axis=1)
+        problem_with_alpha = len(np.argwhere(alpha_0 >= ((k-1)/k * b))) # very high precision for OOD (not desired)
+        reject_with_alpha = len(np.argwhere(alpha_0 < ((k-1)/k * b))) # less precision for OOD (desired)
+        # normalize the numbers
+        problem_with_alpha /= num_samples
+        reject_with_alpha /= num_samples
+        return (problem_with_alpha, reject_with_alpha)

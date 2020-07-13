@@ -23,6 +23,7 @@ fixed:
   use_train_dataset: False
   use_val_dataset: False
   dataset_size_limit: None
+  target_precision: 100
   logdir: "/nfs/homedirs/giri/priornet/logs"
   run_eval: False
   rpn_mc_samples: 100

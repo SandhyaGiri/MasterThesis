@@ -22,7 +22,7 @@ def config():
 
 @ex.automain
 def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_train_dataset,
-        use_val_dataset, dataset_size_limit, logdir,
+        use_val_dataset, dataset_size_limit, target_precision, logdir,
         run_eval, rpn_mc_samples, rpn_reduction, run_attack, epsilon_list, threshold, attack_type,
         attack_strategy, attack_criteria, attack_norm, max_steps,
         run_certification, certify_task, certify_only_ood, n0, n, sigma, uncertainty_measure,
@@ -49,7 +49,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         cmd = f"python -m robust_priornet.eval_priornet {gpu_list} --batch_size {batch_size} \
             --model_dir {model_dir} --task misclassification_detect --result_dir {out_dir} \
             {'--train_dataset' if use_train_dataset else ''} \
-            {'--val_dataset' if use_val_dataset else ''} \
+            {'--val_dataset' if use_val_dataset else ''} --target_precision {target_precision} \
             --rpn_num_samples {rpn_mc_samples} --rpn_reduction_method {rpn_reduction} \
             {data_dir} {in_domain_dataset} {ood_dataset}"
         logging.info(f"In domain EVAL command being executed: {cmd}")
@@ -60,7 +60,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         cmd = f"python -m robust_priornet.eval_priornet {gpu_list} --batch_size {batch_size} \
                 --model_dir {model_dir} --task ood_detect --result_dir {out_dir} \
                 {'--train_dataset' if use_train_dataset else ''} \
-                {'--val_dataset' if use_val_dataset else ''} \
+                {'--val_dataset' if use_val_dataset else ''} --target_precision {target_precision} \
                 --rpn_num_samples {rpn_mc_samples} --rpn_reduction_method {rpn_reduction} \
                 {data_dir} {in_domain_dataset} {ood_dataset}"
         logging.info(f"OOD EVAL command being executed: {cmd}")
