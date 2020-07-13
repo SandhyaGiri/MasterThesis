@@ -165,9 +165,9 @@ def main():
     with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
         f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
         f.write(f'NLL: {np.round(model_nll, 3)} \n')
-        f.write(f'IN data analysis: Correct-{in_analysis[0]}, Wrong-{in_analysis[1]}, Reject-{in_analysis[2]}')
+        f.write(f'IN data analysis: Correct-{in_analysis[0]}, Wrong-{in_analysis[1]}, Reject-{in_analysis[2]}\n')
         if args.task == 'ood_detect':
-            f.write(f'OUT data analysis: Problem-{out_analysis[0]}, Reject-{out_analysis[1]}')
+            f.write(f'OUT data analysis: Problem-{out_analysis[0]}, Reject-{out_analysis[1]}\n')
 
     if args.task == 'ood_detect':
         ood_logits, ood_probs, ood_labels = eval_model_on_dataset(model,

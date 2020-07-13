@@ -25,41 +25,66 @@
 			$\mathrm{A}_{\mathrm{diffE_b}}$ & 0.465 & 99 & 0.458 & 99 & 0.453 & 98 & & 0.472 & 100 & 0.472 & 100 & & 0.469 & 100 & 0.468 & 100 \\
 			$\mathrm{A}_{\mathrm{distU_old}}$ & 0.469 & 99 & 0.472 & 100 & 0.472 & 100 & & 0.472 & 100 & 0.472 & 100 & & 0.370 & 59 & 0.384 & 28 \\
 			$\mathrm{A}_{\mathrm{distU_b}}$ & 0.468 & 99 & 0.472 & 100 & 0.472 & 100 & & 0.472 & 100 & 0.472 & 100 & & 0.438 & 94 & 0.428 & 93 \\
-			RPN                           & 0.466 & 99 & 0.472 & 100 & 0.465 & 99 & & 0.472 & 100 & 0.471 & 100 & & 0.358 & 68 & 0.301 & 82 \\
+			$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{median}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{log-cosh}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			\midrule
 			& \multicolumn{6}{c}{MNIST}   & & \multicolumn{4}{c}{CIFAR10} & & \multicolumn{4}{c}{OMNIGLOT} \\
 			Normal                         & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{conf}}$  & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{diffE}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{distU}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
-			RPN                           & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			\midrule
 			& \multicolumn{6}{c}{FashionMNIST} & & \multicolumn{4}{c}{SVHN} & & \multicolumn{4}{c}{CIFAR10} \\
 			Normal                         & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{conf}}$  & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{diffE}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{distU}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
-			RPN                           & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			\midrule
 			& \multicolumn{6}{c}{CIFAR10} & & \multicolumn{4}{c}{SVHN} & & \multicolumn{4}{c}{TIM} \\
 			Normal                         & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{conf}}$  & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{diffE}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{distU}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
-			RPN                           & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			\midrule
 			& \multicolumn{6}{c}{CIFAR10} & & \multicolumn{4}{c}{LSUN} & & \multicolumn{4}{c}{TIM} \\
 			Normal                         & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{conf}}$  & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{diffE}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			$\mathrm{A}_{\mathrm{distU}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
-			RPN                           & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
+			$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & .. & .. & .. & & .. & .. & .. & .. & & .. & .. & .. & .. \\
 			\bottomrule
 		\end{tabular}
 	\end{tiny}
 	\label{tab:res_smoothing}
 \end{table}
 
+
+\begin{table}[ht]
+	\centering
+	\ra{1.3}
+	\caption{Test data analysis using precision of the output Dirichlet distribution. In distribution categories: Correct - percentage of correctly classified samples with high precision,
+	Wrong - percentage of wrongly classified samples with high precision, Reject - percentage of correctly or wrongly classified samples with low precision. Out distribution categories:
+	Problem - percentage of out samples with high precision, Reject - percentage of out samples with low precision }
+	\begin{tiny}
+        \begin{tabular}{@{}rrrrrrrcrrrrcrrrr@{}}
+        \toprule
+		& \multicolumn{3}{c}{in distribution} & & \multicolumn{2}{c}{out distribution I} & & \multicolumn{2}{c}{out distribution II} \\
+		model & Correct & Wrong & Reject & &  Problem & Reject &  & Problem & Reject \\
+        \midrule
+		& \multicolumn{3}{c}{MNIST} & & \multicolumn{2}{c}{OMNIGLOT} & & \multicolumn{2}{c}{CIFAR10} \\
+		Normal & 32.78 & 0.0 & 67.22 & & 0.0 & 100.0 && 0.0 & 100.0 \\
+		$\mathrm{A}_{\mathrm{conf}}$ & 82.65 & 00.01 & 17.34 && 0.0 & 100.0 && 00.01 & 99.99 \\
+		$\mathrm{A}_{\mathrm{diffE}}$ & 24.9 & 0.0 & 75.1 & & 0.0 & 100.0 & & 0.0 & 100.0 \\  
+		$\mathrm{A}_{\mathrm{distU}}$ & 28.33 & 0.0 & 71.67 & & 0.0 & 100.0 & & 0.0 & 100.0 \\
+		$\mathrm{RPN}_{\mathrm{mean}}$ & . & . & . & & . & . & & . & . \\
+        \end{tabular}
+	\end{tiny}
+	\label{tab:precision based data analysis}
+\end{table}
 
 
 
