@@ -68,19 +68,27 @@
 	\ra{1.3}
 	\caption{Test data analysis using precision of the output Dirichlet distribution. In distribution categories: Correct - percentage of correctly classified samples with high precision,
 	Wrong - percentage of wrongly classified samples with high precision, Reject - percentage of correctly or wrongly classified samples with low precision. Out distribution categories:
-	Problem - percentage of out samples with high precision, Reject - percentage of out samples with low precision }
+	Problem - percentage of out samples with high precision, Reject - percentage of out samples with low precision. Parameters in the threshold used are k= number of classes and
+	b= target dirichlet precision that model was trained on for in-domain data. }
 	\begin{tiny}
         \begin{tabular}{@{}rrrrrrrcrrrrcrrrr@{}}
         \toprule
 		& \multicolumn{3}{c}{in distribution} & & \multicolumn{2}{c}{out distribution I} & & \multicolumn{2}{c}{out distribution II} \\
 		model & Correct & Wrong & Reject & &  Problem & Reject &  & Problem & Reject \\
         \midrule
-		& \multicolumn{3}{c}{MNIST} & & \multicolumn{2}{c}{OMNIGLOT} & & \multicolumn{2}{c}{CIFAR10} \\
+		threshold= (k-1)/k * b & & \multicolumn{3}{c}{MNIST} & & \multicolumn{2}{c}{OMNIGLOT} & & \multicolumn{2}{c}{CIFAR10} \\
 		Normal & 32.78 & 0.0 & 67.22 & & 0.0 & 100.0 && 0.0 & 100.0 \\
 		$\mathrm{A}_{\mathrm{conf}}$ & 82.65 & 00.01 & 17.34 && 0.0 & 100.0 && 00.01 & 99.99 \\
 		$\mathrm{A}_{\mathrm{diffE}}$ & 24.9 & 0.0 & 75.1 & & 0.0 & 100.0 & & 0.0 & 100.0 \\  
 		$\mathrm{A}_{\mathrm{distU}}$ & 28.33 & 0.0 & 71.67 & & 0.0 & 100.0 & & 0.0 & 100.0 \\
-		$\mathrm{RPN}_{\mathrm{mean}}$ & . & . & . & & . & . & & . & . \\
+		$\mathrm{RPN}_{\mathrm{mean}}$ & 0.0 & 0.0 & 100.0 & & 0.0 & 100.0 & & 0.0 & 100.0 \\
+		\midrule
+		threshold= 1/2 * b & & \multicolumn{3}{c}{MNIST} & & \multicolumn{2}{c}{OMNIGLOT} & & \multicolumn{2}{c}{CIFAR10} \\
+		Normal & .. & .. & .. & & .. & .. && .. & .. \\
+		$\mathrm{A}_{\mathrm{conf}}$ & .. & .. & .. && .. & .. && .. & .. \\
+		$\mathrm{A}_{\mathrm{diffE}}$ & .. & .. & .. & & .. & .. & & .. & .. \\  
+		$\mathrm{A}_{\mathrm{distU}}$ & .. & .. & .. & & .. & .. & & .. & .. \\
+		$\mathrm{RPN}_{\mathrm{mean}}$ & .. & .. & .. & & .. & .. & & .. & .. \\
         \end{tabular}
 	\end{tiny}
 	\label{tab:precision based data analysis}
