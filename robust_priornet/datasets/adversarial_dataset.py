@@ -21,7 +21,9 @@ class AdversarialDataset(Dataset):
                  adv_success_detect_type: str='normal',
                  ood_dataset: bool = False,
                  uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
-                 uncertainty_threshold: float = 0.5):
+                 uncertainty_threshold: float = 0.5,
+                 target_precision: float = 0,
+                 precision_fraction = lambda k: 1.0):
         assert attack_type in ['fgsm', 'pgd']
         assert adv_success_detect_type in ['normal', 'ood-detect']
 
@@ -61,7 +63,9 @@ class AdversarialDataset(Dataset):
                                                                   success_detect_args={
                                                                       'ood_dataset': ood_dataset,
                                                                       'uncertainty_measure': uncertainty_measure,
-                                                                      'threshold': uncertainty_threshold
+                                                                      'threshold': uncertainty_threshold,
+                                                                      'target_precision': target_precision,
+                                                                      'precision_fraction': precision_fraction
                                                                   })
                 # size of new labels can be lesser than org labels
                 # when true adversaries are only returned by attacks

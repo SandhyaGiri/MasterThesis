@@ -6,6 +6,7 @@ import torch
 from sklearn.metrics import (auc, confusion_matrix, precision_recall_curve,
                              roc_auc_score, roc_curve)
 
+from ..utils.common_data import PRECISION_FRACTIONS_MAP
 from ..utils.visualizer import plot_curve
 
 
@@ -14,13 +15,6 @@ class ClassifierPredictionEvaluator:
     Provides methods to evaluate a binary classifier model such as computing
     PR and ROC curves, accuracy etc.
     """
-    precision_fractions = {
-        'class_relative_strict': lambda k : (k-1)/k,
-        'class_relative_relaxed': lambda k : 1/k,
-        '50': lambda k : 1/2,
-        '33': lambda k : 1/3,
-        '66': lambda k : 2/3
-    }
     @staticmethod
     def compute_pr_curve(decision_fn_value, truth_labels, result_dir, file_name):
         """
@@ -153,12 +147,12 @@ class ClassifierPredictionEvaluator:
 
         return confusion_matrix(y_true, y_preds).ravel()
     
-    @classmethod
-    def compute_in_accuracy_from_precision(cls, y_probs, y_true, logits, target_precision, fraction_name='class_relative_strict'):
+    @staticmethod
+    def compute_in_accuracy_from_precision(y_probs, y_true, logits, target_precision, fraction_name='class_relative_strict'):
         num_samples = y_probs.shape[0]
         k = y_probs.shape[1] # num_classes
         b = target_precision
-        fraction = cls.precision_fractions[fraction_name]
+        fraction = PRECISION_FRACTIONS_MAP[fraction_name]
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
         correct_indices = np.argwhere(np.argmax(y_probs, axis=1) == y_true)
@@ -176,12 +170,12 @@ class ClassifierPredictionEvaluator:
         reject_with_alpha /= num_samples
         return (correct_with_alpha, wrong_with_alpha, reject_with_alpha)
     
-    @classmethod
-    def compute_out_accuracy_from_precision(cls, y_probs, logits, target_precision, fraction_name='class_relative_strict'):
+    @staticmethod
+    def compute_out_accuracy_from_precision(y_probs, logits, target_precision, fraction_name='class_relative_strict'):
         num_samples = y_probs.shape[0]
         k = y_probs.shape[1] # num_classes
         b = target_precision
-        fraction = cls.precision_fractions[fraction_name]
+        fraction = PRECISION_FRACTIONS_MAP[fraction_name]
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
         problem_with_alpha = len(np.argwhere(alpha_0 >= (fraction(k) * b))) # very high precision for OOD (not desired)

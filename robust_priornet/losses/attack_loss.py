@@ -29,6 +29,12 @@ class AttackCriteria:
         return UncertaintyEvaluatorTorch(outputs).get_expected_data_uncertainty()
 
     @staticmethod
+    def precision_loss(outputs, labels):
+        alphas = torch.exp(outputs)
+        alpha_0 = torch.sum(alphas, dim=1)
+        return torch.neg(alpha_0)
+
+    @staticmethod
     def ood_confidence_loss(outputs, labels):
         """
         For out of distribution samples, the confidence of the model need to be
@@ -54,3 +60,9 @@ class AttackCriteria:
         as a loss function we minimize the negation of dist uncertainty.
         """
         return torch.neg(UncertaintyEvaluatorTorch(outputs).get_distributional_uncertainty())
+    
+    @staticmethod
+    def ood_precision_loss(outputs, labels):
+        alphas = torch.exp(outputs)
+        alpha_0 = torch.sum(alphas, dim=1)
+        return alpha_0

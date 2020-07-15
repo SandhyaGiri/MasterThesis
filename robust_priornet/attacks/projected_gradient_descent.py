@@ -4,7 +4,7 @@ import numpy as np
 
 from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
                                 UncertaintyMeasuresEnum)
-
+from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 
 def _eval_for_adv_success_normal_classify(model, adv_input, label):
     logit = model(adv_input)
@@ -19,6 +19,18 @@ def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measur
     uncertainty_value = uncertainty_value.item()
     pred = 1 if np.round(uncertainty_value, 4) >= np.round(threshold, 4) else 0
     return pred != label.item() # adversarial success acheieved
+
+def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_precision, precision_fraction):
+    logit = model(adv_input)
+    alpha = torch.exp(logit)
+    alpha_0 = torch.sum(alpha)
+    k = alpha.shape[1] # num_classes
+    if label.item() == 0: # in-sample
+        # adversarial success - as it has a low precision
+        return alpha_0.item() < (precision_fraction(k) * target_precision)
+    if label.item() == 1: # out-sample
+        # adversarial success - as it has a very high precision
+        return alpha_0.item() >= (precision_fraction(k) * target_precision)
 
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
@@ -102,10 +114,16 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
             elif success_detect_type == 'ood-detect':
                 # in-domain = label 0, out-domain = label 1
                 ood_label = torch.ones_like(label) if success_detect_args['ood_dataset'] else torch.zeros_like(label)
-                is_success = _eval_for_adv_success_ood_detect(model, adv_input,
-                                                              ood_label,
-                                                              success_detect_args['uncertainty_measure'],
-                                                              success_detect_args['threshold'])
+                if criterion == ATTACK_CRITERIA_MAP['precision'] or criterion == OOD_ATTACK_CRITERIA_MAP['precision']:
+                    is_success = _eval_for_adv_success_ood_detect_precision(model, adv_input,
+                                                                            ood_label,
+                                                                            success_detect_args['target_precision'],
+                                                                            success_detect_args['precision_fraction'])
+                else:
+                    is_success = _eval_for_adv_success_ood_detect(model, adv_input,
+                                                                ood_label,
+                                                                success_detect_args['uncertainty_measure'],
+                                                                success_detect_args['threshold'])
             if is_success:
                 adv_success_reached = True
                 break
