@@ -76,7 +76,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
                     --batch_size {batch_size} --epsilon {epsilons} \
                     --attack_type {attack_type} --attack_strategy {attack_strategy} \
                     --attack_criteria {attack_criteria} --threshold {threshold} \
-                    --model_dir {model_dir} \
+                    --model_dir {model_dir} --target_precision {target_precision} \
                     --ood_dataset {ood_dataset} {'--train_dataset' if use_train_dataset else ''} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
                     {data_dir} {in_domain_dataset} {out_dir}"
@@ -86,7 +86,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
             pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
                     --attack_type {attack_type} --attack_strategy {attack_strategy} \
-                    --attack_criteria {attack_criteria} \
+                    --attack_criteria {attack_criteria} --target_precision {target_precision} \
                     --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
                     --threshold {threshold} --ood_dataset {ood_dataset} \
                     {'--train_dataset' if use_train_dataset else ''} \
