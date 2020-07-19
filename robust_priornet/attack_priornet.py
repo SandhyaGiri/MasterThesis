@@ -105,12 +105,17 @@ def _get_ood_success_precision(id_logits, ood_logits, target_precision, precisio
     k = id_logits.shape[1] # num_classes
     id_alpha_0 = np.sum(np.exp(id_logits), axis=1)
     ood_alpha_0 = np.sum(np.exp(ood_logits), axis=1)
+    print(f"target_precision: {target_precision}, threshold: {precision_fraction(k)}")
     id_success_indices = np.argwhere(id_alpha_0 < precision_fraction(k) * target_precision)
+    print(f"id_success: {len(id_success_indices)}")
     # from originally correcty classified samples with high precision
     id_success_indices = np.intersect1d(id_success_indices, id_valid_indices)
+    print(f"id_success (final): {len(id_success_indices)}")
     ood_success_indices = np.argwhere(ood_alpha_0 >= precision_fraction(k) * target_precision)
+    print(f"ood_success: {len(ood_success_indices)}")
     # from originally low precision ood samples
     ood_success_indices = np.intersect1d(ood_success_indices, ood_valid_indices)
+    print(f"ood_success (final): {len(ood_success_indices)}")
     id_success = 0
     if len(id_valid_indices) > 0:
         id_success = len(id_success_indices)/len(id_valid_indices)
