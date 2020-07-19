@@ -81,6 +81,9 @@ parser.add_argument('--max_steps', type=int, default=10,
 parser.add_argument('--ood_dataset', choices=DatasetEnum._member_map_.keys(),
                     help='Dataset to be used for ood-detect attack adversary generation '+
                     'and evaluation of the attack success.')
+parser.add_argument('--target_label', type=str, default='all',
+                    help='Indicates the target label for which the attack wants to change the prediction to.'+
+                    'To be used for a targeted attack.')
 
 def _get_ood_success(id_uncertainty, ood_uncertainty, uncertainty_measure, threshold, verbose=False):
     uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
@@ -139,6 +142,22 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
     plot_epsilon_curve(epsilons, adv_success_ood, result_dir=result_dir, file_name='epsilon-curve_ood.png')
     return adv_success_id, adv_success_ood
 
+def _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices=[]):
+    preds = np.argmax(probs, axis=1)
+    misclassifications = np.asarray(preds != labels, dtype=np.int32)
+    misclassified_indices = np.argwhere(misclassifications == 1)
+    print(f"Correctly classified (normal) images: {len(correct_classified_indices)}")
+    print(f"Misclassified (adv) images: {len(misclassified_indices)}")
+    print(f"Adv images with good precision: {len(good_alpha_indices)}")
+    
+    # count as success only those samples that are wrongly classified under attack,
+    # while they were correctly classified without attack.
+    adv_success_indices = np.intersect1d(correct_classified_indices, misclassified_indices)
+    adv_success_indices = np.intersect1d(adv_success_indices, good_alpha_indices)
+    adv_success = len(adv_success_indices)
+    print(f"Misclassified (adv) images with good precision, which were initially correctly classified: {adv_success}")
+    return adv_success/len(correct_classified_indices) if len(correct_classified_indices) > 0 else 0
+
 def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, result_dir: str):
     old_probs = np.loadtxt(os.path.join(org_eval_dir, 'id_probs.txt'))
     labels = np.loadtxt(os.path.join(org_eval_dir, 'id_labels.txt'))
@@ -149,11 +168,7 @@ def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, res
     adv_success_rates = []
     for epsilon in epsilons:
         probs = np.loadtxt(os.path.join(attack_dir, f'e{epsilon}-attack', 'eval', 'probs.txt'))
-        preds = np.argmax(probs, axis=1)
-        misclassifications = np.asarray(preds != labels, dtype=np.int32)
-        misclassified_indices = np.argwhere(misclassifications == 1)
-        adv_success = len(np.intersect1d(correct_classified_indices, misclassified_indices))
-        adv_success_rates.append(adv_success / len(correct_classified_indices))
+        adv_success_rates.append(_get_mis_adv_success(probs, labels, correct_classified_indices))
 
     plot_epsilon_curve(epsilons, adv_success_rates, result_dir=result_dir)
     return adv_success_rates
@@ -172,14 +187,15 @@ def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_class
     np.savetxt(os.path.join(eval_dir, 'logits.txt'), logits)
 
     # determine misclassifications under attack
-    preds = np.argmax(probs, axis=1)
-    misclassifications = np.asarray(preds != labels, dtype=np.int32)
-    misclassified_indices = np.argwhere(misclassifications == 1)
-
-    # count as success only those samples that are wrongly classified under attack,
-    # while they were correctly classified without attack.
-    adv_success = len(np.intersect1d(correct_classified_indices, misclassified_indices))
-    adv_success = (adv_success / len(correct_classified_indices))
+    if attack_criteria_enum == 'precision_targeted':
+        # include only adversarials that have certain precision
+        k = logits.shape[1]
+        alphas = np.exp(logits)
+        alpha_0 = np.sum(alphas, axis=1)
+        good_alpha_indices = np.argwhere(alpha_0 >= precision_fraction(k) * target_precision)
+        adv_success = _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices)
+    else:
+        adv_success = _get_mis_adv_success(probs, labels, correct_classified_indices)
 
     # Get dictionary of uncertainties.
     uncertainties = UncertaintyEvaluator(logits).get_all_uncertainties()
@@ -249,7 +265,7 @@ def main():
     model, ckpt = load_model(args.model_dir, device=device)
 
     # chosen precision fraction
-    precision_fraction = PRECISION_FRACTIONS_MAP['class_relative_strict']
+    precision_fraction = PRECISION_FRACTIONS_MAP['20']
     
     # load the datasets
     vis = TorchVisionDataWrapper()
@@ -303,7 +319,7 @@ def main():
                                                   batch_size=args.batch_size)
     # determine correct classifications without attack (original non perturbed images)
     # needed for confidence precision attack
-    if args.attack_criteria == 'precision':
+    if args.attack_criteria == 'precision' or args.attack_criteria == 'precision_targeted':
         org_preds = np.argmax(probs, axis=1)
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
@@ -318,6 +334,7 @@ def main():
 
     # load ood dataset if atatck type is ood-detect.
     ood_dataset = None
+    ood_valid_indices = []
     if args.attack_type == 'ood-detect':
         # load the dataset
         if args.val_dataset:
@@ -347,7 +364,6 @@ def main():
                               mean, std, num_channels, org_ood_dataset_folder)
         
         # evaluate and find samples with ideal precision
-        ood_valid_indices = []
         if args.attack_criteria == 'precision':
             ood_logits, ood_probs, _ = eval_model_on_dataset(model,
                                                   dataset=ood_dataset,
@@ -380,7 +396,10 @@ def main():
                                          ATTACK_CRITERIA_TO_ENUM_MAP[args.attack_criteria],
                                          uncertainty_threshold=args.threshold,
                                          target_precision=args.target_precision,
-                                         precision_fraction=precision_fraction)
+                                         precision_fraction=precision_fraction,
+                                         targeted_attack=(args.attack_criteria == 'precision_targeted'),
+                                         num_classes=k,
+                                         target_label=args.target_label)
         print(f"In domain adversarial dataset: {len(adv_dataset)}")
         persist_image_dataset(data.Subset(adv_dataset, id_chosen_indices),
                               mean, std, num_channels, out_path)

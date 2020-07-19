@@ -33,6 +33,13 @@ class AttackCriteria:
         alphas = torch.exp(outputs)
         alpha_0 = torch.sum(alphas, dim=1)
         return torch.neg(alpha_0)
+    
+    @staticmethod
+    def precision_target_loss(outputs, labels, target_labels):
+        alphas = torch.exp(outputs)
+        alpha_0 = torch.sum(alphas, dim=1)
+        # max true labels' precision and minimize wrong labels' precision
+        return (alphas[:, target_labels] - alphas[:, labels]) * alpha_0
 
     @staticmethod
     def ood_confidence_loss(outputs, labels):

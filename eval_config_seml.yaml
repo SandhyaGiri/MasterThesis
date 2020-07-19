@@ -33,7 +33,7 @@ fixed:
   threshold: 0.27268
   attack_type: "misclassify" # one of ['misclassify', 'ood-detect']
   attack_strategy: "PGD"
-  attack_criteria: "confidence" # use ['confidence', 'diff_entropy', 'mutual_info']
+  attack_criteria: "confidence" # use ['confidence', 'diff_entropy', 'mutual_info', 'precision', 'precision_targeted']
   attack_norm: "inf"
   max_steps: 10
   run_certification: False

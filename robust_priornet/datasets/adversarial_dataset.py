@@ -6,7 +6,10 @@ from torch.utils.data import DataLoader, Dataset
 
 from ..attacks.fast_gradient_sign import construct_fgsm_attack
 from ..attacks.projected_gradient_descent import construct_pgd_attack
+from ..attacks.projected_gradient_descent_targeted import \
+    construct_pgd_targeted_attack
 from ..eval.uncertainty import UncertaintyMeasuresEnum
+
 
 class AdversarialDataset(Dataset):
     """
@@ -18,12 +21,15 @@ class AdversarialDataset(Dataset):
                  norm, step_size, max_steps,
                  batch_size: int = 128, device: Optional[torch.device] = None,
                  only_true_adversaries=False,
+                 targeted_attack=False,
                  adv_success_detect_type: str='normal',
                  ood_dataset: bool = False,
                  uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
                  uncertainty_threshold: float = 0.5,
                  target_precision: float = 0,
-                 precision_fraction = lambda k: 1.0):
+                 precision_fraction = lambda k: 1.0,
+                 num_classes: int = 10,
+                 target_label='all'):
         assert attack_type in ['fgsm', 'pgd']
         assert adv_success_detect_type in ['normal', 'ood-detect']
 
@@ -49,7 +55,8 @@ class AdversarialDataset(Dataset):
                                                                    criterion=attack_criterion,
                                                                    device=device)
                 elif attack_type == 'pgd':
-                    adv_inputs, new_labels = construct_pgd_attack(model=model,
+                    attack_function = construct_pgd_targeted_attack if targeted_attack else construct_pgd_attack
+                    adv_inputs, new_labels = attack_function(model=model,
                                                                   labels=labels,
                                                                   inputs=inputs,
                                                                   epsilon=epsilon,
@@ -66,7 +73,9 @@ class AdversarialDataset(Dataset):
                                                                       'threshold': uncertainty_threshold,
                                                                       'target_precision': target_precision,
                                                                       'precision_fraction': precision_fraction
-                                                                  })
+                                                                  },
+                                                                  num_classes=num_classes,
+                                                                  target_label=target_label if target_label == "all" else int(target_label))
                 # size of new labels can be lesser than org labels
                 # when true adversaries are only returned by attacks
                 if adv_inputs is not None:

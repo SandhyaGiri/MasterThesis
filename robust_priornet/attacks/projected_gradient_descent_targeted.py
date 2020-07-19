@@ -2,41 +2,25 @@ import torch
 from torch import nn
 import numpy as np
 
-from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
-                                UncertaintyMeasuresEnum)
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 
-def _eval_for_adv_success_normal_classify(model, adv_input, label):
-    logit = model(adv_input)
-    prob = nn.functional.softmax(logit, dim=1)
-    pred = torch.max(prob, dim=1)[1] # indices
-    return pred.item() != label.item() # adversarial success acheieved
+def _eval_for_adv_success_classify(model, adv_input, label, target_label, target_precision, precision_fraction):
+    logits = model(adv_input)
+    alphas = torch.exp(logits)
+    k = alphas.shape[1] # num_classes
+    alpha_0 = torch.sum(alphas)
+    return alpha_0 >= (precision_fraction(k) * target_precision) and alphas[:,target_label].item() > alphas[:, label.item()].item()
 
-def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measure: UncertaintyMeasuresEnum, threshold):
-    logit = model(adv_input)
-    uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure,
-                                                                         negate_confidence=True)
-    uncertainty_value = uncertainty_value.item()
-    pred = 1 if np.round(uncertainty_value, 4) >= np.round(threshold, 4) else 0
-    return pred != label.item() # adversarial success acheieved
-
-def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_precision, precision_fraction):
-    logit = model(adv_input)
-    alpha = torch.exp(logit)
-    alpha_0 = torch.sum(alpha)
-    k = alpha.shape[1] # num_classes
-    if label.item() == 0: # in-sample
-        # adversarial success - as it has a low precision
-        return alpha_0.item() < (precision_fraction(k) * target_precision)
-    if label.item() == 1: # out-sample
-        # adversarial success - as it has a very high precision
-        return alpha_0.item() >= (precision_fraction(k) * target_precision)
+def _get_adv_alpha_k(model, adv_input, target_label):
+    logits = model(adv_input)
+    alphas = torch.exp(logits)
+    return alphas[:, target_label].item()
 
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
                            max_steps, pin_memory, 
                            only_true_adversaries,
-                           success_detect_type,
+                           target_label,
                            success_detect_args,
                            rel_step_size: float = None):
     """
@@ -63,7 +47,7 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
         with torch.enable_grad():
             output = model(adv_input)
 
-            loss = criterion(output, label)
+            loss = criterion(output, label, target_label)
             assert torch.all(torch.isfinite(loss)).item()
 
             grad_output = torch.ones(loss.shape)
@@ -108,45 +92,36 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
         # evaluate if adv image results in misclassification
         # if misclassified stop
         with torch.no_grad():
-            is_success = False
-            if success_detect_type == 'normal':
-                is_success = _eval_for_adv_success_normal_classify(model, adv_input, label)
-            elif success_detect_type == 'ood-detect':
-                # in-domain = label 0, out-domain = label 1
-                ood_label = torch.ones_like(label) if success_detect_args['ood_dataset'] else torch.zeros_like(label)
-                if criterion == ATTACK_CRITERIA_MAP['precision'] or criterion == OOD_ATTACK_CRITERIA_MAP['precision']:
-                    is_success = _eval_for_adv_success_ood_detect_precision(model, adv_input,
-                                                                            ood_label,
-                                                                            success_detect_args['target_precision'],
-                                                                            success_detect_args['precision_fraction'])
-                else:
-                    is_success = _eval_for_adv_success_ood_detect(model, adv_input,
-                                                                ood_label,
-                                                                success_detect_args['uncertainty_measure'],
-                                                                success_detect_args['threshold'])
+            is_success = _eval_for_adv_success_classify(model, adv_input,
+                                                        label, target_label,
+                                                        success_detect_args['target_precision'],
+                                                        success_detect_args['precision_fraction'])
             if is_success:
                 adv_success_reached = True
                 break
     return adv_input if not only_true_adversaries or adv_success_reached else None
 
-def construct_pgd_attack(model,
-                         inputs,
-                         labels,
-                         epsilon,
-                         criterion=nn.CrossEntropyLoss(),
-                         device=None,
-                         norm="inf",
-                         step_size=0.4,
-                         max_steps=10,
-                         pin_memory: bool = True,
-                         only_true_adversaries: bool = False,
-                         success_detect_type: str = 'normal',
-                         success_detect_args = {},
-                         **kwargs):
+def construct_pgd_targeted_attack(model,
+                                inputs,
+                                labels,
+                                epsilon,
+                                criterion=nn.CrossEntropyLoss(),
+                                device=None,
+                                norm="inf",
+                                step_size=0.4,
+                                max_steps=10,
+                                pin_memory: bool = True,
+                                only_true_adversaries: bool = False,
+                                success_detect_type='normal',
+                                success_detect_args = {},
+                                num_classes=10,
+                                target_label='all'):
     """
+        Targeted attack:
         Constructs adversarial images by doing multiple iterations of criterion maximization
-        (maximize loss) to get the adversarial image within a p-norm ball around the
-        input image that results in a misclassification.
+        (maximize loss) for the true class label, and crietrion minimization (minimize loss) 
+        for a wrong class label ( != true class label) to get the adversarial image within
+        a p-norm ball around the input image that results in a targetted misclassification.
 
         Operates on a batch of images (inputs).
 
@@ -164,19 +139,43 @@ def construct_pgd_attack(model,
         max_steps - int
             indicates the maximum steps to perform for chosing the best adversary
             (one with max loss/criterion).
+        target_label - string or int
+            if int, then indicates a particular class label for which loss will be minimized
+            if "all", then all class labels other than true label are used to generate classes-1
+                adversarial images, which are then filtered by picking the best.
     """
     adv_inputs = []
     adv_labels = []
     for i in range(inputs.shape[0]):
         input_image = torch.unsqueeze(inputs[i], dim=0)
         label = labels[i].view(1,)
-        adv_input = _find_adv_single_input(model, input_image, label, epsilon,
-                                           criterion, device, norm, step_size,
-                                           max_steps, pin_memory,
-                                           only_true_adversaries,
-                                           success_detect_type,
-                                           success_detect_args,
-                                           rel_step_size=0.1)
+        if target_label == "all":
+            # generate all k-1 adversarials
+            best_adv_input = None
+            best_adv_alpha_k = 0
+            other_classes = [i for i in np.arange(0, num_classes) if i != label.item()]
+            for target in other_classes:
+                adv_input = _find_adv_single_input(model, input_image, label, epsilon,
+                                                criterion, device, norm, step_size,
+                                                max_steps, pin_memory,
+                                                only_true_adversaries,
+                                                target,
+                                                success_detect_args,
+                                                rel_step_size=0.1)
+                # choose the best adversary
+                if adv_input is not None and _get_adv_alpha_k(model, adv_input, target) > best_adv_alpha_k:
+                    best_adv_alpha_k = _get_adv_alpha_k(model, adv_input, target)
+                    best_adv_input = adv_input
+            adv_input = best_adv_input
+        else:
+            # generate a particular adversary
+            adv_input = _find_adv_single_input(model, input_image, label, epsilon,
+                                            criterion, device, norm, step_size,
+                                            max_steps, pin_memory,
+                                            only_true_adversaries,
+                                            target_label,
+                                            success_detect_args,
+                                            rel_step_size=0.1)
         if adv_input is not None:
             adv_inputs.append(adv_input)
             adv_labels.append(label)

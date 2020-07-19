@@ -173,6 +173,13 @@
             "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--target_precision", "100", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "precision", "--threshold", "0.0","--ood_dataset", "OMNIGLOT", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
+            "name": "Module attack_priornet pgd misclassify precision_targeted",
+            "type": "python",
+            "request": "launch",
+            "module": "robust_priornet.attack_priornet",
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--target_precision", "100", "--attack_type", "misclassify", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "precision_targeted", "--threshold", "0.0","--ood_dataset", "OMNIGLOT", "./runtime-data", "MNIST", "./attack-pgd"]
+        },
+        {
             "name": "Module certify_priornet val 200",
             "type": "python",
             "request": "launch",
