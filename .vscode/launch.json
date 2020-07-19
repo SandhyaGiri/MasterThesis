@@ -47,14 +47,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--adv_training_type", "normal", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--train_stepwise", "--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--adv_training_type", "normal", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--train_stepwise", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_persist_images", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--train_stepwise", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "inf", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial only out->in",

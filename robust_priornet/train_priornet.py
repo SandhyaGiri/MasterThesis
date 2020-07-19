@@ -161,7 +161,7 @@ def main():
         trans.add_random_crop(ckpt['model_params']['n_in'])
     trans.add_to_tensor()
     # normalize images to range (-1,1) - don't do it for RPN model
-    if not ckpt['model_params']['rpn_model']:
+    if 'rpn_model' not in ckpt['model_params'] or not ckpt['model_params']['rpn_model']:
         trans.add_normalize(mean, std)
 
     id_train_set, id_val_set = vis.get_dataset(args.in_domain_dataset,

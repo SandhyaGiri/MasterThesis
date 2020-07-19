@@ -34,7 +34,7 @@ class AdversarialDataset(Dataset):
         assert adv_success_detect_type in ['normal', 'ood-detect']
 
         # create dataloader
-        dataloader = DataLoader(org_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+        dataloader = DataLoader(org_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
         # Set model in eval mode
         model.eval()
 
