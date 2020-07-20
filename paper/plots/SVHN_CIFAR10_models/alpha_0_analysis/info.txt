@@ -1,0 +1,19 @@
+Model train configurations:
+
+normal model:
+    - precision: 1000
+    - ce_weight: 1.0
+    - ood_loss_weight: 1.0
+    - lr: 7.5e-4
+
+normal_1 model
+    - precision: 1000
+    - ce_weight: 0.5
+    - ood_loss_weight: 1.0
+    - lr: 7.5e-4
+
+normal_2 model
+    - precision: 100
+    - ce_weight: 1.0
+    - ood_loss_weight: 1.0
+    - lr: 7.5e-4
