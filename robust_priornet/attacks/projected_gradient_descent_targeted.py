@@ -4,12 +4,12 @@ import numpy as np
 
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 
-def _eval_for_adv_success_classify(model, adv_input, label, target_label, target_precision, precision_fraction):
+def _eval_for_adv_success_classify(model, adv_input, label, target_label, target_precision, precision_threshold_fn):
     logits = model(adv_input)
     alphas = torch.exp(logits)
     k = alphas.shape[1] # num_classes
     alpha_0 = torch.sum(alphas)
-    return alpha_0 >= (precision_fraction(k) * target_precision) and alphas[:,target_label].item() > alphas[:, label.item()].item()
+    return alpha_0 >= precision_threshold_fn(k, target_precision) and alphas[:,target_label].item() > alphas[:, label.item()].item()
 
 def _get_adv_alpha_k(model, adv_input, target_label):
     logits = model(adv_input)
@@ -95,7 +95,7 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
             is_success = _eval_for_adv_success_classify(model, adv_input,
                                                         label, target_label,
                                                         success_detect_args['target_precision'],
-                                                        success_detect_args['precision_fraction'])
+                                                        success_detect_args['precision_threshold_fn'])
             if is_success:
                 adv_success_reached = True
                 break
@@ -112,6 +112,7 @@ def construct_pgd_targeted_attack(model,
                                 max_steps=10,
                                 pin_memory: bool = True,
                                 only_true_adversaries: bool = False,
+                                use_org_img_as_fallback: bool = False,
                                 success_detect_type='normal',
                                 success_detect_args = {},
                                 num_classes=10,
@@ -179,6 +180,10 @@ def construct_pgd_targeted_attack(model,
         if adv_input is not None:
             adv_inputs.append(adv_input)
             adv_labels.append(label)
+        if adv_input is None and use_org_img_as_fallback:
+            adv_inputs.append(input_image)
+            adv_labels.append(label)
+
     if len(adv_inputs) == 0:
         return None, None
     return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0)

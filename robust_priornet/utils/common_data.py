@@ -8,7 +8,8 @@ ATTACK_CRITERIA_MAP = {
     'entropy_of_exp': AttackCriteria.total_uncertainty_loss,
     'exp_entropy': AttackCriteria.expected_data_uncertainty_loss,
     'precision': AttackCriteria.precision_loss,
-    'precision_targeted': AttackCriteria.precision_target_loss
+    'precision_targeted': AttackCriteria.precision_target_loss,
+    'alpha_k': AttackCriteria.alpha_k_loss
 }
 
 OOD_ATTACK_CRITERIA_MAP = {
@@ -16,7 +17,8 @@ OOD_ATTACK_CRITERIA_MAP = {
     'diff_entropy': AttackCriteria.ood_differential_entropy_loss,
     'mutual_info': AttackCriteria.ood_distributional_uncertainty_loss,
     'precision': AttackCriteria.ood_precision_loss,
-    'precision_targeted': None
+    'precision_targeted': None,
+    'alpha_k': None
 }
 
 ATTACK_CRITERIA_TO_ENUM_MAP = {
@@ -24,14 +26,13 @@ ATTACK_CRITERIA_TO_ENUM_MAP = {
     'diff_entropy': UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
     'mutual_info': UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY,
     'precision': 'precision',
-    'precision_targeted': 'precision_targeted'
+    'precision_targeted': 'precision_targeted',
+    'alpha_k': 'alpha_k'
 }
 
-PRECISION_FRACTIONS_MAP = {
-    'class_relative_strict': lambda k: (k-1)/k,
-    'class_relative_relaxed': lambda k: 1/k,
-    '20': lambda k: 1/5,
-    '50': lambda k: 1/2,
-    '33': lambda k: 1/3,
-    '66': lambda k: 2/3
+PRECISION_THRESHOLDS_MAP = {
+    'class_relative_strict': lambda k, b: (k-1)/k * b,
+    'class_relative_relaxed': lambda k, b: 1/k * b,
+    '20': lambda k, b: k+10,
+    '50': lambda k, b: k+40
 }

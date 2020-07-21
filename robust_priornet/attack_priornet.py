@@ -23,7 +23,7 @@ from .losses.attack_loss import AttackCriteria
 from .utils.common_data import (ATTACK_CRITERIA_MAP,
                                 ATTACK_CRITERIA_TO_ENUM_MAP,
                                 OOD_ATTACK_CRITERIA_MAP,
-                                PRECISION_FRACTIONS_MAP)
+                                PRECISION_THRESHOLDS_MAP)
 from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
@@ -101,17 +101,17 @@ def _get_ood_success(id_uncertainty, ood_uncertainty, uncertainty_measure, thres
     ood_success = (fn / len(ood_labels)) # out domain -> in domain
     return id_success, ood_success
 
-def _get_ood_success_precision(id_logits, ood_logits, target_precision, precision_fraction, id_valid_indices, ood_valid_indices):
+def _get_ood_success_precision(id_logits, ood_logits, target_precision, precision_threshold_fn, id_valid_indices, ood_valid_indices):
     k = id_logits.shape[1] # num_classes
     id_alpha_0 = np.sum(np.exp(id_logits), axis=1)
     ood_alpha_0 = np.sum(np.exp(ood_logits), axis=1)
-    print(f"target_precision: {target_precision}, threshold: {precision_fraction(k)}")
-    id_success_indices = np.argwhere(id_alpha_0 < precision_fraction(k) * target_precision)
+    print(f"target_precision: {target_precision}, threshold: {precision_threshold_fn(k, target_precision)}")
+    id_success_indices = np.argwhere(id_alpha_0 < precision_threshold_fn(k, target_precision))
     print(f"id_success: {len(id_success_indices)}")
     # from originally correcty classified samples with high precision
     id_success_indices = np.intersect1d(id_success_indices, id_valid_indices)
     print(f"id_success (final): {len(id_success_indices)}")
-    ood_success_indices = np.argwhere(ood_alpha_0 >= precision_fraction(k) * target_precision)
+    ood_success_indices = np.argwhere(ood_alpha_0 >= precision_threshold_fn(k, target_precision))
     print(f"ood_success: {len(ood_success_indices)}")
     # from originally low precision ood samples
     ood_success_indices = np.intersect1d(ood_success_indices, ood_valid_indices)
@@ -147,20 +147,22 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
     plot_epsilon_curve(epsilons, adv_success_ood, result_dir=result_dir, file_name='epsilon-curve_ood.png')
     return adv_success_id, adv_success_ood
 
-def _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices=[]):
+def _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices=None):
     preds = np.argmax(probs, axis=1)
     misclassifications = np.asarray(preds != labels, dtype=np.int32)
     misclassified_indices = np.argwhere(misclassifications == 1)
     print(f"Correctly classified (normal) images: {len(correct_classified_indices)}")
     print(f"Misclassified (adv) images: {len(misclassified_indices)}")
-    print(f"Adv images with good precision: {len(good_alpha_indices)}")
+    if good_alpha_indices is not None:
+        print(f"Adv images with good precision: {len(good_alpha_indices)}")
     
     # count as success only those samples that are wrongly classified under attack,
     # while they were correctly classified without attack.
     adv_success_indices = np.intersect1d(correct_classified_indices, misclassified_indices)
-    adv_success_indices = np.intersect1d(adv_success_indices, good_alpha_indices)
+    if good_alpha_indices is not None:
+        adv_success_indices = np.intersect1d(adv_success_indices, good_alpha_indices)
     adv_success = len(adv_success_indices)
-    print(f"Misclassified (adv) images with good precision, which were initially correctly classified: {adv_success}")
+    print(f"Misclassified (adv) images, which were initially correctly classified: {adv_success}")
     return adv_success/len(correct_classified_indices) if len(correct_classified_indices) > 0 else 0
 
 def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, result_dir: str):
@@ -181,7 +183,7 @@ def plot_mis_adv_success(org_eval_dir: str, attack_dir: str, epsilons: list, res
 def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_classified_indices,
                            attack_criteria_enum=None, threshold=0.0, batch_size=128,
                            device=None, result_dir='./', ood_adv_dataset=None, valid_ood_indices=[],
-                           target_precision=0, precision_fraction=lambda k: k):
+                           target_precision=0, precision_threshold_fn=lambda k, b: k):
     logits, probs, labels = eval_model_on_dataset(model, adv_dataset, batch_size, device=device)
 
     # Save model outputs
@@ -197,7 +199,7 @@ def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_class
         k = logits.shape[1]
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
-        good_alpha_indices = np.argwhere(alpha_0 >= precision_fraction(k) * target_precision)
+        good_alpha_indices = np.argwhere(alpha_0 >= precision_threshold_fn(k, target_precision))
         adv_success = _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices)
     else:
         adv_success = _get_mis_adv_success(probs, labels, correct_classified_indices)
@@ -237,7 +239,7 @@ def perform_epsilon_attack(model: nn.Module, adv_dataset: Dataset, correct_class
         OutOfDomainDetectionEvaluator(uncertainties, ood_uncertainties, ood_eval_dir).eval()
         if attack_criteria_enum == 'precision':
             id_success, ood_success = _get_ood_success_precision(logits, ood_logits,
-                                                                 target_precision, precision_fraction,
+                                                                 target_precision, precision_threshold_fn,
                                                                  correct_classified_indices,
                                                                  valid_ood_indices)
         else:
@@ -270,7 +272,7 @@ def main():
     model, ckpt = load_model(args.model_dir, device=device)
 
     # chosen precision fraction
-    precision_fraction = PRECISION_FRACTIONS_MAP['20']
+    precision_threshold_fn = PRECISION_THRESHOLDS_MAP['20']
     
     # load the datasets
     vis = TorchVisionDataWrapper()
@@ -330,7 +332,7 @@ def main():
         alpha_0 = np.sum(alphas, axis=1)
         correct_classifications = np.asarray(org_preds == labels, dtype=np.int32)
         correct_classified_indices = np.argwhere(correct_classifications == 1)
-        good_alpha0_indices = np.argwhere(alpha_0 >= (precision_fraction(k) * args.target_precision))
+        good_alpha0_indices = np.argwhere(alpha_0 >= precision_threshold_fn(k, args.target_precision))
         correct_classified_indices = np.intersect1d(correct_classified_indices, good_alpha0_indices)
     else:
         org_preds = np.argmax(probs, axis=1)
@@ -376,7 +378,7 @@ def main():
                                                   batch_size=args.batch_size)
             alphas = np.exp(ood_logits)
             alpha_0 = np.sum(alphas, axis=1)
-            ood_valid_indices = np.argwhere(alpha_0 < (precision_fraction(k) * args.target_precision))
+            ood_valid_indices = np.argwhere(alpha_0 < precision_threshold_fn(k, args.target_precision))
 
     # perform attacks on the same dataset, using different epsilon values.
     misclass_adv_success = []
@@ -401,7 +403,7 @@ def main():
                                          ATTACK_CRITERIA_TO_ENUM_MAP[args.attack_criteria],
                                          uncertainty_threshold=args.threshold,
                                          target_precision=args.target_precision,
-                                         precision_fraction=precision_fraction,
+                                         precision_threshold_fn=precision_threshold_fn,
                                          targeted_attack=(args.attack_criteria == 'precision_targeted'),
                                          num_classes=k,
                                          target_label=args.target_label)
@@ -422,7 +424,7 @@ def main():
                                                  ATTACK_CRITERIA_TO_ENUM_MAP[args.attack_criteria],
                                                  uncertainty_threshold=args.threshold,
                                                  target_precision=args.target_precision,
-                                                 precision_fraction=precision_fraction)
+                                                 precision_threshold_fn=precision_threshold_fn)
             print(f"Out domain adversarial dataset: {len(ood_adv_dataset)}")
             ood_adv_folder = os.path.join(attack_folder, "adv-images-ood")
             if not os.path.exists(ood_adv_folder):
@@ -439,7 +441,7 @@ def main():
                                              ood_adv_dataset=ood_adv_dataset,
                                              valid_ood_indices=ood_valid_indices,
                                              target_precision=args.target_precision,
-                                             precision_fraction=precision_fraction)
+                                             precision_threshold_fn=precision_threshold_fn)
         misclass_adv_success.append(adv_success['misclassify_success'])
         if adv_success['ood_detect_success'][0] is not None:
             in_out_adv_success.append(adv_success['ood_detect_success'][0])

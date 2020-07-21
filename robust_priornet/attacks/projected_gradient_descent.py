@@ -20,17 +20,17 @@ def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measur
     pred = 1 if np.round(uncertainty_value, 4) >= np.round(threshold, 4) else 0
     return pred != label.item() # adversarial success acheieved
 
-def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_precision, precision_fraction):
+def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_precision, precision_threshold_fn):
     logit = model(adv_input)
     alpha = torch.exp(logit)
     alpha_0 = torch.sum(alpha)
     k = alpha.shape[1] # num_classes
     if label.item() == 0: # in-sample
         # adversarial success - as it has a low precision
-        return alpha_0.item() < (precision_fraction(k) * target_precision)
+        return alpha_0.item() < precision_threshold_fn(k, target_precision)
     if label.item() == 1: # out-sample
         # adversarial success - as it has a very high precision
-        return alpha_0.item() >= (precision_fraction(k) * target_precision)
+        return alpha_0.item() >= precision_threshold_fn(k, target_precision)
 
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
@@ -118,7 +118,7 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                     is_success = _eval_for_adv_success_ood_detect_precision(model, adv_input,
                                                                             ood_label,
                                                                             success_detect_args['target_precision'],
-                                                                            success_detect_args['precision_fraction'])
+                                                                            success_detect_args['precision_threshold_fn'])
                 else:
                     is_success = _eval_for_adv_success_ood_detect(model, adv_input,
                                                                 ood_label,
@@ -140,6 +140,7 @@ def construct_pgd_attack(model,
                          max_steps=10,
                          pin_memory: bool = True,
                          only_true_adversaries: bool = False,
+                         use_org_img_as_fallback: bool = False,
                          success_detect_type: str = 'normal',
                          success_detect_args = {},
                          **kwargs):
@@ -179,6 +180,9 @@ def construct_pgd_attack(model,
                                            rel_step_size=0.1)
         if adv_input is not None:
             adv_inputs.append(adv_input)
+            adv_labels.append(label)
+        if adv_input is None and use_org_img_as_fallback:
+            adv_inputs.append(input_image)
             adv_labels.append(label)
     if len(adv_inputs) == 0:
         return None, None

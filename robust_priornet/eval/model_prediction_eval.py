@@ -6,7 +6,7 @@ import torch
 from sklearn.metrics import (auc, confusion_matrix, precision_recall_curve,
                              roc_auc_score, roc_curve)
 
-from ..utils.common_data import PRECISION_FRACTIONS_MAP
+from ..utils.common_data import PRECISION_THRESHOLDS_MAP
 from ..utils.visualizer import plot_curve
 
 
@@ -148,21 +148,21 @@ class ClassifierPredictionEvaluator:
         return confusion_matrix(y_true, y_preds).ravel()
     
     @staticmethod
-    def compute_in_accuracy_from_precision(y_probs, y_true, logits, target_precision, fraction_name='class_relative_strict'):
+    def compute_in_accuracy_from_precision(y_probs, y_true, logits, target_precision, threshold_name='class_relative_strict'):
         num_samples = y_probs.shape[0]
         k = y_probs.shape[1] # num_classes
         b = target_precision
-        fraction = PRECISION_FRACTIONS_MAP[fraction_name]
+        threshold_fn = PRECISION_THRESHOLDS_MAP[threshold_name]
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
         correct_indices = np.argwhere(np.argmax(y_probs, axis=1) == y_true)
         wrong_indices = np.argwhere(np.argmax(y_probs, axis=1) != y_true)
         # correctly classified samples
-        correct_with_alpha = len(np.argwhere(alpha_0[correct_indices] >= (fraction(k) * b)))
-        reject_with_alpha = len(np.argwhere(alpha_0[correct_indices] < (fraction(k) * b)))
+        correct_with_alpha = len(np.argwhere(alpha_0[correct_indices] >= threshold_fn(k, b)))
+        reject_with_alpha = len(np.argwhere(alpha_0[correct_indices] < threshold_fn(k, b)))
         # wrongly classified samples
-        wrong_with_alpha = len(np.argwhere(alpha_0[wrong_indices] >= (fraction(k) * b)))
-        reject_with_alpha += len(np.argwhere(alpha_0[wrong_indices] < (fraction(k) * b)))
+        wrong_with_alpha = len(np.argwhere(alpha_0[wrong_indices] >= threshold_fn(k, b)))
+        reject_with_alpha += len(np.argwhere(alpha_0[wrong_indices] < threshold_fn(k, b)))
         
         # normalize the numbers to get percentage values
         correct_with_alpha /= num_samples
@@ -171,15 +171,15 @@ class ClassifierPredictionEvaluator:
         return (correct_with_alpha, wrong_with_alpha, reject_with_alpha)
     
     @staticmethod
-    def compute_out_accuracy_from_precision(y_probs, logits, target_precision, fraction_name='class_relative_strict'):
+    def compute_out_accuracy_from_precision(y_probs, logits, target_precision, threshold_name='class_relative_strict'):
         num_samples = y_probs.shape[0]
         k = y_probs.shape[1] # num_classes
         b = target_precision
-        fraction = PRECISION_FRACTIONS_MAP[fraction_name]
+        threshold_fn = PRECISION_THRESHOLDS_MAP[threshold_name]
         alphas = np.exp(logits)
         alpha_0 = np.sum(alphas, axis=1)
-        problem_with_alpha = len(np.argwhere(alpha_0 >= (fraction(k) * b))) # very high precision for OOD (not desired)
-        reject_with_alpha = len(np.argwhere(alpha_0 < (fraction(k) * b))) # less precision for OOD (desired)
+        problem_with_alpha = len(np.argwhere(alpha_0 >= threshold_fn(k, b))) # very high precision for OOD (not desired)
+        reject_with_alpha = len(np.argwhere(alpha_0 < threshold_fn(k, b))) # less precision for OOD (desired)
         # normalize the numbers
         problem_with_alpha /= num_samples
         reject_with_alpha /= num_samples

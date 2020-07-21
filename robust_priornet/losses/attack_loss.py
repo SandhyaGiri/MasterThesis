@@ -35,6 +35,12 @@ class AttackCriteria:
         return torch.neg(alpha_0)
     
     @staticmethod
+    def alpha_k_loss(outputs, labels):
+        alphas = torch.exp(outputs)
+        # maximize the dirichlet parameter for the correct class label
+        return torch.neg(alphas[:, labels])
+
+    @staticmethod
     def precision_target_loss(outputs, labels, target_labels):
         alphas = torch.exp(outputs)
         alpha_0 = torch.sum(alphas, dim=1)

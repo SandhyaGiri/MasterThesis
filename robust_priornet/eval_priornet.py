@@ -145,7 +145,7 @@ def main():
         out_analysis = ClassifierPredictionEvaluator.compute_out_accuracy_from_precision(ood_probs,
                                                                                          ood_logits,
                                                                                          args.target_precision,
-                                                                                         fraction_name='50')
+                                                                                         threshold_name='50')
 
     # Compute model predictions by passing the test set through the model.
     id_logits, id_probs, id_labels = eval_model_on_dataset(model,
@@ -163,7 +163,7 @@ def main():
                                                                                    id_labels,
                                                                                    id_logits,
                                                                                    args.target_precision,
-                                                                                   fraction_name='50')
+                                                                                   threshold_name='50')
     with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
         f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
         f.write(f'NLL: {np.round(model_nll, 3)} \n')

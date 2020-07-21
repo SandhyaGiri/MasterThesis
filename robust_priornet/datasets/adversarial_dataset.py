@@ -21,13 +21,14 @@ class AdversarialDataset(Dataset):
                  norm, step_size, max_steps,
                  batch_size: int = 128, device: Optional[torch.device] = None,
                  only_true_adversaries=False,
+                 use_org_img_as_fallback=False,
                  targeted_attack=False,
                  adv_success_detect_type: str='normal',
                  ood_dataset: bool = False,
                  uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
                  uncertainty_threshold: float = 0.5,
                  target_precision: float = 0,
-                 precision_fraction = lambda k: 1.0,
+                 precision_threshold_fn = lambda k, b: 1.0,
                  num_classes: int = 10,
                  target_label='all'):
         assert attack_type in ['fgsm', 'pgd']
@@ -66,13 +67,14 @@ class AdversarialDataset(Dataset):
                                                                   step_size=step_size,
                                                                   max_steps=max_steps,
                                                                   only_true_adversaries=only_true_adversaries,
+                                                                  use_org_img_as_fallback=use_org_img_as_fallback,
                                                                   success_detect_type=adv_success_detect_type,
                                                                   success_detect_args={
                                                                       'ood_dataset': ood_dataset,
                                                                       'uncertainty_measure': uncertainty_measure,
                                                                       'threshold': uncertainty_threshold,
                                                                       'target_precision': target_precision,
-                                                                      'precision_fraction': precision_fraction
+                                                                      'precision_threshold_fn': precision_threshold_fn
                                                                   },
                                                                   num_classes=num_classes,
                                                                   target_label=target_label if target_label == "all" else int(target_label))

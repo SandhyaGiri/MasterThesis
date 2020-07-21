@@ -187,7 +187,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                                                 ood_dataset=
                                                                                 data.TensorDataset(ood_first, ood_labels_first),
                                                                                 only_true_adversaries=
-                                                                                False,
+                                                                                True,
+                                                                                use_org_img_as_fallback=
+                                                                                True,
                                                                                 previous_epoch=
                                                                                 True)
                     id_data = torch.cat((self._get_inputs_from_dataset(id_adv_dataset), id_second), dim=0)
@@ -689,6 +691,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                       id_dataset=None,
                                       ood_dataset=None,
                                       only_true_adversaries=True,
+                                      use_org_img_as_fallback=False,
                                       step_level=False,
                                       previous_epoch=False):
         """
@@ -705,7 +708,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         dir_prefix = f'step-{self.steps}' if step_level else f'epoch-{epochs}'
         if self.adv_training_type == "normal":
                 # only works on in domain samples which get misclassified under attack
-            additional_args = {'only_true_adversaries': only_true_adversaries}
+            additional_args = {'only_true_adversaries': only_true_adversaries,
+                               'use_org_img_as_fallback': use_org_img_as_fallback}
             id_train_adv_set = AdversarialDataset(self.id_train_dataset if id_dataset is None else id_dataset,
                                                   self.adv_attack_type.lower(),
                                                   self.model,
@@ -730,6 +734,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             else:
                 threshold = self.known_threshold_value
             additional_args = {'only_true_adversaries': only_true_adversaries,
+                               'use_org_img_as_fallback': use_org_img_as_fallback,
                                'uncertainty_measure': self.uncertainty_measure,
                                'uncertainty_threshold': threshold
                                }
