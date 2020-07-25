@@ -6,7 +6,7 @@ import torch
 from sklearn.metrics import (auc, confusion_matrix, precision_recall_curve,
                              roc_auc_score, roc_curve)
 
-from ..utils.common_data import PRECISION_THRESHOLDS_MAP
+from .uncertainty import UncertaintyMeasuresEnum, UncertaintyEvaluator
 from ..utils.visualizer import plot_curve
 
 
@@ -146,41 +146,56 @@ class ClassifierPredictionEvaluator:
         y_preds[np.round(decision_fn_value, 4) >= np.round(threshold, 4)] = 1
 
         return confusion_matrix(y_true, y_preds).ravel()
-    
+
+class PriorNetClassifierPredictionEvaluator:
+    """
+    Provides methods to evaluate a priornet classifier model such as computing accuracy etc.
+    """
     @staticmethod
-    def compute_in_accuracy_from_precision(y_probs, y_true, logits, target_precision, threshold_name='class_relative_strict'):
+    def compute_in_accuracy_from_uncertainty_measures(y_probs, y_true, logits, uncertainty_measures: list(UncertaintyMeasuresEnum),
+                                                      thresholds: list):
         num_samples = y_probs.shape[0]
-        k = y_probs.shape[1] # num_classes
-        b = target_precision
-        threshold_fn = PRECISION_THRESHOLDS_MAP[threshold_name]
-        alphas = np.exp(logits)
-        alpha_0 = np.sum(alphas, axis=1)
         correct_indices = np.argwhere(np.argmax(y_probs, axis=1) == y_true)
         wrong_indices = np.argwhere(np.argmax(y_probs, axis=1) != y_true)
-        # correctly classified samples
-        correct_with_alpha = len(np.argwhere(alpha_0[correct_indices] >= threshold_fn(k, b)))
-        reject_with_alpha = len(np.argwhere(alpha_0[correct_indices] < threshold_fn(k, b)))
-        # wrongly classified samples
-        wrong_with_alpha = len(np.argwhere(alpha_0[wrong_indices] >= threshold_fn(k, b)))
-        reject_with_alpha += len(np.argwhere(alpha_0[wrong_indices] < threshold_fn(k, b)))
-        
+        valid_indices = None
+        for i in range(len(uncertainty_measures)):
+            uncertainty_values = UncertaintyEvaluator(logits).get_uncertainty(uncertainty_measures[i],
+                                                                            negate_confidence=True).reshape((logits.shape[0],))
+            good_indices = np.argwhere(np.round(uncertainty_values, 4) < np.round(thresholds[i], 4))
+            if valid_indices is None:
+                valid_indices = good_indices
+            else:
+                valid_indices = np.intersect1d(valid_indices, good_indices)
+        # correctly classified samples (with valid criteria)
+        correct = np.intersect1d(correct_indices, valid_indices)
+        # wrongly classified samples (with valid criteria)
+        wrong = np.intersect1d(wrong_indices, valid_indices)
+        # rejected samples (invalid criteria)
+        reject = np.setdiff1d(np.arange(0, num_samples), valid_indices)
+
         # normalize the numbers to get percentage values
-        correct_with_alpha /= num_samples
-        wrong_with_alpha /= num_samples
-        reject_with_alpha /= num_samples
-        return (correct_with_alpha, wrong_with_alpha, reject_with_alpha)
+        correct = len(correct)/num_samples
+        wrong = len(wrong)/num_samples
+        reject = len(reject)/num_samples
+        return (correct, wrong, reject)
     
     @staticmethod
-    def compute_out_accuracy_from_precision(y_probs, logits, target_precision, threshold_name='class_relative_strict'):
+    def compute_out_accuracy_from_uncertainty_measures(y_probs,
+                                                       logits,
+                                                       uncertainty_measures: list(UncertaintyMeasuresEnum),
+                                                       thresholds: list):
         num_samples = y_probs.shape[0]
-        k = y_probs.shape[1] # num_classes
-        b = target_precision
-        threshold_fn = PRECISION_THRESHOLDS_MAP[threshold_name]
-        alphas = np.exp(logits)
-        alpha_0 = np.sum(alphas, axis=1)
-        problem_with_alpha = len(np.argwhere(alpha_0 >= threshold_fn(k, b))) # very high precision for OOD (not desired)
-        reject_with_alpha = len(np.argwhere(alpha_0 < threshold_fn(k, b))) # less precision for OOD (desired)
-        # normalize the numbers
-        problem_with_alpha /= num_samples
-        reject_with_alpha /= num_samples
-        return (problem_with_alpha, reject_with_alpha)
+        valid_indices = None
+        preds = np.zeros((logits.shape[0], ), dtype=np.int)
+        for i in range(len(uncertainty_measures)):
+            uncertainty_values = UncertaintyEvaluator(logits).get_uncertainty(uncertainty_measures[i],
+                                                                            negate_confidence=True).reshape((logits.shape[0],))
+            good_indices = np.argwhere(np.round(uncertainty_values, 4) >= np.round(thresholds[i], 4))
+            if valid_indices is None:
+                valid_indices = good_indices
+            else:
+                valid_indices = np.intersect1d(valid_indices, good_indices)
+        preds[valid_indices] = 1 # there are true ood samples
+        reject = len(np.argwhere(preds == 1))/num_samples
+        problem = len(np.argwhere(preds == 0))/num_samples
+        return (problem, reject)

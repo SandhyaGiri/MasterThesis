@@ -8,9 +8,11 @@ from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
 from .eval.misclassification_detection import \
     MisclassificationDetectionEvaluator
-from .eval.model_prediction_eval import ClassifierPredictionEvaluator
+from .eval.model_prediction_eval import (ClassifierPredictionEvaluator,
+                                         PriorNetClassifierPredictionEvaluator)
 from .eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
-from .eval.uncertainty import UncertaintyEvaluator
+from .eval.uncertainty import UncertaintyEvaluator, UncertaintyMeasuresEnum
+from .utils.common_data import CHOSEN_THRESHOLDS
 from .utils.dataspliter import DataSpliter
 from .utils.persistence import persist_image_dataset
 from .utils.pytorch import (choose_torch_device, eval_model_on_dataset,
@@ -45,7 +47,7 @@ parser.add_argument('--dataset_size_limit', type=int, default=None,
                     help='Specifies the number of samples to consider in the loaded datasets.')
 parser.add_argument('--gpu', type=int, action='append',
                     help='Specifies the GPU ids to run the script on.')
-parser.add_argument('--target_precision', type=int, required=True,
+parser.add_argument('--target_precision', type=int, required=False,
                     help='Indicates the alpha_0 or the precision of the target dirichlet \
                     for in domain samples.')
 # specific to RPN model
@@ -121,6 +123,11 @@ def main():
     print(f"In domain dataset: {len(id_test_set)}")
 
     if args.task == 'ood_detect':
+        accuracy_criteria = {
+            UncertaintyMeasuresEnum.PRECISION: -1* CHOSEN_THRESHOLDS['precision'],
+            UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy'],
+            UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info']
+        }
         if args.val_dataset:
             _, ood_test_set = vis.get_dataset(args.ood_dataset,
                                               args.data_dir,
@@ -142,10 +149,10 @@ def main():
                                                                   ood_test_set,
                                                                   args.batch_size,
                                                                   device=device)
-        out_analysis = ClassifierPredictionEvaluator.compute_out_accuracy_from_precision(ood_probs,
+        out_analysis = PriorNetClassifierPredictionEvaluator.compute_out_accuracy_from_uncertainty_measures(ood_probs,
                                                                                          ood_logits,
-                                                                                         args.target_precision,
-                                                                                         threshold_name='50')
+                                                                                         uncertainty_measures=list(accuracy_criteria.keys()),
+                                                                                         thresholds=list(accuracy_criteria.values()))
 
     # Compute model predictions by passing the test set through the model.
     id_logits, id_probs, id_labels = eval_model_on_dataset(model,
@@ -159,11 +166,11 @@ def main():
                           prefix_name='id', result_dir=args.result_dir)
     model_accuracy = ClassifierPredictionEvaluator.compute_accuracy(id_probs, id_labels)
     model_nll = ClassifierPredictionEvaluator.compute_nll(id_probs, id_labels)
-    in_analysis = ClassifierPredictionEvaluator.compute_in_accuracy_from_precision(id_probs,
+    in_analysis = PriorNetClassifierPredictionEvaluator.compute_in_accuracy_from_uncertainty_measures(id_probs,
                                                                                    id_labels,
                                                                                    id_logits,
-                                                                                   args.target_precision,
-                                                                                   threshold_name='50')
+                                                                                   uncertainty_measures=list(accuracy_criteria.keys()),
+                                                                                   thresholds=list(accuracy_criteria.values()))
     with open(os.path.join(args.result_dir, 'results.txt'), 'a') as f:
         f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
         f.write(f'NLL: {np.round(model_nll, 3)} \n')
