@@ -6,19 +6,31 @@ from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
                                 UncertaintyMeasuresEnum)
 from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 
-def _eval_for_adv_success_normal_classify(model, adv_input, label):
+def _eval_for_adv_success_normal_classify(model, adv_input, label, additional_checks=[], thresholds=[]):
     logit = model(adv_input)
+    alpha = torch.exp(logit)
+    alpha_0 = torch.sum(alpha)
     prob = nn.functional.softmax(logit, dim=1)
     pred = torch.max(prob, dim=1)[1] # indices
-    return pred.item() != label.item() # adversarial success acheieved
+    adv_success = pred.item() != label.item() # adversarial success acheieved (as misclassification has happened)
+    if len(additional_checks) > 0:
+        for i in range(len(additional_checks)):
+            if additional_checks[i] == 'alpha_k':
+                adv_success = adv_success and alpha[:, label.item()] < thresholds[i]
+            elif additional_checks[i] == 'precision':
+                adv_success = adv_success and alpha_0 >= thresholds[i]
+    return adv_success
 
-def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measure: UncertaintyMeasuresEnum, threshold):
+def _eval_for_adv_success_ood_detect(model, adv_input, label, uncertainty_measures: list(UncertaintyMeasuresEnum), thresholds: list):
     logit = model(adv_input)
-    uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measure,
-                                                                         negate_confidence=True)
-    uncertainty_value = uncertainty_value.item()
-    pred = 1 if np.round(uncertainty_value, 4) >= np.round(threshold, 4) else 0
-    return pred != label.item() # adversarial success acheieved
+    adv_success = True
+    for i in range(len(uncertainty_measures)):
+        uncertainty_value = UncertaintyEvaluatorTorch(logit).get_uncertainty(uncertainty_measures[i],
+                                                                             negate_confidence=True)
+        uncertainty_value = uncertainty_value.item()
+        pred = 1 if np.round(uncertainty_value, 4) >= np.round(thresholds[i], 4) else 0
+        adv_success = adv_success and pred != label.item() # adversarial success acheieved
+    return adv_success
 
 def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_precision, precision_threshold_fn):
     logit = model(adv_input)
@@ -109,21 +121,20 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
         # if misclassified stop
         with torch.no_grad():
             is_success = False
+            success_criteria = success_detect_args['criteria'] # map
             if success_detect_type == 'normal':
-                is_success = _eval_for_adv_success_normal_classify(model, adv_input, label)
+                is_success = _eval_for_adv_success_normal_classify(model,
+                                                                   adv_input,
+                                                                   label,
+                                                                   additional_checks=list(success_criteria.keys()),
+                                                                   thresholds=list(success_criteria.values()))
             elif success_detect_type == 'ood-detect':
                 # in-domain = label 0, out-domain = label 1
                 ood_label = torch.ones_like(label) if success_detect_args['ood_dataset'] else torch.zeros_like(label)
-                if criterion == ATTACK_CRITERIA_MAP['precision'] or criterion == OOD_ATTACK_CRITERIA_MAP['precision']:
-                    is_success = _eval_for_adv_success_ood_detect_precision(model, adv_input,
-                                                                            ood_label,
-                                                                            success_detect_args['target_precision'],
-                                                                            success_detect_args['precision_threshold_fn'])
-                else:
-                    is_success = _eval_for_adv_success_ood_detect(model, adv_input,
-                                                                ood_label,
-                                                                success_detect_args['uncertainty_measure'],
-                                                                success_detect_args['threshold'])
+                is_success = _eval_for_adv_success_ood_detect(model, adv_input,
+                                                            ood_label,
+                                                            list(success_criteria.keys()),
+                                                            list(success_criteria.values()))
             if is_success:
                 adv_success_reached = True
                 break
@@ -168,6 +179,7 @@ def construct_pgd_attack(model,
     """
     adv_inputs = []
     adv_labels = []
+    true_adv_indices = [] # makes sense when only_true_adversaries is True
     for i in range(inputs.shape[0]):
         input_image = torch.unsqueeze(inputs[i], dim=0)
         label = labels[i].view(1,)
@@ -181,9 +193,10 @@ def construct_pgd_attack(model,
         if adv_input is not None:
             adv_inputs.append(adv_input)
             adv_labels.append(label)
+            true_adv_indices.append(i)
         if adv_input is None and use_org_img_as_fallback:
             adv_inputs.append(input_image)
             adv_labels.append(label)
     if len(adv_inputs) == 0:
         return None, None
-    return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0)
+    return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0), true_adv_indices

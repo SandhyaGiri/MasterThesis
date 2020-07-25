@@ -13,6 +13,9 @@ class UncertaintyMeasuresEnum(Enum):
     CONFIDENCE = ("confidence",
                   "Max probability of predictive distribution by a model. \
                       Lesser value means more uncertainty.")
+    PRECISION = ("precision",
+                 "Precision/weight or alpha_0 of the output dirichlet distribution by the PN model. \
+                     Lesser value means more uncertainty.")
     TOTAL_UNCERTAINTY = ("total_uncertainty",
                          "Entropy of the expected categorical distribution.")
     EXPECTED_DATA_UNCERTAINTY = ("expected_data_uncertainty",
@@ -37,6 +40,10 @@ class BaseUncertaintyEvaluator(ABC):
     @abstractmethod
     def get_confidence(self):
         """Returns max probability predicted by the model"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_precision(self):
         raise NotImplementedError
 
     @abstractmethod
@@ -74,6 +81,8 @@ class BaseUncertaintyEvaluator(ABC):
     def get_uncertainty(self, measure: UncertaintyMeasuresEnum, negate_confidence= False):
         if measure == UncertaintyMeasuresEnum.CONFIDENCE:
             return self.get_confidence() if negate_confidence is False else -1 * self.get_confidence()
+        elif measure == UncertaintyMeasuresEnum.PRECISION:
+            return self.get_precision() if negate_confidence is False else -1 * self.get_precision()
         elif measure == UncertaintyMeasuresEnum.TOTAL_UNCERTAINTY:
             return self.get_total_uncertainty()
         elif measure == UncertaintyMeasuresEnum.EXPECTED_DATA_UNCERTAINTY:
@@ -103,6 +112,9 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
     def get_confidence(self):
         """Returns max probability predicted by the model"""
         return np.max(self.probs, axis=1, keepdims=True)
+
+    def get_precision(self):
+        return self.alpha_0
 
     def get_total_uncertainty(self):
         return -1 * np.sum(self.probs * np.log(self.probs + self.epsilon), axis=1)
@@ -137,6 +149,9 @@ class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
 
     def get_confidence(self):
         return torch.max(self.probs, dim=1, keepdim=True)[0] # return only max values not indices
+
+    def get_precision(self):
+        return self.alpha_0
 
     def get_total_uncertainty(self):
         return -1 * torch.sum(self.probs * torch.log(self.probs + self.epsilon), dim=1)

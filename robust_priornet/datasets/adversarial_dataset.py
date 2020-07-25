@@ -25,11 +25,7 @@ class AdversarialDataset(Dataset):
                  targeted_attack=False,
                  adv_success_detect_type: str='normal',
                  ood_dataset: bool = False,
-                 uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
-                 uncertainty_threshold: float = 0.5,
-                 target_precision: float = 0,
-                 precision_threshold_fn = lambda k, b: 1.0,
-                 num_classes: int = 10,
+                 success_detect_criteria = {},
                  target_label='all'):
         assert attack_type in ['fgsm', 'pgd']
         assert adv_success_detect_type in ['normal', 'ood-detect']
@@ -41,9 +37,10 @@ class AdversarialDataset(Dataset):
 
         labels_list = []
         adv_list = []
+        adv_indices_list = []
         with torch.no_grad():
-            for _, data in enumerate(dataloader):
-                # Get inputs
+            for i, data in enumerate(dataloader):
+                # Get inputs (one batch)
                 inputs, labels = data
                 if device is not None:
                     inputs, labels = map(lambda x: x.to(device),
@@ -57,7 +54,7 @@ class AdversarialDataset(Dataset):
                                                                    device=device)
                 elif attack_type == 'pgd':
                     attack_function = construct_pgd_targeted_attack if targeted_attack else construct_pgd_attack
-                    adv_inputs, new_labels = attack_function(model=model,
+                    adv_inputs, new_labels, adv_indices = attack_function(model=model,
                                                                   labels=labels,
                                                                   inputs=inputs,
                                                                   epsilon=epsilon,
@@ -71,21 +68,20 @@ class AdversarialDataset(Dataset):
                                                                   success_detect_type=adv_success_detect_type,
                                                                   success_detect_args={
                                                                       'ood_dataset': ood_dataset,
-                                                                      'uncertainty_measure': uncertainty_measure,
-                                                                      'threshold': uncertainty_threshold,
-                                                                      'target_precision': target_precision,
-                                                                      'precision_threshold_fn': precision_threshold_fn
+                                                                      'criteria': success_detect_criteria
                                                                   },
-                                                                  num_classes=num_classes,
                                                                   target_label=target_label if target_label == "all" else int(target_label))
+                    adv_indices = [index + i * batch_size for index in adv_indices]
                 # size of new labels can be lesser than org labels
                 # when true adversaries are only returned by attacks
                 if adv_inputs is not None:
                     labels_list.append(new_labels)
                     adv_list.append(adv_inputs.detach())
+                    adv_indices_list += adv_indices
         if len(adv_list) > 0:
             self.labels = torch.cat(labels_list, dim=0).cpu()
             self.adv_inputs = torch.cat(adv_list, dim=0).cpu()
+            self.adv_indices = adv_indices_list # stores true adversary indices
         else:
             self.labels = []
             self.adv_inputs = []
@@ -101,4 +97,4 @@ class AdversarialDataset(Dataset):
         Returns indices which resulted in an adversarial image.
         These indices can be indexed directly into orginal dataset provided.
         """
-        pass
+        return self.adv_indices

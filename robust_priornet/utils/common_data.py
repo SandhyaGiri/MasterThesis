@@ -36,3 +36,11 @@ PRECISION_THRESHOLDS_MAP = {
     '20': lambda k, b: k+10,
     '50': lambda k, b: k+40
 }
+
+# chosen thresholds - will be used in eval, attack scripts
+CHOSEN_THRESHOLDS = {
+    'precision': 15,
+    'alpha_k': 10,
+    'diff_entropy': 0.0,
+    'mutual_info': 0.0
+}
