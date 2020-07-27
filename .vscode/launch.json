@@ -91,7 +91,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-rpn-countreduction", "--gpu", "-1", "--result_dir", "./eval",  "--dataset_size_limit", "100", "--rpn_num_samples", "10", "--rpn_reduction_method", "count", "--task", "misclassification_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-rpn-countreduction", "--gpu", "-1", "--result_dir", "./eval",  "--dataset_size_limit", "100", "--rpn_num_samples", "100", "--rpn_reduction_method", "count", "--task", "misclassification_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood",
