@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from gurobipy import GRB
 from torch.autograd import Variable
+from ..eval.uncertainty import UncertaintyEvaluatorTorch, UncertaintyMeasuresEnum
 
 
 def sample_gumbel(shape, device, eps=1e-20):
@@ -227,6 +228,9 @@ class SmoothedPriorNet(nn.Module):
         self.epsilon = 1e-8
         self.num_samples = num_mc_samples
         self.reduction_method = reduction_method
+        # needed only for count based logit reduction.
+        self.uncertainty_measures_thresholds = kwargs.get('uncertainty_measures_thresholds')
+        self.max_alpha_threshold = kwargs.get('max_alpha_threshold')
     
     def _normalize_image(self, inputs: torch.tensor):
         mean = inputs.new_tensor(self.image_normalization_params['mean'])
@@ -324,11 +328,37 @@ class SmoothedPriorNet(nn.Module):
                 print(e)
         return u
 
+    def _count_reduction(self, logits):
+        # make predictions on all logits
+        alphas = torch.exp(logits)
+        alpha0 = torch.sum(alphas, dim=1)
+        probs = alphas/alpha0
+        preds = torch.argmax(probs, dim=1)
+        # consider only those predictions which are valid as per restrictions
+        valid_indices = np.arange(0, preds.shape[0])
+        if self.max_alpha_threshold > 0:
+            good_max_alpha_indices = (torch.max(alphas, dim=1)[0] >= self.max_alpha_threshold).nonzero().squeeze(1)
+            valid_indices = np.intersect1d(valid_indices, good_max_alpha_indices)
+        
+        for un_measure in self.uncertainty_measures_thresholds.keys():
+            enum = UncertaintyMeasuresEnum.get_enum(un_measure)
+            uncertainty_values = UncertaintyEvaluatorTorch(logits).get_uncertainty(enum, negate_confidence=True).squeeze(1)
+            good_uncertainty_indices = (uncertainty_values < self.uncertainty_measures_thresholds[un_measure]).nonzero().squeeze(1)
+            valid_indices = np.intersect1d(valid_indices, good_uncertainty_indices)
+        invalid_indices = np.setdiff1d(np.arange(0, preds.shape[0]), valid_indices)
+        preds[(invalid_indices)] = -1 # these predictions will be dropped
+        # return the log(count vector), as when we take exp again to get alpha we get back count vector as the dir params ?
+        counts = torch.zeros((1, self.num_classes), dtype=float)
+        counts.add_(self.epsilon)
+        for i in range(len(counts)):
+            counts[0, i] += (preds == i).nonzero().shape[0]
+        return torch.log(counts)
+
     def test(self, x):
         """
         Used during testing phase
         """
-        assert self.reduction_method in ['mean', 'median', 'log_cosh']
+        assert self.reduction_method in ['mean', 'median', 'log_cosh', 'count']
         batch_size = x.shape[0]
 
         samples = self.num_samples
@@ -348,5 +378,7 @@ class SmoothedPriorNet(nn.Module):
                 overall_logits = torch.median(overall_logits, dim=0, keepdim=True)[0]
             elif self.reduction_method == 'log_cosh':
                 overall_logits = self._log_cosh_reduction(overall_logits)
+            elif self.reduction_method == 'count':
+                overall_logits = self._count_reduction(overall_logits)
             outputs.append(overall_logits)
         return torch.cat(outputs, dim=0)

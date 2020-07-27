@@ -41,6 +41,6 @@ PRECISION_THRESHOLDS_MAP = {
 CHOSEN_THRESHOLDS = {
     'precision': 15,
     'alpha_k': 10,
-    'diff_entropy': 0.0,
-    'mutual_info': 0.0
+    'diff_entropy': -26.4142,
+    'mutual_info': 0.1319
 }

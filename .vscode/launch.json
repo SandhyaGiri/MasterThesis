@@ -12,12 +12,12 @@
             "args": ["--gpu", "-1", "--model_dir", "./runtime-model-vgg6", "--num_epochs", "25","--dataset_size_limit", "100", "--train_stepwise", "--optimizer", "SGD", "--val_every_steps", "10", "--min_train_epochs", "100", "--patience", "1", "--target_precision","100", "./runtime-data", "FASHION_MNIST", "SVHN"]
         },
         {
-            "name": "Module train_priornet rpn",
+            "name": "Module train_priornet rpn normal (count reduction)",
             "type": "python",
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","100", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-rpn-countreduction", "--num_epochs", "3", "--dataset_size_limit", "1000", "--lr", "0.0001", "--target_precision","100", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet rpn simple",
@@ -91,7 +91,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-rpn", "--gpu", "-1", "--result_dir", "./eval",  "--dataset_size_limit", "100", "--rpn_num_samples", "10", "--rpn_reduction_method", "log_cosh", "--task", "misclassification_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-rpn-countreduction", "--gpu", "-1", "--result_dir", "./eval",  "--dataset_size_limit", "100", "--rpn_num_samples", "10", "--rpn_reduction_method", "count", "--task", "misclassification_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood",
@@ -99,7 +99,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--task", "ood_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "TIM"]
+            "args": ["--model_dir", "./runtime-model-conv", "--gpu", "-1", "--result_dir", "./eval", "--dataset_size_limit", "1000", "--task", "ood_detect", "--target_precision", "100", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet rpn ood",
@@ -107,7 +107,7 @@
             "request": "launch",
             "justMyCode": false,
             "module": "robust_priornet.eval_priornet",
-            "args": ["--model_dir", "./runtime-model-rpn", "--gpu", "-1", "--result_dir", "./ood-eval", "--dataset_size_limit", "100", "--rpn_num_samples", "10", "--rpn_reduction_method", "log_cosh", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--model_dir", "./runtime-model-rpn", "--gpu", "-1", "--result_dir", "./ood-eval", "--dataset_size_limit", "100", "--rpn_num_samples", "10", "--rpn_reduction_method", "count", "--task", "ood_detect", "--batch_size", "16", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module eval_priornet ood train",

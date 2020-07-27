@@ -41,7 +41,7 @@ fixed:
   model_arch: vgg16
   rpn_wrapper: None # ['simple', 'count', 'normal', None]
   rpn_mc_samples: 100
-  rpn_reduction: 'mean' # ['mean', 'median', 'log_cosh']
+  rpn_reduction: 'mean' # ['mean', 'median', 'log_cosh', 'count']
   rpn_sigma: 0.2
   fc_layers: [100,90,80,50]
   train_stepwise: True

@@ -53,7 +53,7 @@ parser.add_argument('--target_precision', type=int, required=False,
 # specific to RPN model
 parser.add_argument('--rpn_num_samples', type=int, default=1000,
                     help='large number of samples for accurately estimating prob using MC')
-parser.add_argument('--rpn_reduction_method', choices=['mean', 'median', 'log_cosh'], default='mean',
+parser.add_argument('--rpn_reduction_method', choices=['mean', 'median', 'log_cosh', 'count'], default='mean',
                     help='Specifies how to reduce the logits generated from various noisy samples for a single image.')
 
 def log_model_predictions(logits, probs, labels,
@@ -85,6 +85,11 @@ def main():
     if 'rpn_model' in ckpt['model_params'] and ckpt['model_params']['rpn_model']:
         model.num_samples = args.rpn_num_samples
         model.reduction_method = args.rpn_reduction_method
+        if args.rpn_reduction_method == 'count':
+            model.uncertainty_measures_thresholds = {
+                'PRECISION': -1 * CHOSEN_THRESHOLDS['precision']
+            }
+            model.max_alpha_threshold = CHOSEN_THRESHOLDS['alpha_k']
     # load the datasets
     vis = TorchVisionDataWrapper()
 
@@ -122,12 +127,12 @@ def main():
 
     print(f"In domain dataset: {len(id_test_set)}")
 
+    accuracy_criteria = {
+        UncertaintyMeasuresEnum.PRECISION: -1* CHOSEN_THRESHOLDS['precision'],
+        UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy'],
+        UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info']
+    }
     if args.task == 'ood_detect':
-        accuracy_criteria = {
-            UncertaintyMeasuresEnum.PRECISION: -1* CHOSEN_THRESHOLDS['precision'],
-            UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy'],
-            UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info']
-        }
         if args.val_dataset:
             _, ood_test_set = vis.get_dataset(args.ood_dataset,
                                               args.data_dir,
