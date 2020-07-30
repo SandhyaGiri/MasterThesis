@@ -39,7 +39,7 @@ class MisclassificationDetectionEvaluator:
             # i.e for correct classified samples.
             # But we need scores for label=1 samples i.e misclassified samples
             # to be higher, so we negate.
-            if key == UncertaintyMeasuresEnum.CONFIDENCE:
+            if key == UncertaintyMeasuresEnum.CONFIDENCE or key == UncertaintyMeasuresEnum.PRECISION:
                 decision_fn_value *= -1.0
 
             aupr, auroc = ClassifierPredictionEvaluator.compute_pr_roc_curves(

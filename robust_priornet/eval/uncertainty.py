@@ -68,6 +68,8 @@ class BaseUncertaintyEvaluator(ABC):
         return {
             UncertaintyMeasuresEnum.CONFIDENCE:
                 self.get_confidence(),
+            UncertaintyMeasuresEnum.PRECISION:
+                self.get_precision(),
             UncertaintyMeasuresEnum.TOTAL_UNCERTAINTY:
                 self.get_total_uncertainty(),
             UncertaintyMeasuresEnum.EXPECTED_DATA_UNCERTAINTY:
