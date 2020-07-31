@@ -173,7 +173,7 @@ def plot_ood_attack_success(epsilons: list, attack_criteria: UncertaintyMeasures
     plot_epsilon_curve(epsilons, adv_success_ood, result_dir=result_dir, file_name='epsilon-curve_ood.png')
     return adv_success_id, adv_success_ood
 
-def _get_mis_adv_success(adv_indices, correct_classified_indices, good_alpha_indices):
+def _get_mis_adv_success(probs, labels, correct_classified_indices, good_alpha_indices=None):
     preds = np.argmax(probs, axis=1)
     misclassifications = np.asarray(preds != labels, dtype=np.int32)
     misclassified_indices = np.argwhere(misclassifications == 1)
@@ -264,12 +264,20 @@ def perform_epsilon_attack(model: nn.Module,
         OutOfDomainDetectionEvaluator(uncertainties, ood_uncertainties, ood_eval_dir).eval()
         # id_success
         adv_indices = adv_dataset.get_adversarial_indices()
-        id_success = np.intersect1d(adv_indices, valid_id_indices) if len(valid_id_indices) > 0 else adv_indices
-        id_success = len(id_success) / len(valid_id_indices)
+        if len(valid_id_indices) > 0:
+            id_success = np.intersect1d(adv_indices, valid_id_indices)
+            id_success = len(id_success) / len(valid_id_indices)
+        else:
+            id_success = adv_indices
+            id_success = len(id_success) / logits.shape[0] # over all id samples
         # ood_success
         ood_adv_indices = ood_adv_dataset.get_adversarial_indices()
-        ood_success = np.intersect1d(ood_adv_indices, valid_ood_indices) if len(valid_ood_indices) > 0 else ood_adv_indices
-        ood_success = len(ood_success) / len(valid_ood_indices)
+        if len(valid_ood_indices) > 0:
+            ood_success = np.intersect1d(ood_adv_indices, valid_ood_indices)
+            ood_success = len(ood_success) / len(valid_ood_indices)
+        else:
+            ood_success = ood_adv_indices
+            ood_success = len(ood_success) / ood_logits.shape[0]
     # return aversarial successes
     return {
         'misclassify_success': adv_success,
@@ -358,10 +366,14 @@ def main():
     if args.attack_criteria == 'alpha_k':
         good_alphak_indices = np.argwhere(alphas[(np.arange(0, alphas.shape[0]), labels)] >= CHOSEN_THRESHOLDS['alpha_k'])
         correct_classified_indices = np.intersect1d(correct_classified_indices, good_alphak_indices)
+    # save correct classified indices
+    np.savetxt(os.path.join(args.result_dir, 'id_correct-classfied-indices.txt'), correct_classified_indices)
+
     # determining valid indices for ood-detect attacks
     id_valid_indices = []
     if args.attack_criteria == 'precision':
         id_valid_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
+    np.savetxt(os.path.join(args.result_dir, 'id_valid-indices.txt'), id_valid_indices)
     # load ood dataset if atatck type is ood-detect.
     ood_dataset = None
     ood_valid_indices = []
@@ -402,6 +414,7 @@ def main():
             alphas = np.exp(ood_logits)
             alpha_0 = np.sum(alphas, axis=1)
             ood_valid_indices = np.argwhere(alpha_0 < CHOSEN_THRESHOLDS['precision'])
+        np.savetxt(os.path.join(args.result_dir, 'ood_valid-indices.txt'), ood_valid_indices)
 
     # perform attacks on the same dataset, using different epsilon values.
     misclass_adv_success = []

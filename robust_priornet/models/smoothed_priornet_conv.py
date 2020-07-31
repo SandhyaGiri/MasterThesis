@@ -331,26 +331,26 @@ class SmoothedPriorNet(nn.Module):
     def _count_reduction(self, logits):
         # make predictions on all logits
         alphas = torch.exp(logits)
-        alpha0 = torch.sum(alphas, dim=1)
+        alpha0 = torch.sum(alphas, dim=1, keepdim=True)
         probs = alphas/alpha0
         preds = torch.argmax(probs, dim=1)
         # consider only those predictions which are valid as per restrictions
         valid_indices = np.arange(0, preds.shape[0])
         if self.max_alpha_threshold > 0:
             good_max_alpha_indices = (torch.max(alphas, dim=1)[0] >= self.max_alpha_threshold).nonzero().squeeze(1)
-            valid_indices = np.intersect1d(valid_indices, good_max_alpha_indices)
+            valid_indices = np.intersect1d(valid_indices, good_max_alpha_indices.cpu().numpy())
         
         for un_measure in self.uncertainty_measures_thresholds.keys():
             enum = UncertaintyMeasuresEnum.get_enum(un_measure)
             uncertainty_values = UncertaintyEvaluatorTorch(logits).get_uncertainty(enum, negate_confidence=True).squeeze(1)
             good_uncertainty_indices = (uncertainty_values < self.uncertainty_measures_thresholds[un_measure]).nonzero().squeeze(1)
-            valid_indices = np.intersect1d(valid_indices, good_uncertainty_indices)
+            valid_indices = np.intersect1d(valid_indices, good_uncertainty_indices.cpu().numpy())
         invalid_indices = np.setdiff1d(np.arange(0, preds.shape[0]), valid_indices)
         preds[(invalid_indices)] = -1 # these predictions will be dropped
         # return the log(count vector), as when we take exp again to get alpha we get back count vector as the dir params ?
         counts = torch.zeros((1, self.num_classes), dtype=float)
         counts.add_(self.epsilon)
-        for i in range(len(counts)):
+        for i in range(self.num_classes):
             counts[0, i] += (preds == i).nonzero().shape[0]
         return torch.log(counts)
 
