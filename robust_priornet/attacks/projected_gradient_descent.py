@@ -47,6 +47,7 @@ def _eval_for_adv_success_ood_detect_precision(model, adv_input, label, target_p
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
                            max_steps, pin_memory, 
+                           check_success,
                            only_true_adversaries,
                            success_detect_type,
                            success_detect_args,
@@ -119,26 +120,27 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
 
         # evaluate if adv image results in misclassification
         # if misclassified stop
-        with torch.no_grad():
-            is_success = False
-            success_criteria = success_detect_args['criteria'] # map
-            if success_detect_type == 'normal':
-                is_success = _eval_for_adv_success_normal_classify(model,
-                                                                   adv_input,
-                                                                   label,
-                                                                   additional_checks=list(success_criteria.keys()),
-                                                                   thresholds=list(success_criteria.values()))
-            elif success_detect_type == 'ood-detect':
-                # in-domain = label 0, out-domain = label 1
-                ood_label = torch.ones_like(label) if success_detect_args['ood_dataset'] else torch.zeros_like(label)
-                is_success = _eval_for_adv_success_ood_detect(model, adv_input,
-                                                            ood_label,
-                                                            list(success_criteria.keys()),
-                                                            list(success_criteria.values()))
-            if is_success:
-                adv_success_reached = True
-                break
-    return adv_input if not only_true_adversaries or adv_success_reached else None
+        if check_success:
+            with torch.no_grad():
+                is_success = False
+                success_criteria = success_detect_args['criteria'] # map
+                if success_detect_type == 'normal':
+                    is_success = _eval_for_adv_success_normal_classify(model,
+                                                                    adv_input,
+                                                                    label,
+                                                                    additional_checks=list(success_criteria.keys()),
+                                                                    thresholds=list(success_criteria.values()))
+                elif success_detect_type == 'ood-detect':
+                    # in-domain = label 0, out-domain = label 1
+                    ood_label = torch.ones_like(label) if success_detect_args['ood_dataset'] else torch.zeros_like(label)
+                    is_success = _eval_for_adv_success_ood_detect(model, adv_input,
+                                                                ood_label,
+                                                                list(success_criteria.keys()),
+                                                                list(success_criteria.values()))
+                if is_success:
+                    adv_success_reached = True
+                    break
+    return adv_input if not check_success or not only_true_adversaries or adv_success_reached else None, adv_success_reached
 
 def construct_pgd_attack(model,
                          inputs,
@@ -150,6 +152,7 @@ def construct_pgd_attack(model,
                          step_size=0.4,
                          max_steps=10,
                          pin_memory: bool = True,
+                         check_success: bool = True,
                          only_true_adversaries: bool = False,
                          use_org_img_as_fallback: bool = False,
                          success_detect_type: str = 'normal',
@@ -183,20 +186,22 @@ def construct_pgd_attack(model,
     for i in range(inputs.shape[0]):
         input_image = torch.unsqueeze(inputs[i], dim=0)
         label = labels[i].view(1,)
-        adv_input = _find_adv_single_input(model, input_image, label, epsilon,
-                                           criterion, device, norm, step_size,
-                                           max_steps, pin_memory,
-                                           only_true_adversaries,
-                                           success_detect_type,
-                                           success_detect_args,
-                                           rel_step_size=0.1)
+        adv_input, is_adversary = _find_adv_single_input(model, input_image, label, epsilon,
+                                                         criterion, device, norm, step_size,
+                                                         max_steps, pin_memory,
+                                                         check_success,
+                                                         only_true_adversaries,
+                                                         success_detect_type,
+                                                         success_detect_args,
+                                                         rel_step_size=0.1)
         if adv_input is not None:
             adv_inputs.append(adv_input)
             adv_labels.append(label)
-            true_adv_indices.append(i)
         if adv_input is None and use_org_img_as_fallback:
             adv_inputs.append(input_image)
             adv_labels.append(label)
+        if is_adversary:
+            true_adv_indices.append(i)
     if len(adv_inputs) == 0:
         return None, None
     return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0), true_adv_indices

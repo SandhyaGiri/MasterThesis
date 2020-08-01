@@ -19,6 +19,7 @@ def _get_adv_alpha_k(model, adv_input, target_label):
 def _find_adv_single_input(model, input_image, label, epsilon, criterion,
                            device, norm, step_size,
                            max_steps, pin_memory, 
+                           check_success,
                            only_true_adversaries,
                            target_label,
                            success_detect_args,
@@ -91,15 +92,16 @@ def _find_adv_single_input(model, input_image, label, epsilon, criterion,
 
         # evaluate if adv image results in misclassification
         # if misclassified stop
-        with torch.no_grad():
-            is_success = _eval_for_adv_success_classify(model, adv_input,
-                                                        label, target_label,
-                                                        success_detect_args['target_precision'],
-                                                        success_detect_args['precision_threshold_fn'])
-            if is_success:
-                adv_success_reached = True
-                break
-    return adv_input if not only_true_adversaries or adv_success_reached else None
+        if check_success:
+            with torch.no_grad():
+                is_success = _eval_for_adv_success_classify(model, adv_input,
+                                                            label, target_label,
+                                                            success_detect_args['target_precision'],
+                                                            success_detect_args['precision_threshold_fn'])
+                if is_success:
+                    adv_success_reached = True
+                    break
+    return adv_input if not check_success or not only_true_adversaries or adv_success_reached else None, adv_success_reached
 
 def construct_pgd_targeted_attack(model,
                                 inputs,
@@ -111,6 +113,7 @@ def construct_pgd_targeted_attack(model,
                                 step_size=0.4,
                                 max_steps=10,
                                 pin_memory: bool = True,
+                                check_success: bool = True,
                                 only_true_adversaries: bool = False,
                                 use_org_img_as_fallback: bool = False,
                                 success_detect_type='normal',
@@ -147,6 +150,7 @@ def construct_pgd_targeted_attack(model,
     """
     adv_inputs = []
     adv_labels = []
+    true_adv_indices = [] # makes sense when only_true_adversaries is True
     for i in range(inputs.shape[0]):
         input_image = torch.unsqueeze(inputs[i], dim=0)
         label = labels[i].view(1,)
@@ -156,34 +160,39 @@ def construct_pgd_targeted_attack(model,
             best_adv_alpha_k = 0
             other_classes = [i for i in np.arange(0, num_classes) if i != label.item()]
             for target in other_classes:
-                adv_input = _find_adv_single_input(model, input_image, label, epsilon,
-                                                criterion, device, norm, step_size,
-                                                max_steps, pin_memory,
-                                                only_true_adversaries,
-                                                target,
-                                                success_detect_args,
-                                                rel_step_size=0.1)
+                adv_input, is_adversary = _find_adv_single_input(model, input_image, label, epsilon,
+                                                                 criterion, device, norm, step_size,
+                                                                 max_steps, pin_memory,
+                                                                 check_success,
+                                                                 only_true_adversaries,
+                                                                 target,
+                                                                 success_detect_args,
+                                                                 rel_step_size=0.1)
                 # choose the best adversary
-                if adv_input is not None and _get_adv_alpha_k(model, adv_input, target) > best_adv_alpha_k:
+                if adv_input is not None and is_adversary and _get_adv_alpha_k(model, adv_input, target) > best_adv_alpha_k:
                     best_adv_alpha_k = _get_adv_alpha_k(model, adv_input, target)
                     best_adv_input = adv_input
             adv_input = best_adv_input
+            is_adversary = best_adv_input is not None
         else:
             # generate a particular adversary
-            adv_input = _find_adv_single_input(model, input_image, label, epsilon,
-                                            criterion, device, norm, step_size,
-                                            max_steps, pin_memory,
-                                            only_true_adversaries,
-                                            target_label,
-                                            success_detect_args,
-                                            rel_step_size=0.1)
+            adv_input, is_adversary = _find_adv_single_input(model, input_image, label, epsilon,
+                                                             criterion, device, norm, step_size,
+                                                             max_steps, pin_memory,
+                                                             check_success,
+                                                             only_true_adversaries,
+                                                             target_label,
+                                                             success_detect_args,
+                                                             rel_step_size=0.1)
         if adv_input is not None:
             adv_inputs.append(adv_input)
             adv_labels.append(label)
         if adv_input is None and use_org_img_as_fallback:
             adv_inputs.append(input_image)
             adv_labels.append(label)
+        if is_adversary:
+             true_adv_indices.append(i)
 
     if len(adv_inputs) == 0:
         return None, None
-    return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0)
+    return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0), true_adv_indices
