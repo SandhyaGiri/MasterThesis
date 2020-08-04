@@ -25,20 +25,23 @@ class ClassifierPredictionEvaluator:
                                 Usually the model's prediction probability.
             truth_labels: ground truth labels for the given task.
         """
-        precision, recall, thresholds = precision_recall_curve(truth_labels, decision_fn_value)
-        aupr = auc(recall, precision)
+        try:
+            precision, recall, thresholds = precision_recall_curve(truth_labels, decision_fn_value)
+            aupr = auc(recall, precision)
 
-        np.savetxt(os.path.join(result_dir, file_name + '_recall.txt'), recall)
-        np.savetxt(os.path.join(result_dir, file_name + '_precision.txt'), precision)
-        np.savetxt(os.path.join(result_dir, file_name + '_pr_thresholds.txt'), thresholds)
+            np.savetxt(os.path.join(result_dir, file_name + '_recall.txt'), recall)
+            np.savetxt(os.path.join(result_dir, file_name + '_precision.txt'), precision)
+            np.savetxt(os.path.join(result_dir, file_name + '_pr_thresholds.txt'), thresholds)
 
-        _, axes = plt.subplots(nrows=1, ncols=1)
-        plot_curve(recall, precision, axes, x_label='Recall',
-                   y_label='Precision',
-                   x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
-                   axis_spine_visibility_config=['right', 'top'])
-        plt.savefig(os.path.join(result_dir, file_name + '_PR_Curve.png'))
-        plt.close()
+            _, axes = plt.subplots(nrows=1, ncols=1)
+            plot_curve(recall, precision, axes, x_label='Recall',
+                    y_label='Precision',
+                    x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
+                    axis_spine_visibility_config=['right', 'top'])
+            plt.savefig(os.path.join(result_dir, file_name + '_PR_Curve.png'))
+            plt.close()
+        except ValueError:
+            print("PR curve couldn't be plotted because of an exception (ValueError).")
 
         return np.round(aupr, 4)
 
@@ -52,20 +55,23 @@ class ClassifierPredictionEvaluator:
                                 Usually the model's prediction probability.
             truth_labels: ground truth labels for the given task.
         """
-        fpr, tpr, thresholds = roc_curve(truth_labels, decision_fn_value)
-        roc_auc = roc_auc_score(truth_labels, decision_fn_value)
+        try:
+            fpr, tpr, thresholds = roc_curve(truth_labels, decision_fn_value)
+            roc_auc = roc_auc_score(truth_labels, decision_fn_value)
 
-        np.savetxt(os.path.join(result_dir, file_name + '_tpr.txt'), tpr)
-        np.savetxt(os.path.join(result_dir, file_name + '_fpr.txt'), fpr)
-        np.savetxt(os.path.join(result_dir, file_name + '_roc_thresholds.txt'), thresholds)
+            np.savetxt(os.path.join(result_dir, file_name + '_tpr.txt'), tpr)
+            np.savetxt(os.path.join(result_dir, file_name + '_fpr.txt'), fpr)
+            np.savetxt(os.path.join(result_dir, file_name + '_roc_thresholds.txt'), thresholds)
 
-        _, axes = plt.subplots(nrows=1, ncols=1)
-        plot_curve(fpr, tpr, axes, x_label='False Postive Rate (FPR)',
-                   y_label='True Positive Rate (TPR)',
-                   x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
-                   axis_spine_visibility_config=['right', 'top'])
-        plt.savefig(os.path.join(result_dir, file_name + '_ROC_Curve.png'))
-        plt.close()
+            _, axes = plt.subplots(nrows=1, ncols=1)
+            plot_curve(fpr, tpr, axes, x_label='False Postive Rate (FPR)',
+                    y_label='True Positive Rate (TPR)',
+                    x_lim=(0.0, 1.0), y_lim=(0.0, 1.0),
+                    axis_spine_visibility_config=['right', 'top'])
+            plt.savefig(os.path.join(result_dir, file_name + '_ROC_Curve.png'))
+            plt.close()
+        except ValueError:
+            print("ROC curve couldn't be plotted because of an exception (ValueError).")
 
         return np.round(roc_auc, 4)
 
