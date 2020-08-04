@@ -371,8 +371,8 @@ def main():
 
     # determining valid indices for ood-detect attacks
     id_valid_indices = []
-    if args.attack_criteria == 'precision':
-        id_valid_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
+    # if args.attack_criteria == 'precision':
+    #     id_valid_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
     np.savetxt(os.path.join(args.result_dir, 'id_valid-indices.txt'), id_valid_indices)
     # load ood dataset if atatck type is ood-detect.
     ood_dataset = None
@@ -406,14 +406,14 @@ def main():
                               mean, std, num_channels, org_ood_dataset_folder)
         
         # evaluate and find samples with ideal precision
-        if args.attack_criteria == 'precision':
-            ood_logits, ood_probs, _ = eval_model_on_dataset(model,
-                                                  dataset=ood_dataset,
-                                                  device=device,
-                                                  batch_size=args.batch_size)
-            alphas = np.exp(ood_logits)
-            alpha_0 = np.sum(alphas, axis=1)
-            ood_valid_indices = np.argwhere(alpha_0 < CHOSEN_THRESHOLDS['precision'])
+        # if args.attack_criteria == 'precision':
+        #     ood_logits, ood_probs, _ = eval_model_on_dataset(model,
+        #                                           dataset=ood_dataset,
+        #                                           device=device,
+        #                                           batch_size=args.batch_size)
+        #     alphas = np.exp(ood_logits)
+        #     alpha_0 = np.sum(alphas, axis=1)
+        #     ood_valid_indices = np.argwhere(alpha_0 < CHOSEN_THRESHOLDS['precision'])
         np.savetxt(os.path.join(args.result_dir, 'ood_valid-indices.txt'), ood_valid_indices)
 
     # perform attacks on the same dataset, using different epsilon values.

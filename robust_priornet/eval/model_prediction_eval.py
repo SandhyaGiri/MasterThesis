@@ -40,10 +40,10 @@ class ClassifierPredictionEvaluator:
                     axis_spine_visibility_config=['right', 'top'])
             plt.savefig(os.path.join(result_dir, file_name + '_PR_Curve.png'))
             plt.close()
+            return np.round(aupr, 4)
         except ValueError:
             print("PR curve couldn't be plotted because of an exception (ValueError).")
-
-        return np.round(aupr, 4)
+        return 0
 
     @staticmethod
     def compute_roc_curve(decision_fn_value, truth_labels, result_dir, file_name):
@@ -70,10 +70,10 @@ class ClassifierPredictionEvaluator:
                     axis_spine_visibility_config=['right', 'top'])
             plt.savefig(os.path.join(result_dir, file_name + '_ROC_Curve.png'))
             plt.close()
+            return np.round(roc_auc, 4)
         except ValueError:
             print("ROC curve couldn't be plotted because of an exception (ValueError).")
-
-        return np.round(roc_auc, 4)
+        return 0
 
     @classmethod
     def compute_pr_roc_curves(cls, decision_fn_value, truth_labels, result_dir, file_name):
