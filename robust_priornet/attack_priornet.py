@@ -477,11 +477,10 @@ def main():
         if adv_success['ood_detect_success'][0] is not None:
             in_out_adv_success.append(adv_success['ood_detect_success'][0])
             out_in_adv_success.append(adv_success['ood_detect_success'][1])
-
-    # log the success lists
-    np.savetxt(os.path.join(args.result_dir, 'misclassify_success.txt'), misclass_adv_success)
-    np.savetxt(os.path.join(args.result_dir, 'in-out_success.txt'), in_out_adv_success)
-    np.savetxt(os.path.join(args.result_dir, 'out-in_success.txt'), out_in_adv_success)
+        # log the success lists
+        np.savetxt(os.path.join(args.result_dir, 'misclassify_success.txt'), misclass_adv_success)
+        np.savetxt(os.path.join(args.result_dir, 'in-out_success.txt'), in_out_adv_success)
+        np.savetxt(os.path.join(args.result_dir, 'out-in_success.txt'), out_in_adv_success)
     
     # plot the epsilon, adversarial success rate graph (line plot)
     plot_epsilon_curve(args.epsilon, misclass_adv_success, args.result_dir,
