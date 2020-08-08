@@ -163,7 +163,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "mutual_info", "--threshold", "0.35248","--ood_dataset", "OMNIGLOT", "--norm", "2", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-svhn","--gpu", "-1", "--epsilon", "0.1", "0.5", "--attack_only_out_dist", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "mutual_info", "--threshold", "0.35248","--ood_dataset", "CIFAR100", "--norm", "2", "./runtime-data", "SVHN", "./attack-pgd"]
         },
         {
             "name": "Module attack_priornet pgd ood-detect precision",

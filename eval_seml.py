@@ -24,7 +24,7 @@ def config():
 def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_train_dataset,
         use_val_dataset, dataset_size_limit, target_precision, logdir,
         run_eval, rpn_mc_samples, rpn_reduction, run_attack, epsilon_list, threshold, attack_type,
-        attack_strategy, attack_criteria, attack_norm, max_steps,
+        attack_strategy, attack_criteria, attack_only_out_dist, attack_norm, max_steps,
         run_certification, certify_task, certify_only_ood, n0, n, sigma, uncertainty_measure,
         uncertainty_measure_threshold):
     """
@@ -71,6 +71,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         time = int(datetime.timestamp(datetime.now()))
         out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{ood_dataset}-{time}")
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
+        attack_only_out_dist = f'--attack_only_out_dist' if attack_only_out_dist is True else ''
         if attack_strategy == 'FGSM':
             fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
                     --batch_size {batch_size} --epsilon {epsilons} \
@@ -78,7 +79,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
                     --attack_criteria {attack_criteria} --threshold {threshold} \
                     --model_dir {model_dir} --target_precision {target_precision} \
                     --ood_dataset {ood_dataset} {'--train_dataset' if use_train_dataset else ''} \
-                    {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
+                    {'--val_dataset' if use_val_dataset else ''} {dataset_limit} {attack_only_out_dist} \
                     {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"FGSM attack command being executed: {fgsm_cmd}")
             os.system(fgsm_cmd)
@@ -89,7 +90,7 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
                     --attack_criteria {attack_criteria} --target_precision {target_precision} \
                     --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
                     --threshold {threshold} --ood_dataset {ood_dataset} \
-                    {'--train_dataset' if use_train_dataset else ''} \
+                    {'--train_dataset' if use_train_dataset else ''} {attack_only_out_dist} \
                     {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
                     {data_dir} {in_domain_dataset} {out_dir}"
             logging.info(f"PGD attack command being executed: {pgd_cmd}")

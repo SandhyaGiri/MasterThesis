@@ -64,6 +64,8 @@ parser.add_argument('--attack_strategy', type=str, choices=['FGSM', 'PGD'], defa
 parser.add_argument('--attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
                     required=True,
                     help='Indicates which loss function to use to compute attack gradient.')
+parser.add_argument('--attack_only_out_dist', action='store_true',
+                    help='Indicates if onlu out samples need to be atatcked. Suitable for ood-detect attack type.')
 parser.add_argument('--epsilon', '--list', nargs='+', type=float,
                     help='Strength perturbation in range of 0 to 1, ex: 0.25', required=True)
 parser.add_argument('--threshold', type=float, required=False,
@@ -215,40 +217,44 @@ def perform_epsilon_attack(model: nn.Module,
                            ood_adv_dataset=None,
                            valid_id_indices=[],
                            valid_ood_indices=[]):
-    logits, probs, labels = eval_model_on_dataset(model, adv_dataset, batch_size, device=device)
+    adv_success = None
+    uncertainties = None
+    if adv_dataset is not None:
+        logits, probs, labels = eval_model_on_dataset(model, adv_dataset, batch_size, device=device)
 
-    # Save model outputs
-    eval_dir = os.path.join(result_dir, 'eval')
-    os.makedirs(eval_dir)
-    np.savetxt(os.path.join(eval_dir, 'labels.txt'), labels)
-    np.savetxt(os.path.join(eval_dir, 'probs.txt'), probs)
-    np.savetxt(os.path.join(eval_dir, 'logits.txt'), logits)
+        # Save model outputs
+        eval_dir = os.path.join(result_dir, 'eval')
+        os.makedirs(eval_dir)
+        np.savetxt(os.path.join(eval_dir, 'labels.txt'), labels)
+        np.savetxt(os.path.join(eval_dir, 'probs.txt'), probs)
+        np.savetxt(os.path.join(eval_dir, 'logits.txt'), logits)
 
-    # determine misclassifications under attack
-    adv_indices = adv_dataset.get_adversarial_indices()
-    adv_success = np.intersect1d(adv_indices, correct_classified_indices)
-    adv_success = len(adv_success) / len(correct_classified_indices)
+        # determine misclassifications under attack
+        adv_indices = adv_dataset.get_adversarial_indices()
+        adv_success = np.intersect1d(adv_indices, correct_classified_indices)
+        adv_success = len(adv_success) / len(correct_classified_indices)
 
-    # Get dictionary of uncertainties.
-    uncertainties = UncertaintyEvaluator(logits).get_all_uncertainties()
+        # Get dictionary of uncertainties.
+        uncertainties = UncertaintyEvaluator(logits).get_all_uncertainties()
 
-    # Save uncertainties
-    for key in uncertainties.keys():
-        np.savetxt(os.path.join(eval_dir, key._value_ + '.txt'), uncertainties[key])
+        # Save uncertainties
+        for key in uncertainties.keys():
+            np.savetxt(os.path.join(eval_dir, key._value_ + '.txt'), uncertainties[key])
 
-    # eval model's predictions
-    model_accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels)
-    model_nll = ClassifierPredictionEvaluator.compute_nll(probs, labels)
-    with open(os.path.join(eval_dir, 'results.txt'), 'a') as f:
-        f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
-        f.write(f'NLL: {np.round(model_nll, 3)} \n')
+        # eval model's predictions
+        model_accuracy = ClassifierPredictionEvaluator.compute_accuracy(probs, labels)
+        model_nll = ClassifierPredictionEvaluator.compute_nll(probs, labels)
+        with open(os.path.join(eval_dir, 'results.txt'), 'a') as f:
+            f.write(f'Classification Error: {np.round(100 * (1.0 - model_accuracy), 1)} \n')
+            f.write(f'NLL: {np.round(model_nll, 3)} \n')
 
-    # eval misclassification detect performance
-    MisclassificationDetectionEvaluator(probs, labels, uncertainties, eval_dir).eval()
+        # eval misclassification detect performance
+        MisclassificationDetectionEvaluator(probs, labels, uncertainties, eval_dir).eval()
 
     # eval ood detect performance
     id_success = None
     ood_success = None
+    ood_uncertainties = None
     if ood_adv_dataset is not None:
         ood_logits, ood_probs, _ = eval_model_on_dataset(model,
                                                          ood_adv_dataset,
@@ -261,15 +267,18 @@ def perform_epsilon_attack(model: nn.Module,
         np.savetxt(os.path.join(ood_eval_dir, 'probs.txt'), ood_probs)
         for key in ood_uncertainties.keys():
             np.savetxt(os.path.join(ood_eval_dir, key._value_ + '.txt'), ood_uncertainties[key])
-        OutOfDomainDetectionEvaluator(uncertainties, ood_uncertainties, ood_eval_dir).eval()
-        # id_success
-        adv_indices = adv_dataset.get_adversarial_indices()
-        if len(valid_id_indices) > 0:
-            id_success = np.intersect1d(adv_indices, valid_id_indices)
-            id_success = len(id_success) / len(valid_id_indices)
-        else:
-            id_success = adv_indices
-            id_success = len(id_success) / logits.shape[0] # over all id samples
+        if uncertainties is not None and ood_uncertainties is not None:
+            OutOfDomainDetectionEvaluator(uncertainties, ood_uncertainties, ood_eval_dir).eval()
+        id_success = None
+        if adv_dataset is not None:
+            # id_success
+            adv_indices = adv_dataset.get_adversarial_indices()
+            if len(valid_id_indices) > 0:
+                id_success = np.intersect1d(adv_indices, valid_id_indices)
+                id_success = len(id_success) / len(valid_id_indices)
+            else:
+                id_success = adv_indices
+                id_success = len(id_success) / logits.shape[0] # over all id samples
         # ood_success
         ood_adv_indices = ood_adv_dataset.get_adversarial_indices()
         if len(valid_ood_indices) > 0:
@@ -321,59 +330,62 @@ def main():
     trans.add_to_tensor()
     trans.add_normalize(mean, std)
 
-    if args.val_dataset:
-        _, dataset = vis.get_dataset(args.dataset,
-                                     args.data_dir,
-                                     trans.get_transforms(),
-                                     None,
-                                     'train',
-                                     val_ratio=0.1)
-    else:
-        dataset = vis.get_dataset(args.dataset,
-                                  args.data_dir,
-                                  trans.get_transforms(),
-                                  None,
-                                  'train' if args.train_dataset else 'test')
-    if args.dataset_size_limit is not None:
-        dataset = DataSpliter.reduceSize(dataset, args.dataset_size_limit)
-    print(f"In domain dataset: {len(dataset)}")
-    # save the org images
-    id_indices = np.arange(len(dataset))
-    id_chosen_indices = random.sample(list(id_indices), min(100, len(id_indices)))
-    org_dataset_folder = os.path.join(args.result_dir, "org-images")
-    if not os.path.exists(org_dataset_folder):
-        os.makedirs(org_dataset_folder)
-    np.savetxt(os.path.join(org_dataset_folder, 'img_indices.txt'), id_chosen_indices)
-    persist_image_dataset(data.Subset(dataset, id_chosen_indices),
-                          mean, std, num_channels, org_dataset_folder)
-
-    # perform original evaluation on the model using unperturbed images
-    logits, probs, labels = eval_model_on_dataset(model,
-                                                  dataset=dataset,
-                                                  device=device,
-                                                  batch_size=args.batch_size)
-    # determine correct classifications without attack (original non perturbed images)
-    # needed for confidence precision attack
-    org_preds = np.argmax(probs, axis=1)
-    alphas = np.exp(logits)
-    alpha_0 = np.sum(alphas, axis=1)
-    # determining correct classified indices for misclassify attacks
-    correct_classifications = np.asarray(org_preds == labels, dtype=np.int32)
-    correct_classified_indices = np.argwhere(correct_classifications == 1)
-    if args.attack_criteria == 'precision_targeted':
-        good_alpha0_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
-        correct_classified_indices = np.intersect1d(correct_classified_indices, good_alpha0_indices)
-    if args.attack_criteria == 'alpha_k':
-        good_alphak_indices = np.argwhere(alphas[(np.arange(0, alphas.shape[0]), labels)] >= CHOSEN_THRESHOLDS['alpha_k'])
-        correct_classified_indices = np.intersect1d(correct_classified_indices, good_alphak_indices)
-    # save correct classified indices
-    np.savetxt(os.path.join(args.result_dir, 'id_correct-classfied-indices.txt'), correct_classified_indices)
-
-    # determining valid indices for ood-detect attacks
+    # don't load in domain data when this option is true
+    correct_classified_indices = []
     id_valid_indices = []
-    # if args.attack_criteria == 'precision':
-    #     id_valid_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
-    np.savetxt(os.path.join(args.result_dir, 'id_valid-indices.txt'), id_valid_indices)
+    if not args.attack_only_out_dist:
+        if args.val_dataset:
+            _, dataset = vis.get_dataset(args.dataset,
+                                        args.data_dir,
+                                        trans.get_transforms(),
+                                        None,
+                                        'train',
+                                        val_ratio=0.1)
+        else:
+            dataset = vis.get_dataset(args.dataset,
+                                    args.data_dir,
+                                    trans.get_transforms(),
+                                    None,
+                                    'train' if args.train_dataset else 'test')
+        if args.dataset_size_limit is not None:
+            dataset = DataSpliter.reduceSize(dataset, args.dataset_size_limit)
+        print(f"In domain dataset: {len(dataset)}")
+        # save the org images
+        id_indices = np.arange(len(dataset))
+        id_chosen_indices = random.sample(list(id_indices), min(100, len(id_indices)))
+        org_dataset_folder = os.path.join(args.result_dir, "org-images")
+        if not os.path.exists(org_dataset_folder):
+            os.makedirs(org_dataset_folder)
+        np.savetxt(os.path.join(org_dataset_folder, 'img_indices.txt'), id_chosen_indices)
+        persist_image_dataset(data.Subset(dataset, id_chosen_indices),
+                            mean, std, num_channels, org_dataset_folder)
+
+        # perform original evaluation on the model using unperturbed images
+        logits, probs, labels = eval_model_on_dataset(model,
+                                                    dataset=dataset,
+                                                    device=device,
+                                                    batch_size=args.batch_size)
+        # determine correct classifications without attack (original non perturbed images)
+        # needed for confidence precision attack
+        org_preds = np.argmax(probs, axis=1)
+        alphas = np.exp(logits)
+        alpha_0 = np.sum(alphas, axis=1)
+        # determining correct classified indices for misclassify attacks
+        correct_classifications = np.asarray(org_preds == labels, dtype=np.int32)
+        correct_classified_indices = np.argwhere(correct_classifications == 1)
+        if args.attack_criteria == 'precision_targeted':
+            good_alpha0_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
+            correct_classified_indices = np.intersect1d(correct_classified_indices, good_alpha0_indices)
+        if args.attack_criteria == 'alpha_k':
+            good_alphak_indices = np.argwhere(alphas[(np.arange(0, alphas.shape[0]), labels)] >= CHOSEN_THRESHOLDS['alpha_k'])
+            correct_classified_indices = np.intersect1d(correct_classified_indices, good_alphak_indices)
+        # save correct classified indices
+        np.savetxt(os.path.join(args.result_dir, 'id_correct-classfied-indices.txt'), correct_classified_indices)
+
+        # determining valid indices for ood-detect attacks
+        # if args.attack_criteria == 'precision':
+        #     id_valid_indices = np.argwhere(alpha_0 >= CHOSEN_THRESHOLDS['precision'])
+        np.savetxt(os.path.join(args.result_dir, 'id_valid-indices.txt'), id_valid_indices)
     # load ood dataset if atatck type is ood-detect.
     ood_dataset = None
     ood_valid_indices = []
@@ -426,25 +438,27 @@ def main():
     adv_success_detect_type = 'normal' if args.attack_type == 'misclassify' else 'ood-detect'
     for epsilon in args.epsilon:
         attack_folder = os.path.join(args.result_dir, f"e{epsilon}-attack")
-        out_path = os.path.join(attack_folder, "adv-images")
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
-        # create adversarial dataset - in domain samples
-        adv_dataset = AdversarialDataset(dataset, args.attack_strategy.lower(), model, epsilon,
-                                         attack_criteria, args.norm,
-                                         args.step_size, args.max_steps,
-                                         args.batch_size, device=device,
-                                         only_true_adversaries=False,
-                                         use_org_img_as_fallback=False,
-                                         adv_success_detect_type=adv_success_detect_type,
-                                         success_detect_criteria=success_detect_criteria,
-                                         targeted_attack=(args.attack_criteria == 'precision_targeted'),
-                                         target_label=args.target_label)
-        print(f"In domain adversarial dataset: {len(adv_dataset)}")
-        # store in-domain adv indices
-        np.savetxt(os.path.join(out_path, 'indices.txt'), adv_dataset.get_adversarial_indices())
-        persist_image_dataset(data.Subset(adv_dataset, adv_dataset.get_adversarial_indices()), mean,
-                              std, num_channels, out_path)
+        adv_dataset = None
+        if not args.attack_only_out_dist:
+            out_path = os.path.join(attack_folder, "adv-images")
+            if not os.path.exists(out_path):
+                os.makedirs(out_path)
+            # create adversarial dataset - in domain samples
+            adv_dataset = AdversarialDataset(dataset, args.attack_strategy.lower(), model, epsilon,
+                                            attack_criteria, args.norm,
+                                            args.step_size, args.max_steps,
+                                            args.batch_size, device=device,
+                                            only_true_adversaries=False,
+                                            use_org_img_as_fallback=False,
+                                            adv_success_detect_type=adv_success_detect_type,
+                                            success_detect_criteria=success_detect_criteria,
+                                            targeted_attack=(args.attack_criteria == 'precision_targeted'),
+                                            target_label=args.target_label)
+            print(f"In domain adversarial dataset: {len(adv_dataset)}")
+            # store in-domain adv indices
+            np.savetxt(os.path.join(out_path, 'indices.txt'), adv_dataset.get_adversarial_indices())
+            persist_image_dataset(data.Subset(adv_dataset, adv_dataset.get_adversarial_indices()), mean,
+                                std, num_channels, out_path)
 
         #create adversarial dataset - out domain samples
         ood_adv_dataset = None
@@ -473,9 +487,11 @@ def main():
                                              ood_adv_dataset=ood_adv_dataset,
                                              valid_id_indices=id_valid_indices,
                                              valid_ood_indices=ood_valid_indices)
-        misclass_adv_success.append(adv_success['misclassify_success'])
+        if adv_success['misclassify_success'] is not None:
+            misclass_adv_success.append(adv_success['misclassify_success'])
         if adv_success['ood_detect_success'][0] is not None:
             in_out_adv_success.append(adv_success['ood_detect_success'][0])
+        if adv_success['ood_detect_success'][1] is not None:
             out_in_adv_success.append(adv_success['ood_detect_success'][1])
         # log the success lists
         np.savetxt(os.path.join(args.result_dir, 'misclassify_success.txt'), misclass_adv_success)
@@ -483,13 +499,15 @@ def main():
         np.savetxt(os.path.join(args.result_dir, 'out-in_success.txt'), out_in_adv_success)
     
     # plot the epsilon, adversarial success rate graph (line plot)
-    plot_epsilon_curve(args.epsilon, misclass_adv_success, args.result_dir,
-                       file_name='epsilon-curve_misclassify.png',
-                       title=f'{args.attack_criteria} attack - {args.dataset} - Misclassification success')
+    if not args.attack_only_out_dist:
+        plot_epsilon_curve(args.epsilon, misclass_adv_success, args.result_dir,
+                        file_name='epsilon-curve_misclassify.png',
+                        title=f'{args.attack_criteria} attack - {args.dataset} - Misclassification success')
     if args.attack_type == "ood-detect":
-        plot_epsilon_curve(args.epsilon, in_out_adv_success, args.result_dir,
-                           file_name='epsilon-curve_id.png',
-                           title=f'{args.attack_criteria} attack - {args.dataset} + {args.ood_dataset} - in->out success')
+        if not args.attack_only_out_dist:
+            plot_epsilon_curve(args.epsilon, in_out_adv_success, args.result_dir,
+                            file_name='epsilon-curve_id.png',
+                            title=f'{args.attack_criteria} attack - {args.dataset} + {args.ood_dataset} - in->out success')
         plot_epsilon_curve(args.epsilon, out_in_adv_success, args.result_dir,
                            file_name='epsilon-curve_ood.png',
                            title=f'{args.attack_criteria} attack - {args.dataset} + {args.ood_dataset} - out->in success')
