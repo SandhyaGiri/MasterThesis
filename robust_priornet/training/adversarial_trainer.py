@@ -19,45 +19,93 @@ from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
 from .early_stopping import EarlyStopper, EarlyStopperSteps
+from ..losses.utils import construct_ccat_adv_target_dirichlets
 from .trainer import PriorNetTrainer
 
 
-def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum):
+def get_optimal_threshold(src_dir, uncertainty_measure: UncertaintyMeasuresEnum,
+                          save_thresholds=False, save_dir=''):
+    id_uncertainty = np.loadtxt(os.path.join(src_dir,
+                                             'id_' + uncertainty_measure._value_ + '.txt'))
+    # filter only id samples which were corerctly classified by the model
+    id_labels = np.loadtxt(os.path.join(src_dir, 'id_labels.txt'))
+    id_probs = np.loadtxt(os.path.join(src_dir, 'id_probs.txt'))
+    id_preds = np.argmax(id_probs, axis=1)
+    correctly_classified_indices = np.argwhere(id_preds == id_labels)
+    id_uncertainty = id_uncertainty[correctly_classified_indices].squeeze(axis=1)
+    print(f"ID Max: {np.max(id_uncertainty)}, Min: {np.min(id_uncertainty)}")
+    ood_uncertainty = np.loadtxt(os.path.join(src_dir,
+                                              'ood_' + uncertainty_measure._value_ + '.txt'))
+    print(f"OOD Max: {np.max(ood_uncertainty)}, Min: {np.min(ood_uncertainty)}")
+    target_labels = np.concatenate((np.zeros_like(id_uncertainty),
+                                    np.ones_like(ood_uncertainty)), axis=0)
+    decision_fn_value = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+    if uncertainty_measure == UncertaintyMeasuresEnum.CONFIDENCE or uncertainty_measure == UncertaintyMeasuresEnum.PRECISION:
+        decision_fn_value *= -1.0
+    fpr, tpr, thresholds = roc_curve(target_labels, decision_fn_value)
+    if save_thresholds:
+        np.savetxt(os.path.join(save_dir, f'{uncertainty_measure._value_}_fpr.txt'), fpr)
+        np.savetxt(os.path.join(save_dir, f'{uncertainty_measure._value_}_tpr.txt'), tpr)
+        np.savetxt(os.path.join(save_dir, f'{uncertainty_measure._value_}_thresholds.txt'), thresholds)
+
+    opt_fn_value = (tpr - fpr)
+    # filter only tpr>=0.5 and fpr<=0.5 (if it goes beyond then we might have biased model which trains on false adversarials)
+    #good_tpr_indices = np.argwhere(tpr >= 0.5)
+    #good_fpr_indices = np.argwhere(fpr <= 0.1)
+    #considerable_indices = np.intersect1d(good_tpr_indices, good_fpr_indices)
+    #opt_fn_value = opt_fn_value[considerable_indices]
+    indices = []
+    sorted_opt_fn_values = np.argsort(opt_fn_value)
+    # print(sorted_opt_fn_values)
+    argmax = sorted_opt_fn_values[-1]
+    print(f"argmax: {argmax}, threshold: {thresholds[argmax]}, tpr: {tpr[argmax]}, fpr: {fpr[argmax]}")
+    indices.append(argmax)
+    # find next index larger than argmax
+    secondmax = -1
+    best_secondmax = -1
+    distance_to_argmax = -1
+    for i in range(2, len(opt_fn_value)):
+        secondmax = sorted_opt_fn_values[-i]
+        # print(f"threshold: {thresholds[secondmax]}, tpr: {tpr[secondmax]}, fpr: {fpr[secondmax]}")
+        # use this second argmax only when TPR and FPR is in a valid range
+        if secondmax > argmax and abs(tpr[secondmax] - tpr[argmax]) < 0.4 and abs(fpr[secondmax] - fpr[argmax]) < 0.3:
+            if abs(decision_fn_value[secondmax] - decision_fn_value[argmax]) >= distance_to_argmax:
+                distance_to_argmax = abs(decision_fn_value[secondmax] - decision_fn_value[argmax])
+                best_secondmax = secondmax
+                print(f"second max: {secondmax}, threshold: {thresholds[secondmax]}, tpr: {tpr[secondmax]}, fpr: {fpr[secondmax]}")
+            
+    indices.append(best_secondmax)
+    return np.mean((thresholds[best_secondmax], np.mean(thresholds[indices]))) # picking a threshold closer to in domain data
+    #return np.mean(thresholds[indices])
+
+def get_optimal_threshold_wo_roc(src_dir, uncertainty_measure: UncertaintyMeasuresEnum):
     id_uncertainty = np.loadtxt(os.path.join(src_dir,
                                              'id_' + uncertainty_measure._value_ + '.txt'))
     ood_uncertainty = np.loadtxt(os.path.join(src_dir,
                                               'ood_' + uncertainty_measure._value_ + '.txt'))
     target_labels = np.concatenate((np.zeros_like(id_uncertainty),
                                     np.ones_like(ood_uncertainty)), axis=0)
-    decision_fn_value = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
-    if uncertainty_measure == UncertaintyMeasuresEnum.CONFIDENCE:
-        decision_fn_value *= -1.0
-    fpr, tpr, thresholds = roc_curve(target_labels, decision_fn_value)
-    opt_fn_value = (tpr - fpr)
-    # filter only tpr>=0.5 and fpr<=0.5 (if it goes beyond then we might have biased model which trains on false adversarials)
-    #good_tpr_indices = np.argwhere(tpr >= 0.5)
-    #good_fpr_indices = np.argwhere(fpr <= 0.5)
-    #considerable_indices = np.intersect1d(good_tpr_indices, good_fpr_indices)
-    #opt_fn_value = opt_fn_value[considerable_indices]
-    indices = []
-    sorted_opt_fn_values = np.argsort(opt_fn_value)
-    print(sorted_opt_fn_values)
-    argmax = sorted_opt_fn_values[-1]
-    print(f"argmax: {argmax}, threshold: {thresholds[argmax]}, tpr: {tpr[argmax]}, fpr: {fpr[argmax]}")
-    indices.append(argmax)
-    # find next index larger than argmax
-    secondmax = -1
-    for i in range(2, len(opt_fn_value)):
-        secondmax = sorted_opt_fn_values[-i]
-        # print(f"threshold: {thresholds[secondmax]}, tpr: {tpr[secondmax]}, fpr: {fpr[secondmax]}")
-        # use this second argmax only when TPR and FPR is in a valid range
-        if secondmax > argmax and abs(tpr[secondmax] - tpr[argmax]) < 0.4 and abs(fpr[secondmax] - fpr[argmax]) < 0.4:
-            indices.append(secondmax)
-            print(f"second max: {secondmax}, threshold: {thresholds[secondmax]}, tpr: {tpr[secondmax]}, fpr: {fpr[secondmax]}")
-            break
-    #return np.mean((thresholds[secondmax], np.mean(thresholds[indices]))) # picking a threshold closer to in domain data
-    return np.mean(thresholds[indices])
-
+    uncertainty_values = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
+    sorted_indices = np.argsort(uncertainty_values)
+    sorted_uncertainty = uncertainty_values[sorted_indices]
+    sorted_labels = target_labels[sorted_indices]
+    in_acc = np.zeros_like(sorted_labels)
+    out_acc = np.zeros_like(sorted_labels)
+    for i,label in enumerate(sorted_labels):
+        if label == 0:
+            in_acc[i] = (in_acc[i-1] if i-1 > 0 else 0) + 1
+        elif label == 1:
+            out_acc[i] = (out_acc[i-1] if i-1 > 0 else 0) + 1
+    in_acc = in_acc / len(id_uncertainty) # TPR
+    out_acc = out_acc / len(ood_uncertainty) # FPR
+    desired_fn = in_acc - out_acc
+    max_desired_fn_value = np.max(desired_fn)
+    max_indices = np.argwhere(desired_fn == max_desired_fn_value)
+    for i, index in enumerate(max_indices):
+        print(f"val1: {uncertainty_values[index]}, val2: {uncertainty_values[index+1]}")
+        print(f"tpr1: {in_acc[index]}, fpr1: {out_acc[index]}, tpr2: {in_acc[index+1]}, fpr2: {out_acc[index+1]}")
+        print(f"Optimal threshold: {uncertainty_values[index] + (uncertainty_values[index+1] - uncertainty_values[index])/2 }")
+    
 class AdversarialPriorNetTrainer(PriorNetTrainer):
     """
     Priornet trainer which performs a training epoch with normal images
@@ -77,6 +125,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  min_epochs=25, patience=20,
                  device=None, clip_norm=10.0, num_workers=0,
                  pin_memory=False, log_dir='.',
+                 num_classes = 10,
                  attack_params: Dict[str, Any] = {},
                  dataset_persistence_params=[],
                  adv_training_type: str = 'normal',
@@ -113,6 +162,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.only_out_in_adversarials = only_out_in_adversarials
         self.use_fixed_threshold = use_fixed_threshold
         self.known_threshold_value = known_threshold_value
+        self.num_classes = num_classes
 
     def _get_inputs_from_dataset(self, dataset):
         length = len(dataset)
@@ -169,36 +219,19 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # beginning of training epoch
             start = time.time()
             for i in range(num_steps_per_epoch): # each batch
-                # choose 10% samples in each id, ood batches and generate adversarials
                 id_data, id_labels = next(id_train_iterator)
                 ood_data, ood_labels = next(ood_train_iterator)
                 
-                if epoch > 0: # only on starting second epoch
-                    id_adv_end_index = int(0.1 * id_data.shape[0]) # 10% batch size
-                    ood_adv_end_index = int(0.1 * ood_data.shape[0])
-                    
-                    id_first, id_second = id_data.split((id_adv_end_index, id_data.shape[0]-id_adv_end_index))
-                    id_labels_first, id_labels_second = id_labels.split(((id_adv_end_index, id_data.shape[0]-id_adv_end_index)))
-                    ood_first, ood_second = ood_data.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
-                    ood_labels_first, ood_labels_second = ood_labels.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
-                    
-                    id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset(id_dataset=
-                                                                                data.TensorDataset(id_first, id_labels_first),
-                                                                                ood_dataset=
-                                                                                data.TensorDataset(ood_first, ood_labels_first),
-                                                                                only_true_adversaries=
-                                                                                True,
-                                                                                use_org_img_as_fallback=
-                                                                                True,
-                                                                                previous_epoch=
-                                                                                True)
-                    id_data = torch.cat((self._get_inputs_from_dataset(id_adv_dataset), id_second), dim=0)
-                    ood_data = torch.cat((self._get_inputs_from_dataset(ood_adv_dataset) if ood_adv_dataset != [] else ood_first,
-                                          ood_second), dim=0)
+                # choose 50% samples in each id, ood batches and generate adversarials
+                (id_data, ood_data), id_target_dist, ood_target_dist = self._construct_mixed_batch_with_target_dirichlets((id_data, id_labels),
+                                                                       (ood_data, ood_labels),
+                                                                       0.5)
                 
                 # train on these images
                 batch_train_results = self._train_single_batch((id_data, id_labels),
-                                                               (ood_data, ood_labels))
+                                                               (ood_data, ood_labels),
+                                                               id_target_dist=id_target_dist,
+                                                               ood_target_dist=ood_target_dist)
                 kl_loss, id_loss, ood_loss, id_precision, ood_precision, accuracy, id_outputs, ood_outputs = batch_train_results
                 
                 # increment 1 step
@@ -225,7 +258,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                     # marks end of training
                     end = time.time()
                     last_validated_step = self.steps
-                    step_val_results = self._val_single_epoch()
+                    step_val_results = self._val_single_epoch(generate_target_dist=True)
                     # accumulate epoch level metrics
                     total_kl_loss += step_kl_loss
                     total_id_loss += step_id_loss
@@ -315,7 +348,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             ######################
             # validate the model #
             ######################
-            val_results = self._val_single_epoch() # validate and update metrics list
+            val_results = self._val_single_epoch(generate_target_dist=True) # validate and update metrics list
 
             # store and print epoch summary
             summary = {
@@ -687,9 +720,78 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                               *self.dataset_persistence_params,
                               adv_dir)
 
+    def _construct_mixed_batch_with_target_dirichlets(self, id_dataset, ood_dataset, percentage_advs):
+        """
+        Generates adversarial images and uses the distance between adv image
+        and original image to compute target dirichlet distributions. For those
+        perturbations that are far away from the in-domain image, we output a uniform
+        distribution similar to OOD samples.
+        
+        Parameters:
+        
+        
+        Returns:
+            - the parameters of the desired target dirichlet distribution
+            for in domain and out domain dataset.
+        """
+        # for epoch 0 we use normal images only in the batch.
+        id_adv_dataset = None
+        ood_adv_dataset = None
+        id_data, id_labels = id_dataset
+        ood_data, ood_labels = ood_dataset
+        id_adv_end_index = int(percentage_advs * id_data.shape[0]) # 10% batch size
+        ood_adv_end_index = int(percentage_advs * ood_data.shape[0])
+        
+        id_first, id_second = id_data.split((id_adv_end_index, id_data.shape[0]-id_adv_end_index))
+        id_labels_first, id_labels_second = id_labels.split(((id_adv_end_index, id_data.shape[0]-id_adv_end_index)))
+        ood_first, ood_second = ood_data.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
+        ood_labels_first, ood_labels_second = ood_labels.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
+        if self.epochs > 0:
+            id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset(id_dataset=
+                                                                        data.TensorDataset(id_first, id_labels_first),
+                                                                        ood_dataset=
+                                                                        data.TensorDataset(ood_first, ood_labels_first),
+                                                                        check_success=False,
+                                                                        only_true_adversaries=
+                                                                        False,
+                                                                        use_org_img_as_fallback=
+                                                                        False,
+                                                                        previous_epoch=
+                                                                        True)
+            id_data = torch.cat((self._get_inputs_from_dataset(id_adv_dataset), id_second), dim=0)
+            ood_data = torch.cat((self._get_inputs_from_dataset(ood_adv_dataset) if ood_adv_dataset != [] else ood_first,
+                                            ood_second), dim=0)
+        # calculate target dirichlets for adv images
+        id_target_dist_first, ood_target_dist_first = construct_ccat_adv_target_dirichlets(id_first,
+                                                                                           self._get_inputs_from_dataset(id_adv_dataset)
+                                                                                           if (id_adv_dataset is not None and id_adv_dataset != []) else id_first,
+                                                                                           id_labels_first,
+                                                                                           ood_first,
+                                                                                           self._get_inputs_from_dataset(ood_adv_dataset)
+                                                                                           if (ood_adv_dataset is not None and ood_adv_dataset != []) else ood_first,
+                                                                                           self.attack_params['norm'],
+                                                                                           self.attack_params['epsilon'],
+                                                                                           self.num_classes,
+                                                                                           self.id_criterion.target_precision,
+                                                                                           self.id_criterion.smooothing_factor)
+        # caluclate target dirichlets for normal images
+        id_target_dist_second, ood_target_dist_second = construct_ccat_adv_target_dirichlets(id_second,
+                                                                                           id_second,
+                                                                                           id_labels_second,
+                                                                                           ood_second,
+                                                                                           ood_second,
+                                                                                           self.attack_params['norm'],
+                                                                                           self.attack_params['epsilon'],
+                                                                                           self.num_classes,
+                                                                                           self.id_criterion.target_precision,
+                                                                                           self.id_criterion.smooothing_factor)
+        # merge the two halves to get final single batch
+        return (id_data, ood_data), (torch.cat((id_target_dist_first[0], id_target_dist_second[0]), dim=0), torch.cat((id_target_dist_first[1], id_target_dist_second[1]), dim=0)), (torch.cat((ood_target_dist_first[0], ood_target_dist_second[0]), dim=0), torch.cat((ood_target_dist_first[1], ood_target_dist_second[1]), dim=0))
+
     def _generate_adversarial_dataset(self,
                                       id_dataset=None,
                                       ood_dataset=None,
+                                      check_success=True,
                                       only_true_adversaries=True,
                                       use_org_img_as_fallback=False,
                                       step_level=False,
@@ -709,7 +811,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         if self.adv_training_type == "normal":
                 # only works on in domain samples which get misclassified under attack
             additional_args = {'only_true_adversaries': only_true_adversaries,
-                               'use_org_img_as_fallback': use_org_img_as_fallback}
+                               'use_org_img_as_fallback': use_org_img_as_fallback,
+                               'check_success': check_success}
             id_train_adv_set = AdversarialDataset(self.id_train_dataset if id_dataset is None else id_dataset,
                                                   self.adv_attack_type.lower(),
                                                   self.model,
@@ -735,6 +838,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 threshold = self.known_threshold_value
             additional_args = {'only_true_adversaries': only_true_adversaries,
                                'use_org_img_as_fallback': use_org_img_as_fallback,
+                               'check_success': check_success,
                                'uncertainty_measure': self.uncertainty_measure,
                                'uncertainty_threshold': threshold
                                }

@@ -12,7 +12,7 @@ class PriorNetWeightedLoss:
     """
     Returns a mixed or linear combination of the losses provided, with weights
     taken directly from the weights.
-    The losses provided should be of type : DirichletKLLoss.
+    The losses provided should be of type : KLDivDirchletDistLoss.
     The final loss is also scaled down by the maximum target_precisions in the losses.
     """
     def __init__(self, losses, weights: Optional[Iterable[float]]):
@@ -122,6 +122,104 @@ class KLDivDirchletDistLoss:
             target_mean = torch.clone(target_mean).scatter_(1, labels[:, None],
                                                             1-(k-1) * self.smooothing_factor)
             target_precision = alphas.new_ones((alphas.shape[0], 1)) * self.target_precision
+        if self.reverse_KL:
+            loss = self.compute_kl_div_dirichlets(mean, target_mean, precision, target_precision)
+        else:
+            loss = self.compute_kl_div_dirichlets(target_mean, mean, target_precision, precision)
+        return loss
+
+class PriorNetWeightedAdvLoss:
+    """
+    Returns a mixed or linear combination of the losses provided, with weights
+    taken directly from the weights.
+    
+    The losses provided should be of type : TargetedKLDivDirchletDistLoss.
+    
+    The final loss is also scaled down by the maximum target_precisions in the losses.
+    """
+    def __init__(self, losses, weights: Optional[Iterable[float]]):
+        assert isinstance(losses, (list, tuple))
+        assert isinstance(weights, (list, tuple, np.ndarray))
+        assert len(losses) == len(weights)
+
+        self.losses = losses
+        if weights is not None:
+            self.weights = weights
+        else:
+            self.weights = [1.] * len(self.losses)
+
+    def __call__(self, logits, target_means, target_precisions):
+        return self.forward(logits, target_means, target_precisions)
+
+    def forward(self, logits, target_means, target_precisions):
+        total_loss = []
+        target_precision = 1.0
+        for i, loss in enumerate(self.losses):
+            avg_target_precision = torch.mean(target_precisions[i])
+            if avg_target_precision > target_precision:
+                target_precision = avg_target_precision
+            weighted_loss = (loss(logits[i], target_means[i], target_precisions[i])
+                             * self.weights[i])
+            total_loss.append(weighted_loss)
+        total_loss = torch.stack(total_loss, dim=0)
+        # Normalize by target concentration, so that loss  magnitude
+        # is constant wrt lr and other losses
+        return torch.sum(total_loss) / target_precision
+
+class TargetedKLDivDirchletDistLoss:
+    """
+    Similar to KLDivDirchletDistLoss, but a specific target dirichlet dist can be provided
+    instead of the target labels (from which a target dirichlet distribution is determined).
+    """
+    def __init__(self, target_precision=1e3, smoothing_factor=1e-2, reverse_KL=False):
+        self.target_precision = target_precision
+        self.smooothing_factor = smoothing_factor
+        self.reverse_KL = reverse_KL
+
+    def __call__(self, logits, target_mean, target_precision, reduction='mean'):
+        logits = logits - torch.max(logits, dim=0)[0]
+        alphas = torch.exp(logits)
+        return self.forward(alphas,
+                            target_mean,
+                            target_precision,
+                            reduction=reduction)
+
+    def forward(self, alphas, target_mean, target_precision, reduction='mean'):
+        loss = self.compute_loss(alphas,
+                                 target_mean,
+                                 target_precision)
+
+        if reduction == 'mean':
+            return torch.mean(loss)
+        elif reduction == 'none':
+            return loss
+        else:
+            raise NotImplementedError
+
+    @staticmethod
+    def compute_kl_div_dirichlets(target_mean, mean, target_precision, precision, epsilon=1e-8):
+        """
+        Computes KL divergence
+        KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
+        """
+        precision_term = (torch.lgamma(target_precision + epsilon) -
+                          torch.lgamma(precision + epsilon))
+
+        alphas = target_precision * target_mean
+        betas = precision * mean
+        concentration_term = torch.sum(torch.lgamma(betas + epsilon) -
+                                       torch.lgamma(alphas + epsilon) +
+                                       ((alphas - betas) * (torch.digamma(alphas + epsilon) -
+                                                            torch.digamma(target_precision +
+                                                                          epsilon)
+                                                            )
+                                        ), dim=1, keepdim=True)
+        kl_div = torch.squeeze(precision_term + concentration_term)
+        return kl_div
+
+    def compute_loss(self, alphas, target_mean, target_precision):
+        precision = torch.sum(alphas, dim=1, keepdim=True)
+        mean = alphas / precision
         if self.reverse_KL:
             loss = self.compute_kl_div_dirichlets(mean, target_mean, precision, target_precision)
         else:

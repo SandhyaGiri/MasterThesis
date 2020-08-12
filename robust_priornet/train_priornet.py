@@ -10,7 +10,9 @@ import torch.utils.data as data
 from .datasets.adversarial_dataset import AdversarialDataset
 from .datasets.torchvision_datasets import DatasetEnum, TorchVisionDataWrapper
 from .datasets.transforms import TransformsBuilder
-from .losses.dpn_loss import KLDivDirchletDistLoss, PriorNetWeightedLoss
+from .losses.dpn_loss import (KLDivDirchletDistLoss, PriorNetWeightedAdvLoss,
+                              PriorNetWeightedLoss,
+                              TargetedKLDivDirchletDistLoss)
 from .training.adversarial_trainer import AdversarialPriorNetTrainer
 from .training.trainer import PriorNetTrainer
 from .utils.common_data import (ATTACK_CRITERIA_MAP,
@@ -148,6 +150,7 @@ def main():
     mean = (0.5,)
     std = (0.5,)
     num_channels = ckpt['model_params']['num_channels']
+    num_classes = ckpt['model_params']['n_out']
     trans.add_resize(ckpt['model_params']['n_in'])
     if ckpt['model_params']['model_type'].startswith('vgg'):
         trans.add_center_crop(ckpt['model_params']['n_in'])
@@ -217,9 +220,14 @@ def main():
     print(f"(After equalizing) Validation dataset length: {len(id_val_set)}")
 
     # loss criteria
-    id_loss = KLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
-    ood_loss = KLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
-    criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
+    if args.include_adv_samples:
+        id_loss = TargetedKLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
+        ood_loss = TargetedKLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
+        criterion = PriorNetWeightedAdvLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
+    else:
+        id_loss = KLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
+        ood_loss = KLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
+        criterion = PriorNetWeightedLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
 
     # optimizer
     if args.optimizer == 'ADAM':
@@ -259,6 +267,7 @@ def main():
                                              add_ce_loss=args.add_ce_loss,
                                              ce_weight=args.ce_weight,
                                              batch_size=args.batch_size, device=device,
+                                             num_classes=num_classes,
                                              min_epochs=args.min_train_epochs, patience=args.patience,
                                              clip_norm=args.grad_clip_value,
                                              log_dir=args.model_dir, attack_params={

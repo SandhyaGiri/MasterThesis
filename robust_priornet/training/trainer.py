@@ -14,6 +14,7 @@ from ..eval.out_of_domain_detection import OutOfDomainDetectionEvaluator
 from ..eval.uncertainty import UncertaintyEvaluator
 from ..utils.pytorch import (eval_model_on_dataset, load_model,
                              save_model_with_params_from_ckpt)
+from ..losses.utils import construct_target_dirichlets
 from .early_stopping import EarlyStopper, EarlyStopperSteps
 
 
@@ -450,7 +451,7 @@ class PriorNetTrainer:
 
         return (loss.item(), precision, accuracy, outputs)
 
-    def _train_single_batch(self, id_data, ood_data):
+    def _train_single_batch(self, id_data, ood_data, id_target_dist=None, ood_target_dist=None):
         """
         Trains on both id and ood samples on the combined kl div loss/criterion.
         """
@@ -471,7 +472,12 @@ class PriorNetTrainer:
         id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
 
         # Calculate train loss (overall loss including both id, ood samples)
-        loss = self.criterion((id_outputs, ood_outputs), (labels, None))
+        if id_target_dist is not None and ood_target_dist is not None:
+            loss = self.criterion((id_outputs, ood_outputs),
+                                  (id_target_dist[0], ood_target_dist[0]),
+                                  (id_target_dist[1], ood_target_dist[1]))
+        else:
+            loss = self.criterion((id_outputs, ood_outputs), (labels, None))
         assert torch.all(torch.isfinite(loss)).item()
 
         # include CE loss if needed
@@ -481,8 +487,12 @@ class PriorNetTrainer:
             loss.add_(self.ce_weight * ce_loss_val)
 
         # Measures ID and OOD losses
-        id_loss = self.id_criterion(id_outputs, labels).item()
-        ood_loss = self.ood_criterion(ood_outputs, None).item()
+        if id_target_dist is not None and ood_target_dist is not None:
+            id_loss = self.id_criterion(id_outputs, id_target_dist[0], id_target_dist[1]).item()
+            ood_loss = self.ood_criterion(ood_outputs, ood_target_dist[0], ood_target_dist[1]).item()
+        else:
+            id_loss = self.id_criterion(id_outputs, labels).item()
+            ood_loss = self.ood_criterion(ood_outputs, None).item()
 
         loss.backward()
         clip_grad_norm_(self.model.parameters(), self.clip_norm)
@@ -565,7 +575,7 @@ class PriorNetTrainer:
         }
 
 
-    def _val_single_epoch(self):
+    def _val_single_epoch(self, generate_target_dist=False):
         # Set model in eval mode
         self.model.eval()
 
@@ -585,11 +595,25 @@ class PriorNetTrainer:
                                                                     non_blocking=self.pin_memory),
                                                      (inputs, labels, ood_inputs))
 
-                # append id samples with ood samples
                 id_outputs, ood_outputs = self._eval_logits_id_ood_samples(inputs, ood_inputs)
+                
+                id_target_dist = None
+                ood_target_dist = None
+                if generate_target_dist:
+                    id_target_dist, ood_target_dist = construct_target_dirichlets(inputs,
+                                                                                  labels,
+                                                                                  ood_inputs,
+                                                                                  self.num_classes,
+                                                                                  self.id_criterion.target_precision,
+                                                                                  self.id_criterion.smooothing_factor)
 
                 # Calculate train loss
-                loss = self.criterion((id_outputs, ood_outputs), (labels, None))
+                if id_target_dist is not None and ood_target_dist is not None:
+                    loss = self.criterion((id_outputs, ood_outputs),
+                                          (id_target_dist[0], ood_target_dist[0]),
+                                          (id_target_dist[1], ood_target_dist[1]))
+                else:
+                    loss = self.criterion((id_outputs, ood_outputs), (labels, None))
                 assert torch.all(torch.isfinite(loss)).item()
                 
                 # include CE loss if needed
@@ -600,8 +624,12 @@ class PriorNetTrainer:
                 kl_loss += loss.item()
 
                 # Measures ID and OOD losses
-                id_loss += self.id_criterion(id_outputs, labels).item()
-                ood_loss += self.ood_criterion(ood_outputs, None).item()
+                if id_target_dist is not None and ood_target_dist is not None:
+                    id_loss += self.id_criterion(id_outputs, id_target_dist[0], id_target_dist[1]).item()
+                    ood_loss += self.ood_criterion(ood_outputs, ood_target_dist[0], ood_target_dist[1]).item()
+                else:
+                    id_loss += self.id_criterion(id_outputs, labels).item()
+                    ood_loss += self.ood_criterion(ood_outputs, None).item()
 
                 # precision of the dirichlet dist output by the model (id, ood seprately),
                 # averaged across all samples in batch
