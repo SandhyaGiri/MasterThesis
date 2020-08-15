@@ -19,7 +19,7 @@ from ..utils.common_data import ATTACK_CRITERIA_MAP, OOD_ATTACK_CRITERIA_MAP
 from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
 from .early_stopping import EarlyStopper, EarlyStopperSteps
-from ..losses.utils import construct_ccat_adv_target_dirichlets
+from ..losses.utils import construct_ccat_adv_target_dirichlets, construct_target_dirichlets
 from .trainer import PriorNetTrainer
 
 
@@ -163,6 +163,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.use_fixed_threshold = use_fixed_threshold
         self.known_threshold_value = known_threshold_value
         self.num_classes = num_classes
+        self.log_file_name = 'training-log.txt'
 
     def _get_inputs_from_dataset(self, dataset):
         length = len(dataset)
@@ -211,6 +212,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             total_id_precision, total_ood_precision = 0.0, 0.0
             num_steps_per_epoch = len(self.id_train_loader)
             id_outputs_all = None
+            id_labels_all = None
             ood_outputs_all = None
             # iterators for the data loaders, as we don't have common num_batches across them
             id_train_iterator = iter(self.id_train_loader)
@@ -223,7 +225,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 ood_data, ood_labels = next(ood_train_iterator)
                 
                 # choose 50% samples in each id, ood batches and generate adversarials
-                (id_data, ood_data), id_target_dist, ood_target_dist = self._construct_mixed_batch_with_target_dirichlets((id_data, id_labels),
+                (id_data, ood_data), id_target_dist, ood_target_dist = self._construct_mixed_batch_with_target_dirichlets_var2((id_data, id_labels),
                                                                        (ood_data, ood_labels),
                                                                        0.5)
                 
@@ -241,9 +243,11 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 if id_outputs_all is None:
                     id_outputs_all = id_outputs
                     ood_outputs_all = ood_outputs
+                    id_labels_all = id_labels
                 else:
                     id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
                     ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
+                    id_labels_all = torch.cat((id_labels_all, id_labels), dim=0)
 
                 # accumulate the metrics
                 step_kl_loss += kl_loss
@@ -324,12 +328,17 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 accuracies += step_accuracies
                 # these values will be extra in the next epoch, so should be subtracted later
                 overflow = (step_kl_loss, step_id_loss, step_ood_loss, step_id_precision, step_ood_precision, step_accuracies)
-            # log uncertainties needed for ood-detect adv generation
+            # log uncertainties needed for ood-detect adv generation (threshold calc)
             if self.log_uncertainties:
                 id_uncertainties = UncertaintyEvaluator(id_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
                 ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
                 uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties')
                 os.makedirs(uncertainty_dir)
+                # save model's predictions as well
+                np.savetxt(os.path.join(uncertainty_dir, 'id_logits.txt'), id_outputs_all.detach().cpu().numpy())
+                np.savetxt(os.path.join(uncertainty_dir, 'id_probs.txt'),
+                        torch.softmax(id_outputs_all, dim=1).detach().cpu().numpy())
+                np.savetxt(os.path.join(uncertainty_dir, 'id_labels.txt'), id_labels_all.detach().cpu().numpy())
                 for key in ood_uncertainties.keys():
                     np.savetxt(os.path.join(uncertainty_dir, 'ood_' + key._value_ + '.txt'),
                             ood_uncertainties[key])
@@ -720,8 +729,100 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                               *self.dataset_persistence_params,
                               adv_dir)
 
+    def _construct_mixed_batch_with_target_dirichlets_var2(self, id_dataset, ood_dataset, percentage_advs):
+        """
+        VARIANT 2: 50% normal, up to 50% true adv images (may be less than 50%)
+        keeps track of number of adversarials in the batch provided.
+        """
+        id_images, id_labels = id_dataset
+        ood_images, ood_labels = ood_dataset
+        # caluclate target dirichlets for normal images
+        id_target_dist, ood_target_dist = construct_target_dirichlets(id_images,
+                                                                      id_labels,
+                                                                      ood_images,
+                                                                      self.num_classes,
+                                                                      self.id_criterion.target_precision,
+                                                                      self.id_criterion.smooothing_factor)
+        if self.epochs == 0:
+            return (id_images, ood_images), (id_target_dist[0], id_target_dist[1]), (ood_target_dist[0], ood_target_dist[1])
+        
+        id_adv_dataset = None
+        ood_adv_dataset = None
+        id_images_final = []
+        ood_images_final = []
+        id_target_mean_final, ood_target_mean_final = [], []
+        id_target_precision_final, ood_target_precision_final = [], []
+        id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset(id_dataset=
+                                                                    data.TensorDataset(id_images, id_labels),
+                                                                    ood_dataset=
+                                                                    data.TensorDataset(ood_images, ood_labels),
+                                                                    check_success=True,
+                                                                    only_true_adversaries=
+                                                                    True,
+                                                                    use_org_img_as_fallback=
+                                                                    True,
+                                                                    previous_epoch=
+                                                                True)
+        id_adv_indices = id_adv_dataset.get_adversarial_indices() # true adversaries
+        if ood_adv_dataset is not None and ood_adv_dataset != []:
+            ood_adv_indices = ood_adv_dataset.get_adversarial_indices()
+        
+        # calculate target dirichlets for adv images
+        id_target_dist_adv, ood_target_dist_adv = construct_ccat_adv_target_dirichlets(id_images,
+                                                                                        self._get_inputs_from_dataset(id_adv_dataset)
+                                                                                        if (id_adv_dataset is not None and id_adv_dataset != []) else id_images,
+                                                                                        id_labels,
+                                                                                        ood_images,
+                                                                                        self._get_inputs_from_dataset(ood_adv_dataset)
+                                                                                        if (ood_adv_dataset is not None and ood_adv_dataset != []) else ood_images,
+                                                                                        self.attack_params['norm'],
+                                                                                        self.attack_params['epsilon'],
+                                                                                        self.num_classes,
+                                                                                        self.id_criterion.target_precision,
+                                                                                        self.id_criterion.smooothing_factor)
+    
+        # only pick 50% adv from what is returned (for both in and out datasets)
+        id_batch_size = id_dataset[0].shape[0]
+        ood_batch_size = ood_dataset[0].shape[0]
+        desired_id_adv_samples = int(percentage_advs * id_batch_size)
+        desired_ood_adv_samples = int(percentage_advs * ood_batch_size)
+        curr_id_adv_samples = 0
+        for i in range(id_batch_size):
+            if i in id_adv_indices and curr_id_adv_samples < desired_id_adv_samples: # adversarial image (true)
+                id_images_final.append(id_adv_dataset[i][0].unsqueeze(0))
+                id_target_mean_final.append(id_target_dist_adv[0][i].unsqueeze(0))
+                id_target_precision_final.append(id_target_dist_adv[1][i])
+                curr_id_adv_samples += 1
+            else: # take the normal image
+                id_images_final.append(id_images[i].unsqueeze(0))
+                id_target_mean_final.append(id_target_dist[0][i].unsqueeze(0))
+                id_target_precision_final.append(id_target_dist[1][i])
+        curr_ood_adv_samples = 0
+        if ood_adv_dataset is not None and ood_adv_dataset != []:
+            for i in range(ood_batch_size):
+                if i in ood_adv_indices and curr_ood_adv_samples < desired_ood_adv_samples: # adversarial image (true)
+                    ood_images_final.append(ood_adv_dataset[i][0].unsqueeze(0))
+                    ood_target_mean_final.append(ood_target_dist_adv[0][i].unsqueeze(0))
+                    ood_target_precision_final.append(ood_target_dist_adv[1][i])
+                    curr_ood_adv_samples += 1
+                else: # take the normal image
+                    ood_images_final.append(ood_images[i].unsqueeze(0))
+                    ood_target_mean_final.append(ood_target_dist[0][i].unsqueeze(0))
+                    ood_target_precision_final.append(ood_target_dist[1][i])
+        with open(os.path.join(self.log_dir, self.log_file_name), 'a') as f:
+            f.write(f"\n")
+            f.write(f"Generated ID adv samples (true): {curr_id_adv_samples}\n")
+            f.write(f"Generated OOD adv samples (treu): {curr_ood_adv_samples}\n")
+        # only in-batch has mixed adv and normal images
+        if ood_adv_dataset is None or ood_adv_dataset == []:
+            return (torch.cat(id_images_final, dim=0), ood_images), (torch.cat(id_target_mean_final, dim=0), torch.cat(id_target_precision_final, dim=0).unsqueeze(1)), ood_target_dist
+        # both in-batch and out-batch have mixed samples
+        return (torch.cat(id_images_final, dim=0), torch.cat(ood_images_final, dim=0)), (torch.cat(id_target_mean_final, dim=0), torch.cat(id_target_precision_final, dim=0).unsqueeze(1)), (torch.cat(ood_target_mean_final, dim=0), torch.cat(ood_target_precision_final, dim=0).unsqueeze(1))
+
     def _construct_mixed_batch_with_target_dirichlets(self, id_dataset, ood_dataset, percentage_advs):
         """
+        VARIANT 1: 50% normal, 50% adv images (with no check for true adversary i.e don't use thresholds)
+        
         Generates adversarial images and uses the distance between adv image
         and original image to compute target dirichlet distributions. For those
         perturbations that are far away from the in-domain image, we output a uniform
@@ -775,16 +876,12 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                                                            self.id_criterion.target_precision,
                                                                                            self.id_criterion.smooothing_factor)
         # caluclate target dirichlets for normal images
-        id_target_dist_second, ood_target_dist_second = construct_ccat_adv_target_dirichlets(id_second,
-                                                                                           id_second,
-                                                                                           id_labels_second,
-                                                                                           ood_second,
-                                                                                           ood_second,
-                                                                                           self.attack_params['norm'],
-                                                                                           self.attack_params['epsilon'],
-                                                                                           self.num_classes,
-                                                                                           self.id_criterion.target_precision,
-                                                                                           self.id_criterion.smooothing_factor)
+        id_target_dist_second, ood_target_dist_second = construct_target_dirichlets(id_second,
+                                                                                    id_labels_second,
+                                                                                    ood_second,
+                                                                                    self.num_classes,
+                                                                                    self.id_criterion.target_precision,
+                                                                                    self.id_criterion.smooothing_factor)
         # merge the two halves to get final single batch
         return (id_data, ood_data), (torch.cat((id_target_dist_first[0], id_target_dist_second[0]), dim=0), torch.cat((id_target_dist_first[1], id_target_dist_second[1]), dim=0)), (torch.cat((ood_target_dist_first[0], ood_target_dist_second[0]), dim=0), torch.cat((ood_target_dist_first[1], ood_target_dist_second[1]), dim=0))
 
@@ -830,7 +927,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 # persist only random sampled 100 images
                 self._persist_adv_dataset(id_train_adv_set, f'{dir_prefix}-adv-images')
         elif self.adv_training_type == "ood-detect":
-            if not self.use_fixed_threshold:
+            if not self.use_fixed_threshold and check_success:
                 threshold = get_optimal_threshold(os.path.join(self.log_dir,
                                                                f'{dir_prefix}-uncertainties'),
                                                   self.uncertainty_measure)
@@ -839,8 +936,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             additional_args = {'only_true_adversaries': only_true_adversaries,
                                'use_org_img_as_fallback': use_org_img_as_fallback,
                                'check_success': check_success,
-                               'uncertainty_measure': self.uncertainty_measure,
-                               'uncertainty_threshold': threshold
+                               'success_detect_criteria': {
+                                   self.uncertainty_measure : threshold
+                               }
                                }
             if not self.only_out_in_adversarials:
                 id_train_adv_set = AdversarialDataset(self.id_train_dataset if id_dataset is None else id_dataset,

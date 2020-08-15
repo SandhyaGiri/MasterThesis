@@ -220,6 +220,8 @@ class TargetedKLDivDirchletDistLoss:
     def compute_loss(self, alphas, target_mean, target_precision):
         precision = torch.sum(alphas, dim=1, keepdim=True)
         mean = alphas / precision
+        target_mean = target_mean.to(mean.device)
+        target_precision = target_precision.to(precision.device)
         if self.reverse_KL:
             loss = self.compute_kl_div_dirichlets(mean, target_mean, precision, target_precision)
         else:
