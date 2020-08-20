@@ -164,6 +164,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.known_threshold_value = known_threshold_value
         self.num_classes = num_classes
         self.log_file_name = 'training-log.txt'
+        self.gaussian_noise_training = True
+        self.gaussian_noise_std_dev = 0.05
 
     def _get_inputs_from_dataset(self, dataset):
         length = len(dataset)
@@ -227,7 +229,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 # choose 50% samples in each id, ood batches and generate adversarials
                 (id_data, ood_data), id_target_dist, ood_target_dist = self._construct_mixed_batch_with_target_dirichlets_var2((id_data, id_labels),
                                                                        (ood_data, ood_labels),
-                                                                       0.5)
+                                                                       0.5,
+                                                                       gaussian_as_normal=self.gaussian_noise_training)
                 
                 # train on these images
                 batch_train_results = self._train_single_batch((id_data, id_labels),
@@ -724,27 +727,50 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                   random.sample(list(indices),
                                                 min(100, len(indices))))
         adv_dir = os.path.join(self.log_dir, dir_name)
-        os.makedirs(adv_dir)
+        if not os.path.exists(adv_dir):
+            os.makedirs(adv_dir)
         persist_image_dataset(adv_dataset,
                               *self.dataset_persistence_params,
                               adv_dir)
 
-    def _construct_mixed_batch_with_target_dirichlets_var2(self, id_dataset, ood_dataset, percentage_advs):
+    def _construct_mixed_batch_with_target_dirichlets_var2(self, id_dataset, ood_dataset, percentage_advs, gaussian_as_normal=False):
         """
         VARIANT 2: 50% normal, up to 50% true adv images (may be less than 50%)
         keeps track of number of adversarials in the batch provided.
         """
         id_images, id_labels = id_dataset
         ood_images, ood_labels = ood_dataset
-        # caluclate target dirichlets for normal images
-        id_target_dist, ood_target_dist = construct_target_dirichlets(id_images,
-                                                                      id_labels,
-                                                                      ood_images,
-                                                                      self.num_classes,
-                                                                      self.id_criterion.target_precision,
-                                                                      self.id_criterion.smooothing_factor)
-        if self.epochs == 0:
-            return (id_images, ood_images), (id_target_dist[0], id_target_dist[1]), (ood_target_dist[0], ood_target_dist[1])
+        if gaussian_as_normal:
+            # add gaussian noise to normal images
+            # clipping (range = -1, 1)
+            noise = torch.randn_like(id_images) * self.gaussian_noise_std_dev
+            id_images_gaussian = torch.clamp(id_images + noise, -1, 1)
+            noise = torch.randn_like(ood_images) * self.gaussian_noise_std_dev
+            ood_images_gaussian = torch.clamp(ood_images + noise, -1, 1)
+            # calc target dirichlets using gaussian noise perturbed images as advs
+            id_target_dist, ood_target_dist = construct_ccat_adv_target_dirichlets(id_images,
+                                                                                   id_images_gaussian,
+                                                                                   id_labels,
+                                                                                   ood_images,
+                                                                                   ood_images_gaussian,
+                                                                                   self.attack_params['norm'],
+                                                                                   self.attack_params['epsilon'],
+                                                                                   self.num_classes,
+                                                                                   self.id_criterion.target_precision,
+                                                                                   self.id_criterion.smooothing_factor)
+        else:
+            # caluclate target dirichlets for normal images
+            id_target_dist, ood_target_dist = construct_target_dirichlets(id_images,
+                                                                        id_labels,
+                                                                        ood_images,
+                                                                        self.num_classes,
+                                                                        self.id_criterion.target_precision,
+                                                                        self.id_criterion.smooothing_factor)
+
+        if self.epochs == 0 and not gaussian_as_normal:
+            return (id_images, ood_images), id_target_dist, ood_target_dist
+        elif self.epochs == 0 and gaussian_as_normal:
+            return (id_images_gaussian, ood_images_gaussian), id_target_dist, ood_target_dist
         
         id_adv_dataset = None
         ood_adv_dataset = None
@@ -794,7 +820,10 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 id_target_precision_final.append(id_target_dist_adv[1][i])
                 curr_id_adv_samples += 1
             else: # take the normal image
-                id_images_final.append(id_images[i].unsqueeze(0))
+                if gaussian_as_normal:
+                    id_images_final.append(id_images_gaussian[i].unsqueeze(0))
+                else:
+                    id_images_final.append(id_images[i].unsqueeze(0))
                 id_target_mean_final.append(id_target_dist[0][i].unsqueeze(0))
                 id_target_precision_final.append(id_target_dist[1][i])
         curr_ood_adv_samples = 0
@@ -806,7 +835,10 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                     ood_target_precision_final.append(ood_target_dist_adv[1][i])
                     curr_ood_adv_samples += 1
                 else: # take the normal image
-                    ood_images_final.append(ood_images[i].unsqueeze(0))
+                    if gaussian_as_normal:
+                        ood_images_final.append(ood_images_gaussian[i].unsqueeze(0))
+                    else:
+                        ood_images_final.append(ood_images[i].unsqueeze(0))
                     ood_target_mean_final.append(ood_target_dist[0][i].unsqueeze(0))
                     ood_target_precision_final.append(ood_target_dist[1][i])
         with open(os.path.join(self.log_dir, self.log_file_name), 'a') as f:
@@ -819,7 +851,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         # both in-batch and out-batch have mixed samples
         return (torch.cat(id_images_final, dim=0), torch.cat(ood_images_final, dim=0)), (torch.cat(id_target_mean_final, dim=0), torch.cat(id_target_precision_final, dim=0).unsqueeze(1)), (torch.cat(ood_target_mean_final, dim=0), torch.cat(ood_target_precision_final, dim=0).unsqueeze(1))
 
-    def _construct_mixed_batch_with_target_dirichlets(self, id_dataset, ood_dataset, percentage_advs):
+    def _construct_mixed_batch_with_target_dirichlets(self, id_dataset, ood_dataset, percentage_advs, gaussian_as_normal=False):
         """
         VARIANT 1: 50% normal, 50% adv images (with no check for true adversary i.e don't use thresholds)
         
@@ -847,6 +879,26 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         id_labels_first, id_labels_second = id_labels.split(((id_adv_end_index, id_data.shape[0]-id_adv_end_index)))
         ood_first, ood_second = ood_data.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
         ood_labels_first, ood_labels_second = ood_labels.split((ood_adv_end_index, ood_data.shape[0]-ood_adv_end_index))
+        
+        if gaussian_as_normal:
+            # add gaussian noise to normal images
+            # clipping (range = -1, 1)
+            noise = torch.randn_like(id_second) * self.gaussian_noise_std_dev
+            id_second_gaussian = torch.clamp(id_second + noise, -1, 1)
+            noise = torch.randn_like(ood_second) * self.gaussian_noise_std_dev
+            ood_second_gaussian = torch.clamp(ood_second + noise, -1, 1)
+            noise = torch.randn_like(id_first) * self.gaussian_noise_std_dev
+            id_first_gaussian = torch.clamp(id_first + noise, -1, 1)
+            noise = torch.randn_like(ood_first) * self.gaussian_noise_std_dev
+            ood_first_gaussian = torch.clamp(ood_first + noise, -1, 1)
+            if self.epochs == 0: # for other epochs we will have adv for this half
+                # also do it on first half for epoch == 0
+                # both halves on first epoch are gaussian perturbed
+                id_data = torch.cat((id_first_gaussian, id_second_gaussian), dim=0)
+                ood_data = torch.cat((ood_first_gaussian, ood_second_gaussian), dim=0)
+
+        id_first_final = id_first_gaussian if gaussian_as_normal else id_first
+        ood_first_final = ood_first_gaussian if gaussian_as_normal else ood_first
         if self.epochs > 0:
             id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset(id_dataset=
                                                                         data.TensorDataset(id_first, id_labels_first),
@@ -859,29 +911,34 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                                                                         False,
                                                                         previous_epoch=
                                                                         True)
-            id_data = torch.cat((self._get_inputs_from_dataset(id_adv_dataset), id_second), dim=0)
-            ood_data = torch.cat((self._get_inputs_from_dataset(ood_adv_dataset) if ood_adv_dataset != [] else ood_first,
-                                            ood_second), dim=0)
+            id_data = torch.cat((self._get_inputs_from_dataset(id_adv_dataset),
+                                 id_second_gaussian if gaussian_as_normal else id_second), dim=0)
+            ood_data = torch.cat((self._get_inputs_from_dataset(ood_adv_dataset) if ood_adv_dataset != [] else ood_first_final,
+                                  ood_second_gaussian if gaussian_as_normal else ood_second), dim=0)
         # calculate target dirichlets for adv images
         id_target_dist_first, ood_target_dist_first = construct_ccat_adv_target_dirichlets(id_first,
                                                                                            self._get_inputs_from_dataset(id_adv_dataset)
-                                                                                           if (id_adv_dataset is not None and id_adv_dataset != []) else id_first,
+                                                                                           if (id_adv_dataset is not None and id_adv_dataset != []) else id_first_final,
                                                                                            id_labels_first,
                                                                                            ood_first,
                                                                                            self._get_inputs_from_dataset(ood_adv_dataset)
-                                                                                           if (ood_adv_dataset is not None and ood_adv_dataset != []) else ood_first,
+                                                                                           if (ood_adv_dataset is not None and ood_adv_dataset != []) else ood_first_final,
                                                                                            self.attack_params['norm'],
                                                                                            self.attack_params['epsilon'],
                                                                                            self.num_classes,
                                                                                            self.id_criterion.target_precision,
                                                                                            self.id_criterion.smooothing_factor)
         # caluclate target dirichlets for normal images
-        id_target_dist_second, ood_target_dist_second = construct_target_dirichlets(id_second,
-                                                                                    id_labels_second,
-                                                                                    ood_second,
-                                                                                    self.num_classes,
-                                                                                    self.id_criterion.target_precision,
-                                                                                    self.id_criterion.smooothing_factor)
+        id_target_dist_second, ood_target_dist_second = construct_ccat_adv_target_dirichlets(id_second,
+                                                                                            id_second_gaussian if gaussian_as_normal else id_second,
+                                                                                            id_labels_second,
+                                                                                            ood_second,
+                                                                                            ood_second_gaussian if gaussian_as_normal else ood_second,
+                                                                                            self.attack_params['norm'],
+                                                                                            self.attack_params['epsilon'],
+                                                                                            self.num_classes,
+                                                                                            self.id_criterion.target_precision,
+                                                                                            self.id_criterion.smooothing_factor)
         # merge the two halves to get final single batch
         return (id_data, ood_data), (torch.cat((id_target_dist_first[0], id_target_dist_second[0]), dim=0), torch.cat((id_target_dist_first[1], id_target_dist_second[1]), dim=0)), (torch.cat((ood_target_dist_first[0], ood_target_dist_second[0]), dim=0), torch.cat((ood_target_dist_first[1], ood_target_dist_second[1]), dim=0))
 
