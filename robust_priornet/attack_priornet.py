@@ -59,7 +59,7 @@ parser.add_argument('--target_precision', type=int, required=False, default=0,
 parser.add_argument('--attack_type', choices=['misclassify', 'ood-detect'],
                     default='misclassify',
                     help='Choose the type of attack used to generate adversaries.')
-parser.add_argument('--attack_strategy', type=str, choices=['FGSM', 'PGD'], default='FGSM',
+parser.add_argument('--attack_strategy', type=str, choices=['FGSM', 'PGD', 'CW'], default='FGSM',
                     help='Choose the category of attack to be performed.')
 parser.add_argument('--attack_criteria', type=str, choices=ATTACK_CRITERIA_MAP.keys(),
                     required=True,

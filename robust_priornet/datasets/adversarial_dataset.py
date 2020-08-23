@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from ..attacks.fast_gradient_sign import construct_fgsm_attack
 from ..attacks.projected_gradient_descent import construct_pgd_attack
+from ..attacks.carlini_wagner_l2 import construct_carlini_wagner_l2_attack
 from ..attacks.projected_gradient_descent_targeted import \
     construct_pgd_targeted_attack
 from ..eval.uncertainty import UncertaintyMeasuresEnum
@@ -28,7 +29,7 @@ class AdversarialDataset(Dataset):
                  ood_dataset: bool = False,
                  success_detect_criteria = {},
                  target_label='all'):
-        assert attack_type in ['fgsm', 'pgd']
+        assert attack_type in ['fgsm', 'pgd', 'cw']
         assert adv_success_detect_type in ['normal', 'ood-detect']
 
         # create dataloader
@@ -73,6 +74,19 @@ class AdversarialDataset(Dataset):
                                                                       'criteria': success_detect_criteria
                                                                   },
                                                                   target_label=target_label if target_label == "all" else int(target_label))
+                    adv_indices = [index + i * batch_size for index in adv_indices]
+                elif attack_type == 'cw': # carlini-wagner
+                    # create target label 0..9
+                    attack_targets = torch.ones(inputs.size(0), dtype=torch.int) * 8
+                    adv_inputs, new_labels, adv_indices = construct_carlini_wagner_l2_attack(model=model,
+                                                                                        labels=labels,
+                                                                                        inputs=inputs,
+                                                                                        epsilon=epsilon,
+                                                                                        criterion=attack_criterion,
+                                                                                        device=device,
+                                                                                        targeted_attack=True,
+                                                                                        target_labels=attack_targets,
+                                                                                        max_iterations=max_steps)
                     adv_indices = [index + i * batch_size for index in adv_indices]
                 # size of new labels can be lesser than org labels
                 # when true adversaries are only returned by attacks

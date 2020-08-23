@@ -72,29 +72,17 @@ def run(in_domain_dataset, ood_dataset, model_dir, data_dir, batch_size, use_tra
         out_dir = os.path.join(model_dir, f"attack-{attack_strategy}-{attack_criteria}-{attack_type}-{ood_dataset}-{time}")
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
         attack_only_out_dist = f'--attack_only_out_dist' if attack_only_out_dist is True else ''
-        if attack_strategy == 'FGSM':
-            fgsm_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
-                    --batch_size {batch_size} --epsilon {epsilons} \
-                    --attack_type {attack_type} --attack_strategy {attack_strategy} \
-                    --attack_criteria {attack_criteria} --threshold {threshold} \
-                    --model_dir {model_dir} --target_precision {target_precision} \
-                    --ood_dataset {ood_dataset} {'--train_dataset' if use_train_dataset else ''} \
-                    {'--val_dataset' if use_val_dataset else ''} {dataset_limit} {attack_only_out_dist} \
-                    {data_dir} {in_domain_dataset} {out_dir}"
-            logging.info(f"FGSM attack command being executed: {fgsm_cmd}")
-            os.system(fgsm_cmd)
-        elif attack_strategy == "PGD":
-            pgd_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
-                    --batch_size {batch_size} --epsilon {epsilons} \
-                    --attack_type {attack_type} --attack_strategy {attack_strategy} \
-                    --attack_criteria {attack_criteria} --target_precision {target_precision} \
-                    --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
-                    --threshold {threshold} --ood_dataset {ood_dataset} \
-                    {'--train_dataset' if use_train_dataset else ''} {attack_only_out_dist} \
-                    {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
-                    {data_dir} {in_domain_dataset} {out_dir}"
-            logging.info(f"PGD attack command being executed: {pgd_cmd}")
-            os.system(pgd_cmd)
+        attack_cmd = f"python -m robust_priornet.attack_priornet {gpu_list} \
+                --batch_size {batch_size} --epsilon {epsilons} \
+                --attack_type {attack_type} --attack_strategy {attack_strategy} \
+                --attack_criteria {attack_criteria} --target_precision {target_precision} \
+                --norm {attack_norm} --model_dir {model_dir} --max_steps {max_steps} \
+                --threshold {threshold} --ood_dataset {ood_dataset} \
+                {'--train_dataset' if use_train_dataset else ''} {attack_only_out_dist} \
+                {'--val_dataset' if use_val_dataset else ''} {dataset_limit}\
+                {data_dir} {in_domain_dataset} {out_dir}"
+        logging.info(f"{attack_strategy} attack command being executed: {attack_cmd}")
+        os.system(attack_cmd)
 
     if run_certification is True:
         dataset_limit = f'--dataset_size_limit {dataset_size_limit}' if dataset_size_limit is not None else ''
