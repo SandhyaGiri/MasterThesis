@@ -76,8 +76,9 @@ class AdversarialDataset(Dataset):
                                                                   target_label=target_label if target_label == "all" else int(target_label))
                     adv_indices = [index + i * batch_size for index in adv_indices]
                 elif attack_type == 'cw': # carlini-wagner
-                    # create target label 0..9
-                    attack_targets = torch.ones(inputs.size(0), dtype=torch.int) * 8
+                    # create target label as the second largest logit label.
+                    logits = model(inputs)
+                    attack_targets = torch.argsort(logits, dim=1)[:, -2] # choose second column from end
                     adv_inputs, new_labels, adv_indices = construct_carlini_wagner_l2_attack(model=model,
                                                                                         labels=labels,
                                                                                         inputs=inputs,

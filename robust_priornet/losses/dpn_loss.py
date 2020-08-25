@@ -155,9 +155,10 @@ class PriorNetWeightedAdvLoss:
         total_loss = []
         target_precision = 1.0
         for i, loss in enumerate(self.losses):
-            avg_target_precision = torch.mean(target_precisions[i])
-            if avg_target_precision > target_precision:
-                target_precision = avg_target_precision
+            # avg_target_precision = torch.mean(target_precisions[i])
+            max_target_precision = torch.max(target_precisions[i]).item()
+            if max_target_precision > target_precision:
+                target_precision = max_target_precision
             weighted_loss = (loss(logits[i], target_means[i], target_precisions[i])
                              * self.weights[i])
             total_loss.append(weighted_loss)
