@@ -203,5 +203,5 @@ def construct_pgd_attack(model,
         if is_adversary:
             true_adv_indices.append(i)
     if len(adv_inputs) == 0:
-        return None, None
+        return None, None, []
     return torch.cat(adv_inputs, dim=0), torch.cat(adv_labels, dim=0), true_adv_indices

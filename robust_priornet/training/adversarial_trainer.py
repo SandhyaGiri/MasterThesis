@@ -20,6 +20,7 @@ from ..utils.persistence import persist_image_dataset
 from ..utils.pytorch import load_model, save_model_with_params_from_ckpt
 from .early_stopping import EarlyStopper, EarlyStopperSteps
 from ..losses.utils import construct_ccat_adv_target_dirichlets, construct_target_dirichlets
+from ..losses.dpn_loss import TargetedKLDivDirchletDistLoss, KLDivDirchletDistLoss
 from .trainer import PriorNetTrainer
 
 
@@ -131,7 +132,9 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  adv_training_type: str = 'normal',
                  uncertainty_measure: UncertaintyMeasuresEnum = UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
                  use_fixed_threshold=False, known_threshold_value=0.0,
-                 only_out_in_adversarials: bool = False):
+                 only_out_in_adversarials: bool = False,
+                 gaussian_noise_as_normal: bool = False,
+                 gaussian_noise_std_dev: float = 0.05):
         """
         for "ood-detect adversarial training, we need to know the uncertainty_measure used to the binary
         classification between in-domain and out-domain samples."
@@ -164,8 +167,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         self.known_threshold_value = known_threshold_value
         self.num_classes = num_classes
         self.log_file_name = 'training-log.txt'
-        self.gaussian_noise_training = True
-        self.gaussian_noise_std_dev = 0.05
+        self.gaussian_noise_training = gaussian_noise_as_normal
+        self.gaussian_noise_std_dev = gaussian_noise_std_dev
 
     def _get_inputs_from_dataset(self, dataset):
         length = len(dataset)
@@ -442,6 +445,7 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             total_id_precision, total_ood_precision = 0.0, 0.0
             id_outputs_all = None
             ood_outputs_all = None
+            id_labels_all = None
             
             num_steps_per_epoch = len(self.id_train_loader)
             # iterators for the data loaders, as we don't have common num_batches across them
@@ -455,7 +459,8 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             start = time.time()
             for i in range(num_steps_per_epoch): # each batch
                 # train on normal images
-                batch_train_results = self._train_single_batch(next(id_train_iterator),
+                id_images, id_labels = next(id_train_iterator)
+                batch_train_results = self._train_single_batch((id_images, id_labels),
                                                                next(ood_train_iterator))
                 kl_loss, id_loss, ood_loss, id_precision, ood_precision, accuracy, id_outputs, ood_outputs = batch_train_results
                 # train on adv images - id
@@ -475,9 +480,11 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 if id_outputs_all is None:
                     id_outputs_all = id_outputs
                     ood_outputs_all = ood_outputs
+                    id_labels_all = id_labels
                 else:
                     id_outputs_all = torch.cat((id_outputs_all, id_outputs), dim=0)
                     ood_outputs_all = torch.cat((ood_outputs_all, ood_outputs), dim=0)
+                    id_labels_all = torch.cat((id_labels_all, id_labels), dim=0)
                 # accumulate the metrics
                 step_kl_loss += kl_loss
                 step_id_loss += id_loss
@@ -563,6 +570,11 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                 ood_uncertainties = UncertaintyEvaluator(ood_outputs_all.detach().cpu().numpy()).get_all_uncertainties()
                 uncertainty_dir = os.path.join(self.log_dir, f'epoch-{self.epochs+1}-uncertainties')
                 os.makedirs(uncertainty_dir)
+                # save model's predictions as well
+                np.savetxt(os.path.join(uncertainty_dir, 'id_logits.txt'), id_outputs_all.detach().cpu().numpy())
+                np.savetxt(os.path.join(uncertainty_dir, 'id_probs.txt'),
+                        torch.softmax(id_outputs_all, dim=1).detach().cpu().numpy())
+                np.savetxt(os.path.join(uncertainty_dir, 'id_labels.txt'), id_labels_all.detach().cpu().numpy())
                 for key in ood_uncertainties.keys():
                     np.savetxt(os.path.join(uncertainty_dir, 'ood_' + key._value_ + '.txt'),
                             ood_uncertainties[key])
@@ -635,8 +647,10 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
         assert isinstance(num_epochs, int)
 
         if stepwise_train:
-            #self.train_stepwise(num_epochs, val_after_steps, resume, ckpt)
-            self.train_stepwise_mixed_batch(num_epochs, val_after_steps, resume, ckpt)
+            if type(self.id_criterion) == TargetedKLDivDirchletDistLoss:
+                self.train_stepwise_mixed_batch(num_epochs, val_after_steps, resume, ckpt)
+            else: # normal loss
+                self.train_stepwise(num_epochs, val_after_steps, resume, ckpt)
             return
 
         # initialize the early_stopping object

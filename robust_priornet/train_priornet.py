@@ -84,6 +84,12 @@ parser.add_argument('--patience', type=int, default=3,
 parser.add_argument('--include_adv_samples', action='store_true',
                     help='Specifies if adversarial samples should be augmented while training'+
                     ' to create a robust model.')
+parser.add_argument('--ccat', action='store_true',
+                    help='Boolean to indicate CCAT - confidence calibrated adversarial training.')
+parser.add_argument('--gaussian_noise_normal', action='store_true',
+                    help='Boolean to indicate if gaussian noise perturbed samples are to be used instead of normal images.')
+parser.add_argument('--gaussian_noise_std_dev', type=float, default=0.05,
+                    help='Specifies the std dev of the noise to be used.')
 parser.add_argument('--adv_training_type', choices=['normal', 'ood-detect'],
                     default='ood-detect',
                     help='identifies what type of adversarials should the model be trained on.'+
@@ -220,7 +226,7 @@ def main():
     print(f"(After equalizing) Validation dataset length: {len(id_val_set)}")
 
     # loss criteria
-    if args.include_adv_samples:
+    if args.include_adv_samples and args.ccat:
         id_loss = TargetedKLDivDirchletDistLoss(target_precision=args.target_precision, reverse_KL=args.reverse_KL)
         ood_loss = TargetedKLDivDirchletDistLoss(target_precision=0.0, reverse_KL=args.reverse_KL)
         criterion = PriorNetWeightedAdvLoss([id_loss, ood_loss], weights=[1.0, args.gamma])
@@ -287,7 +293,9 @@ def main():
                                              only_out_in_adversarials=
                                              args.include_only_out_in_adv_samples,
                                              use_fixed_threshold=args.use_fixed_threshold,
-                                             known_threshold_value=args.known_threshold_value)
+                                             known_threshold_value=args.known_threshold_value,
+                                             gaussian_noise_as_normal=args.gaussian_noise_normal,
+                                             gaussian_noise_std_dev=args.gaussian_noise_std_dev)
     else:
         trainer = PriorNetTrainer(model,
                                   id_train_set, id_val_set, ood_train_set, ood_val_set,

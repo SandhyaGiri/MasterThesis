@@ -24,8 +24,8 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         rpn_sigma, fc_layers, num_epochs, train_stepwise, val_every_steps, min_train_epochs, patience, num_channels, learning_rate,
         use_cyclic_lr, add_ce_loss, cyclic_lr_pct_start, ce_weight, reverse_KL, drop_rate, use_fixed_threshold, known_threshold_value,
         grad_clip_value, weight_decay, target_precision, model_dir, resume_from_ckpt, augment_data, data_dir, lr_decay_milestones,
-        batch_size, dataset_size_limit, adv_training, only_out_in_adv, adv_training_type, adv_attack_type, gamma,
-        adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images, optimizer,
+        batch_size, dataset_size_limit, adv_training, only_out_in_adv, ccat, gaussian_noise_normal, gaussian_noise_std_dev,
+        adv_training_type, adv_attack_type, gamma, adv_epsilon, adv_attack_criteria, adv_model_dir, adv_persist_images, optimizer,
         pgd_norm, pgd_max_steps, logdir):
 
     logging.info('Received the following configuration:')
@@ -41,7 +41,7 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
     os.environ['MKL_THREADING_LAYER'] = 'GNU'
 
     # modify model_dir with grid search params
-    model_dir = f'{model_dir}-{learning_rate}-{target_precision}-{gamma}'
+    model_dir = f'{model_dir}-lr{learning_rate}-precision{target_precision}-g{gamma}-ce{ce_weight}'
     # set up the model
     fc_layers_list = " ".join(map(lambda x: str(x), fc_layers))
     if rpn_wrapper == 'count':
@@ -73,11 +73,13 @@ def run(in_domain_dataset, ood_dataset, input_image_size, num_classes, model_arc
         adv_model = f'--adv_model_dir {adv_model_dir}' if adv_model_dir != "" else ''
         adv_persist = '--adv_persist_images' if adv_persist_images else ''
         out_in_adv = '--include_only_out_in_adv_samples' if only_out_in_adv else ''
+        ccat = '--ccat' if ccat else ''
+        gaussian_noise_normal = '--gaussian_noise_normal' if gaussian_noise_normal else ''
         train_cmd = f'python -m robust_priornet.train_priornet {gpu_list} --model_dir {model_dir} \
             --num_epochs {num_epochs} --batch_size {batch_size} --lr {learning_rate} --weight_decay {weight_decay} \
             --target_precision {target_precision} --include_adv_samples {augment} {dataset_limit} \
             {train_stepwise} --val_every_steps {val_every_steps} --ce_weight {ce_weight} \
-            --optimizer {optimizer} \
+            --optimizer {optimizer} {ccat} {gaussian_noise_normal} --gaussian_noise_std_dev {gaussian_noise_std_dev} \
             --min_train_epochs {min_train_epochs} --patience {patience} --grad_clip_value {grad_clip_value} \
             {use_fixed_threshold} --known_threshold_value {known_threshold_value} --gamma {gamma} \
             {adv_model} {adv_persist} {resume} {out_in_adv} --adv_training_type {adv_training_type} \
