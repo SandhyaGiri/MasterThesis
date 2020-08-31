@@ -69,7 +69,7 @@ class KLDivDirchletDistLoss:
         self.reverse_KL = reverse_KL
 
     def __call__(self, logits, labels, reduction='mean'):
-        logits = logits - torch.max(logits, dim=0)[0]
+        # logits = logits - torch.max(logits, dim=0)[0]
         alphas = torch.exp(logits)
         return self.forward(alphas, labels, reduction=reduction)
 
@@ -178,7 +178,7 @@ class TargetedKLDivDirchletDistLoss:
         self.reverse_KL = reverse_KL
 
     def __call__(self, logits, target_mean, target_precision, reduction='mean'):
-        logits = logits - torch.max(logits, dim=0)[0]
+        # logits = logits - torch.max(logits, dim=0)[0]
         alphas = torch.exp(logits)
         return self.forward(alphas,
                             target_mean,
