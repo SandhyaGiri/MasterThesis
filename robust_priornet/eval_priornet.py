@@ -129,8 +129,8 @@ def main():
 
     accuracy_criteria = {
         UncertaintyMeasuresEnum.PRECISION: -1* CHOSEN_THRESHOLDS['precision'],
-        UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy'],
-        UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info']
+        #UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy'],
+        #UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info']
     }
     if args.task == 'ood_detect':
         if args.val_dataset:

@@ -29,7 +29,7 @@ def construct_ccat_adv_target_dirichlets(id_images: torch.tensor,
                                          num_classes: int,
                                          target_precision: int,
                                          smoothing_factor: float = 1e-2,
-                                         decay_param: int = 10):
+                                         decay_param: int = 5):
     """
     With the given adv images and their corresponding adv images, calculates the distance
     between adv image and original image and uses it to compute target dirichlet distributions.
@@ -73,11 +73,17 @@ def construct_ccat_adv_target_dirichlets(id_images: torch.tensor,
                                                                                            num_classes,
                                                                                            id_target_mean,
                                                                                            id_target_precision)
+    print(f"Adjusted ID precision: {torch.min(id_target_precision_adjusted, dim=0)[0]}, {torch.max(id_target_precision_adjusted, dim=0)[0]}")
+    # number of ID samples with less than 20 as precision
+    id_precision_check = id_target_precision_adjusted.clone().detach()
+    num_less_precision_samples = torch.sum(torch.tensor(id_precision_check < 20, dtype=int)).item()
+    print("Number of ID samples with <20 precision: ", num_less_precision_samples)
     ood_target_mean, ood_target_precision = construct_target_dirichlet_out(ood_advs, num_classes)
     ood_target_mean_adjusted, ood_target_precision_adjusted = construct_adv_target_dirichlet(ood_lambdas,
                                                                                              num_classes,
                                                                                              ood_target_mean,
                                                                                              ood_target_precision)
+    print(f"Adjusted OOD precision: {torch.min(ood_target_precision_adjusted, dim=0)[0]}, {torch.max(ood_target_precision_adjusted, dim=0)[0]}")
     return (id_target_mean_adjusted, id_target_precision_adjusted), (ood_target_mean_adjusted, ood_target_precision_adjusted)
 
 def construct_adv_target_dirichlet(lambdas, num_classes, old_target_mean, old_target_precision):

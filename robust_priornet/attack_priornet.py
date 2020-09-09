@@ -102,16 +102,9 @@ def _get_adv_success_criteria(attack_type, attack_criteria, threshold):
                 'precision': CHOSEN_THRESHOLDS['precision']
             }
     elif attack_type == 'ood-detect':
-        if attack_criteria == 'precision':
-            return {
-                UncertaintyMeasuresEnum.PRECISION: -1 * CHOSEN_THRESHOLDS['precision'],
-                #UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY: CHOSEN_THRESHOLDS['mutual_info'],
-                #UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY: CHOSEN_THRESHOLDS['diff_entropy']
-            }
-        else:
-            return {
-                ATTACK_CRITERIA_TO_ENUM_MAP[attack_criteria]: threshold
-            }
+        return {
+            ATTACK_CRITERIA_TO_ENUM_MAP[attack_criteria]: threshold
+        }
     
 def _get_ood_success(id_uncertainty, ood_uncertainty, uncertainty_measure, threshold, verbose=False):
     uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
@@ -352,12 +345,12 @@ def main():
         print(f"In domain dataset: {len(dataset)}")
         # save the org images
         id_indices = np.arange(len(dataset))
-        id_chosen_indices = random.sample(list(id_indices), min(100, len(id_indices)))
+        #id_chosen_indices = random.sample(list(id_indices), min(100, len(id_indices)))
         org_dataset_folder = os.path.join(args.result_dir, "org-images")
         if not os.path.exists(org_dataset_folder):
             os.makedirs(org_dataset_folder)
-        np.savetxt(os.path.join(org_dataset_folder, 'img_indices.txt'), id_chosen_indices)
-        persist_image_dataset(data.Subset(dataset, id_chosen_indices),
+        #np.savetxt(os.path.join(org_dataset_folder, 'img_indices.txt'), id_chosen_indices)
+        persist_image_dataset(dataset,
                             mean, std, num_channels, org_dataset_folder)
 
         # perform original evaluation on the model using unperturbed images
@@ -409,12 +402,13 @@ def main():
         print(f"Out domain dataset: {len(ood_dataset)}")
         # save the ood org images
         ood_indices = np.arange(len(ood_dataset))
-        ood_chosen_indices = random.sample(list(ood_indices), min(100, len(ood_indices)))
+        #ood_chosen_indices = random.sample(list(ood_indices), min(100, len(ood_indices)))
         org_ood_dataset_folder = os.path.join(args.result_dir, "org-images-ood")
         if not os.path.exists(org_ood_dataset_folder):
             os.makedirs(org_ood_dataset_folder)
-        np.savetxt(os.path.join(org_ood_dataset_folder, 'img_indices.txt'), ood_chosen_indices)
-        persist_image_dataset(data.Subset(ood_dataset, ood_chosen_indices),
+        #np.savetxt(os.path.join(org_ood_dataset_folder, 'img_indices.txt'), ood_chosen_indices)
+        #data.Subset(ood_dataset, ood_chosen_indices)
+        persist_image_dataset(ood_dataset,
                               mean, std, num_channels, org_ood_dataset_folder)
         
         # evaluate and find samples with ideal precision

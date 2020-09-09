@@ -168,7 +168,7 @@ def construct_carlini_wagner_l2_attack(model,
     inputs_tanh_variable = Variable(inputs_tanh, requires_grad=False)
     
     # the one-hot encoding of `targets`
-    targets_oh = torch.zeros(labels.size() + (num_classes,))
+    targets_oh = torch.zeros(labels.size() + (num_classes,), device=device)
     targets_oh.scatter_(1, labels.unsqueeze(1), 1.0)
     targets_oh_variable = Variable(targets_oh, requires_grad=False)
 

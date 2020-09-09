@@ -25,7 +25,7 @@ ATTACK_CRITERIA_TO_ENUM_MAP = {
     'confidence': UncertaintyMeasuresEnum.CONFIDENCE,
     'diff_entropy': UncertaintyMeasuresEnum.DIFFERENTIAL_ENTROPY,
     'mutual_info': UncertaintyMeasuresEnum.DISTRIBUTIONAL_UNCERTAINTY,
-    'precision': 'precision',
+    'precision': UncertaintyMeasuresEnum.PRECISION,
     'precision_targeted': 'precision_targeted',
     'alpha_k': 'alpha_k'
 }

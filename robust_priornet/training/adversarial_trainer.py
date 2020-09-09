@@ -583,7 +583,11 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
             # generate adv images (at the end of each epoch except last epoch)
             if self.epochs < num_epochs:
                 print("Generating adversarial images")
-                id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset()
+                id_adv_dataset, ood_adv_dataset = self._generate_adversarial_dataset(check_success=True,
+                                                                        only_true_adversaries=
+                                                                        True,
+                                                                        use_org_img_as_fallback=
+                                                                        False)
                 id_adv_loader, ood_adv_loader = self._get_adv_data_loaders(id_adv_dataset,
                                                                             ood_adv_dataset)
             epoch_end = time.time()
