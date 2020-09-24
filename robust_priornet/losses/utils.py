@@ -29,7 +29,7 @@ def construct_ccat_adv_target_dirichlets(id_images: torch.tensor,
                                          num_classes: int,
                                          target_precision: int,
                                          smoothing_factor: float = 1e-2,
-                                         decay_param: int = 5):
+                                         decay_param: int = 20):
     """
     With the given adv images and their corresponding adv images, calculates the distance
     between adv image and original image and uses it to compute target dirichlet distributions.

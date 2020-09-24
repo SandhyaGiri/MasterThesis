@@ -61,7 +61,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "5", "--train_stepwise", "--adv_persist_images", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--ccat", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "2", "--pgd_max_steps", "10", "--adv_attack_criteria", "mutual_info", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "25", "--train_stepwise", "--resume_from_ckpt", "--adv_persist_images", "--adv_training_type", "normal", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--ccat", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "2", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial only out->in",
@@ -170,14 +170,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-svhn","--gpu", "-1", "--epsilon", "0.1", "0.5", "--attack_only_out_dist", "--batch_size", "64", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "mutual_info", "--threshold", "0.35248","--ood_dataset", "CIFAR100", "--norm", "2", "./runtime-data", "SVHN", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-svhn","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--attack_type", "ood-detect", "--attack_strategy", "PGD", "--attack_criteria", "mutual_info", "--threshold", "0.35248","--ood_dataset", "CIFAR10", "--norm", "2", "./runtime-data", "SVHN", "./attack-pgd"]
         },
         {
             "name": "Module attack_priornet pgd ood-detect precision",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.attack_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--target_precision", "100", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "precision", "--threshold", "0.0","--ood_dataset", "OMNIGLOT", "./runtime-data", "MNIST", "./attack-pgd"]
+            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--epsilon", "0.1", "0.5", "--batch_size", "64", "--target_precision", "100", "--attack_type", "ood-detect", "--dataset_size_limit", "1000", "--attack_strategy", "PGD", "--attack_criteria", "precision", "--threshold", "-57.5713","--ood_dataset", "OMNIGLOT", "./runtime-data", "MNIST", "./attack-pgd"]
         },
         {
             "name": "Module attack_priornet pgd misclassify precision_targeted",
@@ -205,14 +205,14 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.certify_priornet",
-            "args": ["--model_dir", "./runtime-model-rpn","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--uncertainty_measure", "DIFFERENTIAL_ENTROPY", "--uncertainty_measure_threshold", "-12.8051", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "CIFAR10"]
+            "args": ["--model_dir", "./runtime-model-vgg6-robust-duncertainty","--gpu", "-1", "--batch_size", "16", "--certify_task", "ood-detect", "--uncertainty_measure", "DISTRIBUTIONAL_UNCERTAINTY", "--uncertainty_measure_threshold", "0.1399", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "--sigma", "0.05", "./runtime-data", "./certify-results", "SVHN", "CIFAR10"]
         },
         {
             "name": "Module certify_priornet val 200 classification",
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.certify_priornet",
-            "args": ["--model_dir", "./runtime-model-vgg6-50","--gpu", "-1", "--batch_size", "16", "--certify_task", "normal", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "50", "--n", "200", "./runtime-data", "./certify-results", "MNIST", "SVHN"]
+            "args": ["--model_dir", "./runtime-model-cifar10-bugfree","--gpu", "-1", "--batch_size", "16", "--certify_task", "normal", "--uncertainty_measure", "CONFIDENCE", "--uncertainty_measure_threshold", "-0.5497", "--val_dataset", "--dataset_size_limit", "200", "--n0", "100", "--n", "10000","--sigma", "0.05",  "./runtime-data", "./certify-results", "CIFAR10", "CIFAR100"]
         },
         {
             "name": "(MT) Python: Current File",
