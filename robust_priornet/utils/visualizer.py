@@ -4,6 +4,7 @@ from textwrap import wrap
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import seaborn as sns
 from PIL import Image
 from ..eval.uncertainty import UncertaintyMeasuresEnum
 
@@ -191,119 +192,260 @@ def plot_aupr_auroc(aupr_list, auroc_list):
     fig.tight_layout()
     plt.show()
 
-def plot_adv_samples(org_eval_dir, attack_dir, epsilon, plots_dir='vis',
-                     known_misclassified_indices=[], limit=None):
+# adv example plot - START
+def plot_trio(save_path, model_dir, org_images_folder, attack_folders, img_index, indices, epsilon=0.2, is_ood=False, ood_dataset_name='', color_map='Greys'):
     """
-    Params
-    ------
-        org_eval_dir: directory where the model was evaluated for misclassification_detect task.
-                        on the same dataset as the attack_dir
-        attack_dir: directory where the various epsilon attack images and eval results are stored.
-                        on the same dataset as org_eval_dir
-        epsilon: value of the epsilon to locate the folder within the attack_dir.
-        plots_dir: directory name to be created to store the results within the attack_dir.
-        limit: number of adversarial samples to plot, otherwise all adversarial samples
-                will be plotted.
-    Returns
-    -------
-        adv_success: number of previously correctly classified samples that got misclassified under attack.
+    For the in-domain dataset, plots adv wrt diffE, distU and confidence (label misclassification)
+    For the out-domain dataset, plots adv wrt diffE, distU.
     """
-    target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
-    logits = np.loadtxt(f"{target_epsilon_dir}/eval/logits.txt")
-    alphas = np.exp(logits) # exp(log(alpha)) => alphas
-    probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
-    labels = np.loadtxt(f"{target_epsilon_dir}/eval/labels.txt")
-    # current confidence on attack images
-    new_confidence = np.loadtxt(f"{target_epsilon_dir}/eval/confidence.txt")
-
-    # misclassified samples under attack
-    preds = np.argmax(probs, axis=1)
-    misclassification = np.asarray(preds != labels, dtype=np.int32)
-    misclassified = np.argwhere(misclassification == 1)
-    print("# Misclassified samples under attack: ", misclassified.size)
-
-    # real adversarial samples - original model correctly classified them, but now misclassified!
-    # prob dist outputed by model on non-perturbed images.
-    old_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
-    old_logits = np.loadtxt(f"{org_eval_dir}/id_logits.txt")
-    old_alphas = np.exp(old_logits)
-    # confidence of all attack_images from normal eval phase.
-    old_confidence = np.loadtxt(f"{org_eval_dir}/id_confidence.txt")
-
-    old_preds = np.argmax(old_probs, axis=1)
-    correct_classifications = np.asarray(old_preds == labels, dtype=np.int32)
-    correct_classified_indices = np.argwhere(correct_classifications == 1)
-    print("# Correct classified samples prior attack: ", len(correct_classified_indices))
-
-    misclassified = np.intersect1d(misclassified, correct_classified_indices)
-    print("# Real adversarial samples under attack: ", misclassified.size)
-
-    if len(known_misclassified_indices) > 0: # reduce to already known indices
-        misclassified = np.intersect1d(known_misclassified_indices, misclassified)
-
-    # create a separate dir to store all visualizations
-    os.makedirs(os.path.join(target_epsilon_dir, plots_dir))
-
-    # log information
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'misclassified_indices.txt'), misclassified)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_confidence.txt'), old_confidence)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_probs.txt'), old_probs)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'old_alphas.txt'), old_alphas)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_confidence.txt'), new_confidence)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_probs.txt'), probs)
-    np.savetxt(os.path.join(target_epsilon_dir, plots_dir, 'new_alphas.txt'), alphas)
+    color_dict, color_list, linestyle_dict, pgf_with_latex, default_params, label_dict = get_plot_params()
+    sns.set(style='whitegrid', palette='colorblind', color_codes=True)
+    if color_map == 'rgb':
+        color_map = None
+    plt.rcParams['lines.markersize'] = 0.2
     
-    # first plot
-    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
-    figure.subplots_adjust(hspace=0.5, wspace=0.5)
-
-    for i, index in enumerate(misclassified):
-        if index.ndim > 0:
-            index = index[0]
-        ri = i%10
-
-        # org image
-        axis = axes[ri][0]
-        img = Image.open(f"{attack_dir}/org-images/{index}.png")
-        axis.set_title(f"index: {index}, label: {int(labels[index])}, confidence: {np.round(old_confidence[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # adv image
-        axis = axes[ri][1]
-        img = Image.open(f"{target_epsilon_dir}/adv-images/{index}.png")
-        axis.set_title(f"label: {preds[index]}, confidence: {np.round(new_confidence[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # change in prob dist (bar plot)
-        axis = axes[ri][2]
+    #plot results
+    fig = plt.figure()
+    cols = 3 if is_ood else 4
+    widths = [2] * cols
+    heights = [0.6, 0.6, 0.6]
+    spec = fig.add_gridspec(ncols=cols, nrows=3, width_ratios=widths,
+                              height_ratios=heights)
+    # get org image
+    axis_index = 0
+    ax = fig.add_subplot(spec[0, axis_index])
+    org_img = Image.open(f"{org_images_folder}/{img_index}.png")
+    ax.axis("off")
+    ax.set_title('Original')
+    ax.imshow(org_img, cmap=color_map)
+    axis_index+=1
+    
+    adv_images_folder = 'adv-images-ood' if is_ood else 'adv-images'
+    # get confidence adv image (misclassify)
+    if not is_ood:
+        adv_indices = np.loadtxt(f"{attack_folders[0]}/e{epsilon}-attack/{adv_images_folder}/indices.txt")
+        actual_index = np.argwhere(adv_indices == img_index)[0,0]
+        print(f"Conf adv index: {actual_index}")
+        ax = fig.add_subplot(spec[0, axis_index])
+        conf_img = Image.open(f"{attack_folders[0]}/e{epsilon}-attack/{adv_images_folder}/{actual_index}.png")
+        ax.axis("off")
+        ax.set_title('$m_{conf}$ adv')
+        ax.imshow(conf_img, cmap=color_map)
+        axis_index += 1
+    
+    # get dE adv image (ood-detect)
+    ax = fig.add_subplot(spec[0, axis_index])
+    adv_indices = np.loadtxt(f"{attack_folders[1]}/e{epsilon}-attack/{adv_images_folder}/indices.txt")
+    actual_index = np.argwhere(adv_indices == img_index)[0,0]
+    print(f"DE adv index: {actual_index}")
+    de_img = Image.open(f"{attack_folders[1]}/e{epsilon}-attack/{adv_images_folder}/{actual_index}.png")
+    ax.axis("off")
+    ax.set_title('$m_{diffE}$ adv')
+    ax.imshow(de_img, cmap=color_map)
+    axis_index += 1
+    
+    # get dU adv image (ood-detect)
+    ax = fig.add_subplot(spec[0, axis_index])
+    adv_indices = np.loadtxt(f"{attack_folders[2]}/e{epsilon}-attack/{adv_images_folder}/indices.txt")
+    actual_index = np.argwhere(adv_indices == img_index)[0,0]
+    print(f"DU adv index: {actual_index}")
+    du_img = Image.open(f"{attack_folders[2]}/e{epsilon}-attack/{adv_images_folder}/{actual_index}.png")
+    ax.axis("off")
+    ax.set_title('$m_{distU}$ adv')
+    ax.imshow(du_img, cmap=color_map)
+    axis_index += 1
+    
+    # get precision adv image (ood-detect)
+    #ax = fig.add_subplot(spec[0, 4])
+    #adv_indices = np.loadtxt(f"{attack_folders[3]}/e{epsilon}-attack/{adv_images_folder}/indices.txt")
+    #actual_index = np.argwhere(adv_indices == img_index)[0,0]
+    #print(f"Precision adv index: {actual_index}")
+    #pr_img = Image.open(f"{attack_folders[3]}/adv-images-ood/{actual_index}.png")
+    #ax.axis("off")
+    #ax.set_title('$m_{alpha_{0}}$ adv')
+    #ax.imshow(pr_img, cmap=color_map)
+    
+    # alpha box plots
+    eval_dir = 'ood_eval' if is_ood else 'eval'
+    org_eval_dir = f'ood-eval{"-" if ood_dataset_name != "" else ""}{ood_dataset_name}' if is_ood else 'eval'
+    org_logits_file = 'ood_logits' if is_ood else 'id_logits'
+    org_alphas = np.exp(np.loadtxt(f"{model_dir}/{org_eval_dir}/{org_logits_file}.txt")[img_index])
+    if not is_ood:
+        conf_alphas = np.exp(np.loadtxt(f"{attack_folders[0]}/e{epsilon}-attack/{eval_dir}/logits.txt")[img_index])
+    de_alphas = np.exp(np.loadtxt(f"{attack_folders[1]}/e{epsilon}-attack/{eval_dir}/logits.txt")[img_index])
+    du_alphas = np.exp(np.loadtxt(f"{attack_folders[2]}/e{epsilon}-attack/{eval_dir}/logits.txt")[img_index])
+    #pr_alphas = np.exp(np.loadtxt(f"{attack_folders[3]}/e{epsilon}-attack/{eval_dir}/logits.txt")[img_index])
+    
+    # conf box plot
+    axis_index = 1
+    if not is_ood:
+        axis = fig.add_subplot(spec[1, axis_index])
         class_labels = np.arange(10)
-        width = 0.2
-        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
-        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
+        width = 0.4
+        rects1 = axis.bar(class_labels - width/2, org_alphas, width, label='Org', color=color_list[7])
+        rects2 = axis.bar(class_labels + width/2, conf_alphas, width, label='Adv', color=color_list[3])
         axis.set_xticks(class_labels)
         axis.set_xticklabels(class_labels)
+        tick_spacing = max(np.max(org_alphas), np.max(conf_alphas))/5
+        axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+        axis.set_title('Dirichlet parameters - $\\alpha$', fontsize=9)
+        axis_index += 1
         # places the legend to the right of the current axis
-        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        axis.legend(loc=0, fontsize=7)
+    
+    # DE box plot
+    axis = fig.add_subplot(spec[1, axis_index])
+    class_labels = np.arange(10)
+    width = 0.4
+    rects1 = axis.bar(class_labels - width/2, org_alphas, width, label='Org', color=color_list[7])
+    rects2 = axis.bar(class_labels + width/2, de_alphas, width, label='Adv', color=color_list[3])
+    #ax.set_yticks(np.arange(0.0, 1.1, step=0.1))
+    axis.set_xticks(class_labels)
+    axis.set_xticklabels(class_labels)
+    axis.set_title('Dirichlet parameters - $\\alpha$', fontsize=9)
+    tick_spacing = max(np.max(org_alphas), np.max(de_alphas))/4
+    axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+    axis.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1f'))
+    axis_index += 1
+    # places the legend to the right of the current axis
+    axis.legend(loc=0, fontsize=7)
+    axis.tick_params(axis='both', which='major', labelsize=9)
+    
+    # DU box plot
+    axis = fig.add_subplot(spec[1, axis_index])
+    class_labels = np.arange(10)
+    width = 0.4
+    rects1 = axis.bar(class_labels - width/2, org_alphas, width, label='Org', color=color_list[7])
+    rects2 = axis.bar(class_labels + width/2, du_alphas, width, label='Adv', color=color_list[3])
+    axis.set_xticks(class_labels)
+    axis.set_xticklabels(class_labels)
+    axis.set_title('Dirichlet parameters - $\\alpha$', fontsize=9)
+    tick_spacing = max(np.max(org_alphas), np.max(du_alphas))/4
+    axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+    axis.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1f'))
+    axis.tick_params(axis='both', which='major', labelsize=9)
+    axis_index += 1
+    # places the legend to the right of the current axis
+    axis.legend(loc=0, fontsize=7)
+    
+    # Precision box plot
+    #axis = fig.add_subplot(spec[1, 4])
+    #class_labels = np.arange(10)
+    #width = 0.4
+    #rects1 = axis.bar(class_labels - width/2, org_alphas, width, label='Org')
+    #rects2 = axis.bar(class_labels + width/2, pr_alphas, width, label='Adv')
+    #axis.set_xticks(class_labels)
+    #axis.set_xticklabels(class_labels)
+    #axis.set_title('Dirichlet parameters', fontsize=7)
+    # places the legend to the right of the current axis
+    #axis.legend(loc=0)
+    
+    # confidence box plots
+    eval_dir = 'ood_eval' if is_ood else 'eval'
+    org_eval_dir = f'ood-eval{"-" if ood_dataset_name != "" else ""}{ood_dataset_name}' if is_ood else 'eval'
+    org_probs_file = 'ood_probs' if is_ood else 'id_probs'
+    org_probs = np.loadtxt(f"{model_dir}/{org_eval_dir}/{org_probs_file}.txt")[img_index]
+    print(org_probs)
+    if not is_ood:
+        conf_probs = np.loadtxt(f"{attack_folders[0]}/e{epsilon}-attack/{eval_dir}/probs.txt")[img_index]
+        print(conf_probs)
+    de_probs = np.loadtxt(f"{attack_folders[1]}/e{epsilon}-attack/{eval_dir}/probs.txt")[img_index]
+    print(de_probs)
+    du_probs = np.loadtxt(f"{attack_folders[2]}/e{epsilon}-attack/{eval_dir}/probs.txt")[img_index]
+    print(du_probs)
+    #pr_probs = np.loadtxt(f"{attack_folders[3]}/e{epsilon}-attack/{eval_dir}/probs.txt")[img_index]
+    #print(pr_probs)
+    
+    # conf box plot
+    axis_index = 1
+    if not is_ood:
+        axis = fig.add_subplot(spec[2, axis_index])
+        class_labels = np.arange(10)
+        width = 0.4
+        rects1 = axis.bar(class_labels - width/2, org_probs, width, label='Org', color=color_list[7])
+        rects2 = axis.bar(class_labels + width/2, conf_probs, width, label='Adv', color=color_list[3])
+        axis.set_xticks(class_labels)
+        axis.set_xticklabels(class_labels)
+        axis.set_title('Confidence in predictions - $(\\alpha/\\alpha_{0})$', fontsize=9)
+        axis.tick_params(axis='both', which='major', labelsize=9)
+        tick_spacing = max(np.max(org_probs), np.max(conf_probs))/4
+        axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+        axis.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1f'))
+        axis_index += 1
+        # places the legend to the right of the current axis
+        axis.legend(loc=0, fontsize=7)
+    
+    # DE box plot
+    axis = fig.add_subplot(spec[2, axis_index])
+    class_labels = np.arange(10)
+    width = 0.4
+    rects1 = axis.bar(class_labels - width/2, org_probs, width, label='Org', color=color_list[7])
+    rects2 = axis.bar(class_labels + width/2, de_probs, width, label='Adv', color=color_list[3])
+    #ax.set_yticks(np.arange(0.0, 1.1, step=0.1))
+    axis.set_xticks(class_labels)
+    axis.set_xticklabels(class_labels)
+    axis.set_title('Confidence in predictions - $(\\alpha/\\alpha_{0})$', fontsize=9)
+    tick_spacing = max(np.max(org_probs), np.max(de_probs))/4
+    axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+    axis.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1f'))
+    axis_index += 1
+    # places the legend to the right of the current axis
+    axis.legend(loc=0, fontsize=7)
+    axis.tick_params(axis='both', which='major', labelsize=9)
+    
+    # DU box plot
+    axis = fig.add_subplot(spec[2, axis_index])
+    class_labels = np.arange(10)
+    width = 0.4
+    rects1 = axis.bar(class_labels - width/2, org_probs, width, label='Org', color=color_list[7])
+    rects2 = axis.bar(class_labels + width/2, du_probs, width, label='Adv', color=color_list[3])
+    axis.set_xticks(class_labels)
+    axis.set_xticklabels(class_labels)
+    axis.set_title('Confidence in predictions - $(\\alpha/\\alpha_{0})$', fontsize=9)
+    tick_spacing = max(np.max(org_probs), np.max(du_probs))/4
+    axis.yaxis.set_major_locator(mpl.ticker.MultipleLocator(tick_spacing))
+    axis.yaxis.set_major_formatter(mpl.ticker.FormatStrFormatter('%.1f'))
+    axis_index += 1
+    # places the legend to the right of the current axis
+    axis.legend(loc=0, fontsize=7)
+    axis.tick_params(axis='both', which='major', labelsize=9)
+    
+    # Precision box plot
+    #axis = fig.add_subplot(spec[2, 4])
+    #class_labels = np.arange(10)
+    #width = 0.4
+    #rects1 = axis.bar(class_labels - width/2, org_probs, width, label='Org')
+    #rects2 = axis.bar(class_labels + width/2, pr_probs, width, label='Adv')
+    #axis.set_xticks(class_labels)
+    #axis.set_xticklabels(class_labels)
+    #axis.set_title('Confidence in predictions', fontsize=7)
+    # places the legend to the right of the current axis
+    #axis.legend(loc=0)
+    
+    save_path_curr = save_path.replace('.','_')
+    savefig(save_path_curr, fig=fig)
+    plt.close()
+    
+    mpl.rcParams.update(mpl.rcParamsDefault)
 
-        # batch every 10 sample into a single image
-        if (i > 0 and (i+1) % 10 == 0) or i == (misclassified.size-1):
-            plt.savefig(os.path.join(target_epsilon_dir, plots_dir,
-                                     f"result_vis_{i+1}.png"), bbox_inches='tight')
-            plt.close()
-
-        if i > 0 and (i+1) % 10 == 0 and i != (misclassified.size-1):
-            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
-            figure.subplots_adjust(hspace=0.5, wspace=0.5)
-
-        if limit is not None and i == limit-1:
-            plt.close()
-            break
-
-    return misclassified.size
+def get_common_indices(base_dir, attack_dirs, epsilon, is_ood=False):
+    """
+    Returns the indices where the images are adversaries in each of the attack
+    folders given (intersection of adversaries wrt diffE, distU, confidence etc..)
+    
+    - uses the adv indices file stored in each attack dir.
+    """
+    adv_images_folder = 'adv-images-ood' if is_ood else 'adv-images'
+    eval_folder = 'ood-eval' if is_ood else 'eval'
+    common_indices = None
+    for attack_dir in attack_dirs:
+        misc = np.loadtxt(os.path.join(base_dir, attack_dir, f'e{epsilon}-attack', adv_images_folder, 'indices.txt'), dtype=np.int32)
+        if common_indices is None:
+            common_indices = misc
+        else:
+            common_indices = np.intersect1d(common_indices, misc)
+    return common_indices
+# adv example plot - END
 
 def plot_epsilon_curve(epsilon: list, adv_success_rates: list,
                        result_dir: str = '.',
@@ -387,173 +529,3 @@ def plot_all_roc_curves(epsilons: list, src_attack_dir: str,
     plt.savefig(os.path.join(result_dir, f'{uncertainty_measure._value_}_ROC_summary.png'),
                 bbox_inches='tight')
     plt.close()
-
-def plot_adv_samples_ood(org_eval_dir, attack_dir, epsilon, threshold,
-                         decision_measure: UncertaintyMeasuresEnum,
-                         plots_dir='vis', limit=None):
-    # old (no attack)
-    old_id_uncertainty = np.loadtxt(f"{org_eval_dir}/id_{decision_measure._value_}.txt")
-    old_ood_uncertainty = np.loadtxt(f"{org_eval_dir}/ood_{decision_measure._value_}.txt")
-    old_uncertainty_pred = np.concatenate((old_id_uncertainty, old_ood_uncertainty), axis=0)
-    if decision_measure == UncertaintyMeasuresEnum.CONFIDENCE:
-        old_uncertainty_pred *= -1.0
-        
-    old_id_probs = np.loadtxt(f"{org_eval_dir}/id_probs.txt")
-    old_ood_probs = np.loadtxt(f"{org_eval_dir}/ood_probs.txt")
-    old_probs = np.concatenate((old_id_probs, old_ood_probs), axis=0)
-    old_id_logits = np.loadtxt(f"{org_eval_dir}/id_logits.txt")
-    old_id_alphas = np.exp(old_id_logits)
-    old_ood_logits = np.loadtxt(f"{org_eval_dir}/ood_logits.txt")
-    old_ood_alphas = np.exp(old_ood_logits)
-
-    # new (under attack)
-    target_epsilon_dir = os.path.join(attack_dir, f"e{epsilon}-attack")
-    id_uncertainty = np.loadtxt(f"{target_epsilon_dir}/eval/{decision_measure._value_}.txt")
-    ood_uncertainty = np.loadtxt(f"{target_epsilon_dir}/ood_eval/{decision_measure._value_}.txt")
-    uncertainty_pred = np.concatenate((id_uncertainty, ood_uncertainty), axis=0)
-    if decision_measure == UncertaintyMeasuresEnum.CONFIDENCE:
-        uncertainty_pred *= -1.0
-    id_probs = np.loadtxt(f"{target_epsilon_dir}/eval/probs.txt")
-    ood_probs = np.loadtxt(f"{target_epsilon_dir}/ood_eval/probs.txt")
-    probs = np.concatenate((id_probs, ood_probs), axis=0)
-    id_logits = np.loadtxt(f"{target_epsilon_dir}/eval/logits.txt")
-    id_alphas = np.exp(id_logits)
-    ood_logits = np.loadtxt(f"{target_epsilon_dir}/ood_eval/logits.txt")
-    ood_alphas = np.exp(ood_logits)
-    
-    id_labels = np.zeros_like(id_uncertainty)
-    ood_labels = np.ones_like(ood_uncertainty)
-    y_true = np.concatenate((id_labels, ood_labels), axis=0)
-    
-    # assign labels based on thershold given
-    y_preds = np.zeros_like(uncertainty_pred)
-    y_preds[np.round(uncertainty_pred, 4) >= np.round(threshold, 4)] = 1
-    fp_indices = np.intersect1d(np.argwhere(y_true == 0), np.argwhere(y_preds == 1))
-    fn_indices = np.intersect1d(np.argwhere(y_true == 1), np.argwhere(y_preds == 0))
-    print(f"Cross check: fp: {len(fp_indices)}")
-    print(f"Cross check: fn: {len(fn_indices)}")
-    
-    # create a separate dir to store all visualizations
-    os.makedirs(os.path.join(target_epsilon_dir, plots_dir))
-    
-    # plot false positives
-    fp_dir = os.path.join(target_epsilon_dir, plots_dir, 'in-out')
-    os.makedirs(fp_dir)
-    
-    # log information
-    np.savetxt(os.path.join(fp_dir, 'misclassified_indices.txt'), fp_indices)
-    np.savetxt(os.path.join(fp_dir, 'old_probs.txt'), old_id_probs)
-    np.savetxt(os.path.join(fp_dir, 'old_alphas.txt'), old_id_alphas)
-    np.savetxt(os.path.join(fp_dir, 'new_probs.txt'), id_probs)
-    np.savetxt(os.path.join(fp_dir, 'new_alphas.txt'), id_alphas)
-    
-    # first plot
-    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
-    figure.subplots_adjust(hspace=0.5, wspace=0.5)
-
-    for i, index in enumerate(fp_indices):
-        if index.ndim > 0:
-            index = index[0]
-        ri = i%10
-
-        # org image
-        axis = axes[ri][0]
-        img = Image.open(f"{attack_dir}/org-images/{index}.png")
-        axis.set_title(f"index: {index}, label: {int(y_true[index])}, {decision_measure._value_}: {np.round(old_uncertainty_pred[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # adv image
-        axis = axes[ri][1]
-        img = Image.open(f"{target_epsilon_dir}/adv-images/{index}.png")
-        axis.set_title(f"label: {y_preds[index]}, {decision_measure._value_}: {np.round(uncertainty_pred[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # change in prob dist (bar plot)
-        axis = axes[ri][2]
-        class_labels = np.arange(10)
-        width = 0.2
-        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
-        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
-        axis.set_xticks(class_labels)
-        axis.set_xticklabels(class_labels)
-        # places the legend to the right of the current axis
-        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        # batch every 10 sample into a single image
-        if (i > 0 and (i+1) % 10 == 0) or i == (fp_indices.size-1):
-            plt.savefig(os.path.join(fp_dir, f"result_vis_{i+1}.png"), bbox_inches='tight')
-            plt.close()
-
-        if i > 0 and (i+1) % 10 == 0 and i != (fp_indices.size-1):
-            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
-            figure.subplots_adjust(hspace=0.5, wspace=0.5)
-
-        if limit is not None and i == limit-1:
-            plt.close()
-            break
-
-    # plot false negatives
-    fn_dir = os.path.join(target_epsilon_dir, plots_dir, 'out-in')
-    os.makedirs(fn_dir)
-    
-    # log information
-    np.savetxt(os.path.join(fn_dir, 'misclassified_indices.txt'), fn_indices)
-    np.savetxt(os.path.join(fn_dir, 'old_probs.txt'), old_ood_probs)
-    np.savetxt(os.path.join(fn_dir, 'old_alphas.txt'), old_ood_alphas)
-    np.savetxt(os.path.join(fn_dir, 'new_probs.txt'), ood_probs)
-    np.savetxt(os.path.join(fn_dir, 'new_alphas.txt'), ood_alphas)
-    
-    # first plot
-    figure, axes = plt.subplots(nrows = 10, ncols=3, figsize=(15, 15))
-    figure.subplots_adjust(hspace=0.5, wspace=0.5)
-    
-    for i, index in enumerate(fn_indices):
-        if index.ndim > 0:
-            index = index[0]
-        ri = i%10
-
-        # org image
-        axis = axes[ri][0]
-        img = Image.open(f"{attack_dir}/org-images-ood/{index-len(id_uncertainty)}.png")
-        axis.set_title(f"index: {index}, label: {int(y_true[index])}, {decision_measure._value_}: {np.round(old_uncertainty_pred[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # adv image
-        axis = axes[ri][1]
-        img = Image.open(f"{target_epsilon_dir}/adv-images-ood/{index-len(id_uncertainty)}.png")
-        axis.set_title(f"label: {y_preds[index]}, {decision_measure._value_}: {np.round(uncertainty_pred[index],3)}", pad=2)
-        #hide all spines
-        axis.axis("off")
-        axis.imshow(img, cmap="gray")
-
-        # change in prob dist (bar plot)
-        axis = axes[ri][2]
-        class_labels = np.arange(10)
-        width = 0.2
-        rects1 = axis.bar(class_labels - width/2, old_probs[index, :], width, label='Org')
-        rects2 = axis.bar(class_labels + width/2, probs[index, :], width, label='Adv')
-        axis.set_xticks(class_labels)
-        axis.set_xticklabels(class_labels)
-        # places the legend to the right of the current axis
-        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-        # batch every 10 sample into a single image
-        if (i > 0 and (i+1) % 10 == 0) or i == (fn_indices.size-1):
-            plt.savefig(os.path.join(fn_dir, f"result_vis_{i+1}.png"), bbox_inches='tight')
-            plt.close()
-
-        if i > 0 and (i+1) % 10 == 0 and i != (fn_indices.size-1):
-            figure, axes = plt.subplots(nrows=10, ncols=3, figsize=(15, 15))
-            figure.subplots_adjust(hspace=0.5, wspace=0.5)
-
-        if limit is not None and i == limit-1:
-            plt.close()
-            break
-
-    return (len(fp_indices)+len(fn_indices))
