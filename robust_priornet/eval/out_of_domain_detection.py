@@ -16,10 +16,10 @@ class OutOfDomainDetectionEvaluator:
 
     def get_target_labels(self):
         """
-        Generates target labels for the ood detection task as a binary classification
-        task.
-        label=1 is a out of domain sample.
-        label=0 is a in domain sample.
+            Generates target labels for the ood detection task as a binary classification
+            task.
+            label=1 is a out of domain sample.
+            label=0 is a in domain sample.
         """
         id_labels = np.zeros_like(self.id_uncertainty_measures[UncertaintyMeasuresEnum.CONFIDENCE])
         ood_labels = np.ones_like(self.ood_uncertainty_measures[UncertaintyMeasuresEnum.CONFIDENCE])
@@ -27,8 +27,8 @@ class OutOfDomainDetectionEvaluator:
 
     def eval(self):
         """
-        Uses the combined uncertainty measure (of id and ood) as the model's predictive
-        probability dist and evaluates PR and ROC curve for this ood detection task.
+            Uses the combined uncertainty measure (of id and ood) as the model's predictive
+            probability dist and evaluates PR and ROC curve for this ood detection task.
         """
         target_truth_labels = self.get_target_labels()
         for key in self.id_uncertainty_measures.keys():

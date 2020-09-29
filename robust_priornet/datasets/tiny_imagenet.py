@@ -8,7 +8,11 @@ from PIL import Image
 
 class TinyImageNet(datasets.VisionDataset):
     """
-    Only loads the val dataset from the downloaded tar file.
+        Custom implementation of Torch VisionDataset for interacting with TinyImageNet images.
+
+        Note:
+        -----
+        Only loads the val dataset from the downloaded tar file.
     """
     def __init__(self, root, transform=None, target_transform=None, split='test', **kwargs):
         super(TinyImageNet, self).__init__(root)

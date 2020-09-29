@@ -10,10 +10,10 @@ import numpy as np
 
 class PriorNetWeightedLoss:
     """
-    Returns a mixed or linear combination of the losses provided, with weights
-    taken directly from the weights.
-    The losses provided should be of type : KLDivDirchletDistLoss.
-    The final loss is also scaled down by the maximum target_precisions in the losses.
+        Returns a mixed or linear combination of the losses provided, with weights
+        taken directly from the weights.
+        The losses provided should be of type : KLDivDirchletDistLoss.
+        The final loss is also scaled down by the maximum target_precisions in the losses.
     """
     def __init__(self, losses, weights: Optional[Iterable[float]]):
         assert isinstance(losses, (list, tuple))
@@ -46,21 +46,21 @@ class PriorNetWeightedLoss:
 
 class KLDivDirchletDistLoss:
     """
-    Computes KL divergence between two dirichlet distributions.
-    Can be applied to any DNN model which returns logits.
+        Computes KL divergence between two dirichlet distributions.
+        Can be applied to any DNN model which returns logits.
 
-    Note that given the logits of a DNN model, exp of this yields the concentration(alpha)
-    of the dirichlet distribution outputted by the DNN. From the target labels provided,
-    a "desired/expected" target dirichlet distribution's concentration parameters can
-    be constructed.
-    Ex:
-        when target labels are provided, a peaky dirichlet with major concentration on
-            target class is expected.
-        when target labels are not provided, a flat dirichlet with uniform alphas
-            (low value alpha=1) is expected.
+        Note that given the logits of a DNN model, exp of this yields the concentration(alpha)
+        of the dirichlet distribution outputted by the DNN. From the target labels provided,
+        a "desired/expected" target dirichlet distribution's concentration parameters can
+        be constructed.
+        Ex:
+            when target labels are provided, a peaky dirichlet with major concentration on
+                target class is expected.
+            when target labels are not provided, a flat dirichlet with uniform alphas
+                (low value alpha=1) is expected.
 
-    Loss value is then just the KL diveregence between the DNN's dirichlet and the
-    expected or target dirichlet distribution.
+        Loss value is then just the KL diveregence between the DNN's dirichlet and the
+        expected or target dirichlet distribution.
     """
 
     def __init__(self, target_precision=1e3, smoothing_factor=1e-2, reverse_KL=False):
@@ -86,8 +86,8 @@ class KLDivDirchletDistLoss:
     @staticmethod
     def compute_kl_div_dirichlets(target_mean, mean, target_precision, precision, epsilon=1e-8):
         """
-        Computes KL divergence
-        KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
+            Computes KL divergence
+            KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
         """
         precision_term = (torch.lgamma(target_precision + epsilon) -
                           torch.lgamma(precision + epsilon))
@@ -130,12 +130,12 @@ class KLDivDirchletDistLoss:
 
 class PriorNetWeightedAdvLoss:
     """
-    Returns a mixed or linear combination of the losses provided, with weights
-    taken directly from the weights.
-    
-    The losses provided should be of type : TargetedKLDivDirchletDistLoss.
-    
-    The final loss is also scaled down by the maximum target_precisions in the losses.
+        Returns a mixed or linear combination of the losses provided, with weights
+        taken directly from the weights.
+
+        The losses provided should be of type : TargetedKLDivDirchletDistLoss.
+
+        The final loss is also scaled down by the maximum target_precisions in the losses.
     """
     def __init__(self, losses, weights: Optional[Iterable[float]]):
         assert isinstance(losses, (list, tuple))
@@ -169,8 +169,8 @@ class PriorNetWeightedAdvLoss:
 
 class TargetedKLDivDirchletDistLoss:
     """
-    Similar to KLDivDirchletDistLoss, but a specific target dirichlet dist can be provided
-    instead of the target labels (from which a target dirichlet distribution is determined).
+        Similar to KLDivDirchletDistLoss, but a specific target dirichlet dist can be provided
+        instead of the target labels (from which a target dirichlet distribution is determined).
     """
     def __init__(self, target_precision=1e3, smoothing_factor=1e-2, reverse_KL=False):
         self.target_precision = target_precision
@@ -200,8 +200,8 @@ class TargetedKLDivDirchletDistLoss:
     @staticmethod
     def compute_kl_div_dirichlets(target_mean, mean, target_precision, precision, epsilon=1e-8):
         """
-        Computes KL divergence
-        KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
+            Computes KL divergence
+            KL( Dir(alpha = target_precision * target_mean) || Dir(beta = precision * mean)
         """
         precision_term = (torch.lgamma(target_precision + epsilon) -
                           torch.lgamma(precision + epsilon))

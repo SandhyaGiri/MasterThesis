@@ -17,10 +17,16 @@ class AdversarialDataset(Dataset):
         Model aware adversarial dataset, that generates adversarial images from the original
         dataset, using gradients of the attack_criterion wrt original inputs.
     """
-    def __init__(self, org_dataset: Dataset, attack_type: str,
-                 model: nn.Module, epsilon, attack_criterion,
-                 norm, step_size, max_steps,
-                 batch_size: int = 128, device: Optional[torch.device] = None,
+    def __init__(self,
+                 org_dataset: Dataset,
+                 attack_type: str,
+                 model: nn.Module,
+                 epsilon,
+                 attack_criterion,
+                 norm, step_size,
+                 max_steps,
+                 batch_size: int = 128,
+                 device: Optional[torch.device] = None,
                  check_success: bool = True,
                  only_true_adversaries=False,
                  use_org_img_as_fallback=False,

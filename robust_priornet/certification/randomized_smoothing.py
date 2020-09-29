@@ -11,17 +11,17 @@ from ..eval.uncertainty import (UncertaintyEvaluatorTorch,
 
 class RandomizedSmoother:
     """
-    Based on the paper "Certified Adversarial Robustness via Randomized Smoothing".
+        Based on the paper "Certified Adversarial Robustness via Randomized Smoothing".
 
-    Customized for a binary classifier for the ood-detect task on top of the standard
-    dirichlet priornet classifier.
+        Customized for a binary classifier for the ood-detect task on top of the standard
+        dirichlet priornet classifier.
 
-    Performs both in domain data classification for classifying image correctly
-    into one of the target classess (multi-class) and in-out classification (binary).
-    Tasks: 'normal', 'ood-detect'
-    
-    IMP: Cannot be used to train the base_classifier, model is set to eval mode before
-    computing the predictions.
+        Performs both in domain data classification for classifying image correctly
+        into one of the target classess (multi-class) and in-out classification (binary).
+        Tasks: 'normal', 'ood-detect'
+
+        IMP: Cannot be used to train the base_classifier, model is set to eval mode before
+        computing the predictions.
     """
     # to abstain from making a prediction/certification, this int will be returned.
     ABSTAIN = -1

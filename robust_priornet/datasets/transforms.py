@@ -7,8 +7,8 @@ from PIL import Image
 
 class TransformsBuilder:
     """
-    Builder class for adding any number of transforms, finally composes them together
-    using torchvision.transforms.Compose().
+        Builder class for adding any number of transforms, finally composes them together
+        using torchvision.transforms.Compose().
     """
     def __init__(self):
         self.reset()

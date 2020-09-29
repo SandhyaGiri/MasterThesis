@@ -136,14 +136,20 @@ def construct_carlini_wagner_l2_attack(model,
                                        num_classes=10,
                                        ):
     """
-    
-    labels: is target label when targeted_attack is true, otherwise it is the 
+        params
+        ------
+        epsilon - float
+            max strength of the adversarial perturbation
+        labels - tensor
+            is target label when targeted_attack is true, otherwise it is the
             original truth label.
-    References
-    ----------
-    .. [1] Nicholas Carlini, David Wagner: "Towards Evaluating the
-           Robustness of Neural Networks", https://arxiv.org/abs/1608.04644
-    .. [2] https://github.com/carlini/nn_robust_attacks
+
+        References
+        ----------
+            [1] Nicholas Carlini, David Wagner: "Towards Evaluating the
+            Robustness of Neural Networks", https://arxiv.org/abs/1608.04644
+            [2] https://github.com/carlini/nn_robust_attacks
+            [3] https://github.com/kkew3/pytorch-cw2
     """
     # as our images are normalized in range(-1,1)
     box_min = -1

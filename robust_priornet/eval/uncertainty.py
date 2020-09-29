@@ -7,9 +7,7 @@ from scipy.special import digamma, gammaln
 
 
 class UncertaintyMeasuresEnum(Enum):
-    """
-    Enum class holding uncertainty measures used in prior networks.
-    """
+    """Enum class holding uncertainty measures used in prior networks."""
     CONFIDENCE = ("confidence",
                   "Max probability of predictive distribution by a model. \
                       Lesser value means more uncertainty.")
@@ -96,12 +94,12 @@ class BaseUncertaintyEvaluator(ABC):
     
 class UncertaintyEvaluator(BaseUncertaintyEvaluator):
     """
-    Evaluator class carrying methods which can be used to retrieve uncertainty measures
-    as detailed in PriorNet paper.
+        Evaluator class carrying methods which can be used to retrieve uncertainty measures
+        as detailed in PriorNet paper.
 
-    Params
-    ------
-        logits: numpy ndarray or list or tuple
+        params
+        ------
+            logits: numpy ndarray or list or tuple
     """
     def __init__(self, logits, epsilon=1e-8):
         super(UncertaintyEvaluator, self).__init__()
@@ -133,12 +131,12 @@ class UncertaintyEvaluator(BaseUncertaintyEvaluator):
 
 class UncertaintyEvaluatorTorch(BaseUncertaintyEvaluator):
     """
-    Evaluator class carrying methods which can be used to retrieve uncertainty measures
-    as detailed in PriorNet paper. (using torch functions)
+        Evaluator class carrying methods which can be used to retrieve uncertainty measures
+        as detailed in PriorNet paper. (using torch functions)
 
-    Params
-    ------
-        logits: a torch tensor
+        params
+        ------
+            logits: a torch tensor
     """
     def __init__(self, logits, epsilon=1e-8):
         super(UncertaintyEvaluatorTorch, self).__init__()

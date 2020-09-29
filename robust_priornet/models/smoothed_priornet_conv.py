@@ -207,9 +207,9 @@ class SmoothedPriorNetSimple(nn.Module):
 
 class SmoothedPriorNet(nn.Module):
     """
-    Simply has a noise layer during training which converts input images into
-    a gaussian noise perturbed image (1 noisy image for every input image).
-    During eval, several noise draws are used to make a final prediction.
+        Simply has a noise layer during training which converts input images into
+        a gaussian noise perturbed image (1 noisy image for every input image).
+        During eval, several noise draws are used to make a final prediction.
     """
     def __init__(self, base_classifier: nn.Module,
                  n_in: int,
@@ -356,7 +356,11 @@ class SmoothedPriorNet(nn.Module):
 
     def test(self, x):
         """
-        Used during testing phase
+        For each input, returns a [mean/median/log_cosh](logits), where logits are the logits
+        returned by the model for gaussian noise perturbed samples during MC Sampling. The
+        reduction of logits is done according to the choice of the reduction method.
+        
+        Used during testing phase.
         """
         assert self.reduction_method in ['mean', 'median', 'log_cosh', 'count']
         batch_size = x.shape[0]

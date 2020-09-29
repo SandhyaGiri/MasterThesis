@@ -21,9 +21,9 @@ ACTIVATION_CONFIG = {
 
 class CustomVGG(nn.Module):
     """
-    Custom implemnattion of VGG16 model architecture with varying feature (conv) layers
-    and classification (fully connected) layers. Also uses different activation functions
-    like leakyReLU when specified in either feature or classification layers.
+        Custom implemnattion of VGG16 model architecture with varying feature (conv) layers
+        and classification (fully connected) layers. Also uses different activation functions
+        like leakyReLU when specified in either feature or classification layers.
     """
     def __init__(self, features, classifier_layers, n_in=28, n_out=10, num_channels=1, init_weights=True, activation_fn=nn.ReLU):
         super(CustomVGG, self).__init__()

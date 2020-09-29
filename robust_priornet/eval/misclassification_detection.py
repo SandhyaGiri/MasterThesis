@@ -9,7 +9,7 @@ from .uncertainty import UncertaintyMeasuresEnum
 
 
 class MisclassificationDetectionEvaluator:
-    
+
     def __init__(self, probs, truth_labels, uncertainty_measures: dict, result_dir):
         self.probs = probs
         self.truth_labels = truth_labels
@@ -18,18 +18,18 @@ class MisclassificationDetectionEvaluator:
 
     def get_target_labels(self):
         """
-        Generates target labels for the missclassification task as a binary classification
-        task.
-        label=1 is a missclassified sample.
-        label=0 is a correctly classified sample.
+            Generates target labels for the missclassification task as a binary classification
+            task.
+            label=1 is a missclassified sample.
+            label=0 is a correctly classified sample.
         """
         preds = np.argmax(self.probs, axis=1)
         return np.asarray(preds != self.truth_labels, dtype=np.int32)
 
     def eval(self):
         """
-        Uses the uncertainty measure as the model's predictive probability dist and evaluates
-        PR and ROC curve for this misclassification task.
+            Uses the uncertainty measure as the model's predictive probability dist and evaluates
+            PR and ROC curve for this misclassification task.
         """
         target_truth_labels = self.get_target_labels()
         for key in self.uncertainty_measures.keys():

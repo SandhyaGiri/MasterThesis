@@ -7,9 +7,9 @@ import torch.nn as nn
 
 class PriorNetMLP(nn.Module):
     """
-    Simple MLP model with all fully connected layers of this form:
-    len(fc_layers) * [FC_layer > ReLU > Dropout_layer]
-    with a final output layer dictated by n_out.
+        Simple MLP model with all fully connected layers of this form:
+        len(fc_layers) * [FC_layer > ReLU > Dropout_layer]
+        with a final output layer dictated by n_out.
     """
     def __init__(self, fc_layers, n_in=28, n_out=10, num_channels=1, drop_rate=0.5, **kwargs):
         assert type(fc_layers) in [list, np.ndarray]

@@ -7,9 +7,9 @@ def construct_target_dirichlets(id_images: torch.tensor,
                                 target_precision: int,
                                 smoothing_factor: float = 1e-2):
     """
-    Computes normal target dirichlets for id and ood images, as per the Prior Network
-    training. Creates a peaky dirichlet dist for in domain samples and a flat dirichlet dist
-    for out domain samples.
+        Computes normal target dirichlets for id and ood images, as per the Prior Network
+        training. Creates a peaky dirichlet dist for in domain samples and a flat dirichlet dist
+        for out domain samples.
     """
     id_target_mean, id_target_precision = construct_target_dirichlet_in(id_images,
                                                                         id_labels,
@@ -31,17 +31,26 @@ def construct_ccat_adv_target_dirichlets(id_images: torch.tensor,
                                          smoothing_factor: float = 1e-2,
                                          decay_param: int = 20):
     """
-    With the given adv images and their corresponding adv images, calculates the distance
-    between adv image and original image and uses it to compute target dirichlet distributions.
-    For those perturbations that are far away from the in-domain image, we output a uniform
-    distribution similar to OOD samples.
-    
-    Parameters:
-    
-    
-    Returns:
-        - the parameters of the desired target dirichlet distribution
-        for in domain and out domain dataset.
+        With the given adv images and their corresponding adv images, calculates the distance
+        between adv image and original image and uses it to compute target dirichlet distributions.
+        For those perturbations that are far away from the in-domain image, we output a uniform
+        distribution similar to OOD samples.
+
+        params
+        ------
+            id_advs: adv images corresponding to id_images, in order to calculate the perturbation (delta).
+            ood_advs: adv images corresponding to ood_images, for caluclating the perturbation (delta).
+
+        returns
+        -------
+            the parameters of the desired target dirichlet distribution
+            for in domain and out domain dataset.
+        
+        References
+        ----------
+            [1] David Stutz, Matthias Hein, and Bernt Schiele. Confidence-Calibrated Adversarial Training:
+            Generalizing to Unseen Attacks. 2019. arXiv: 1910.06259.
+            
     """
     k = num_classes
     id_lambdas = []
@@ -73,17 +82,17 @@ def construct_ccat_adv_target_dirichlets(id_images: torch.tensor,
                                                                                            num_classes,
                                                                                            id_target_mean,
                                                                                            id_target_precision)
-    print(f"Adjusted ID precision: {torch.min(id_target_precision_adjusted, dim=0)[0]}, {torch.max(id_target_precision_adjusted, dim=0)[0]}")
+    # print(f"Adjusted ID precision: {torch.min(id_target_precision_adjusted, dim=0)[0]}, {torch.max(id_target_precision_adjusted, dim=0)[0]}")
     # number of ID samples with less than 20 as precision
     id_precision_check = id_target_precision_adjusted.clone().detach()
     num_less_precision_samples = torch.sum(torch.tensor(id_precision_check < 20, dtype=int)).item()
-    print("Number of ID samples with <20 precision: ", num_less_precision_samples)
+    # print("Number of ID samples with <20 precision: ", num_less_precision_samples)
     ood_target_mean, ood_target_precision = construct_target_dirichlet_out(ood_advs, num_classes)
     ood_target_mean_adjusted, ood_target_precision_adjusted = construct_adv_target_dirichlet(ood_lambdas,
                                                                                              num_classes,
                                                                                              ood_target_mean,
                                                                                              ood_target_precision)
-    print(f"Adjusted OOD precision: {torch.min(ood_target_precision_adjusted, dim=0)[0]}, {torch.max(ood_target_precision_adjusted, dim=0)[0]}")
+    # print(f"Adjusted OOD precision: {torch.min(ood_target_precision_adjusted, dim=0)[0]}, {torch.max(ood_target_precision_adjusted, dim=0)[0]}")
     return (id_target_mean_adjusted, id_target_precision_adjusted), (ood_target_mean_adjusted, ood_target_precision_adjusted)
 
 def construct_adv_target_dirichlet(lambdas, num_classes, old_target_mean, old_target_precision):
@@ -98,6 +107,17 @@ def construct_adv_target_dirichlet(lambdas, num_classes, old_target_mean, old_ta
     return target_mean_adjusted, target_precision_adjusted
 
 def construct_target_dirichlet_in(id_images, id_labels, target_precision, num_classes, smoothing_factor):
+    """
+        Calculates and returns the target peaky Dirichlet distributions for the given in-domain samples.
+        
+        params
+        ------
+        smoothing_factor - float
+            Indicates the amount of density to be given to classes which are not the actual truth labels.
+        target_precision - int
+            Indicates the weight of the Dirichlet distribution, most of which will be concentrated at the
+            target truth label.
+    """
     # this is the epsilon smoothing param in paper
     k = num_classes
     id_target_mean = id_images.new_ones((id_images.shape[0], num_classes)) * smoothing_factor
@@ -107,6 +127,10 @@ def construct_target_dirichlet_in(id_images, id_labels, target_precision, num_cl
     return id_target_mean, id_target_precision
 
 def construct_target_dirichlet_out(ood_images, num_classes):
+    """
+        Calculates and returns the target flat Dirichlet distributions for the given out-domain samples.
+        Precision of this distribution is equal to the number of classes.
+    """
     # ood sample, set all alphas to 1 to get a flat simplex
     # or precision = num_classes, mean = 1/precision
     ood_target_alphas = ood_images.new_ones((ood_images.shape[0], num_classes))

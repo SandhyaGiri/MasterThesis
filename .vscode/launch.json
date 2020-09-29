@@ -61,7 +61,7 @@
             "type": "python",
             "request": "launch",
             "module": "robust_priornet.train_priornet",
-            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "25", "--train_stepwise", "--resume_from_ckpt", "--adv_persist_images", "--adv_training_type", "normal", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--ccat", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "2", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
+            "args": ["--gpu", "-1", "--model_dir", "./runtime-model-conv", "--num_epochs", "25", "--train_stepwise", "--adv_persist_images", "--adv_training_type", "normal", "--val_every_steps", "10", "--min_train_epochs","30","--patience", "10","--batch_size", "64", "--dataset_size_limit", "1000", "--include_adv_samples", "--ccat", "--target_precision", "100", "--adv_attack_type", "PGD", "--pgd_norm", "2", "--pgd_max_steps", "10", "--adv_attack_criteria", "confidence", "--adv_epsilon", "0.4", "./runtime-data", "MNIST", "OMNIGLOT"]
         },
         {
             "name": "Module train_priornet pgd adversarial only out->in",

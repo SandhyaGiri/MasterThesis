@@ -109,9 +109,9 @@ def get_optimal_threshold_wo_roc(src_dir, uncertainty_measure: UncertaintyMeasur
     
 class AdversarialPriorNetTrainer(PriorNetTrainer):
     """
-    Priornet trainer which performs a training epoch with normal images
-    and additional training epoch with adversarial images generated from
-    the normal images.
+        Priornet trainer which performs a training epoch with normal images
+        and additional training epoch with adversarial images generated from
+        the normal images.
     """
     def __init__(self, model, id_train_dataset, id_val_dataset,
                  ood_train_dataset, ood_val_dataset,
@@ -135,10 +135,6 @@ class AdversarialPriorNetTrainer(PriorNetTrainer):
                  only_out_in_adversarials: bool = False,
                  gaussian_noise_as_normal: bool = False,
                  gaussian_noise_std_dev: float = 0.05):
-        """
-        for "ood-detect adversarial training, we need to know the uncertainty_measure used to the binary
-        classification between in-domain and out-domain samples."
-        """
         assert adv_training_type in ['normal', 'ood-detect']
         
         super(AdversarialPriorNetTrainer, self).__init__(model, id_train_dataset,

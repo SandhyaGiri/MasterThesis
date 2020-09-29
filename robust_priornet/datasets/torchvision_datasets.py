@@ -12,7 +12,7 @@ from .tiny_imagenet import TinyImageNet
 
 class DatasetEnum(Enum):
     """
-    Enum class holding dataset name mappings to lowercase values to be used internally.
+        Enum class holding dataset name mappings to lowercase values to be used internally.
     """
     MNIST = ("mnist")
     FASHION_MNIST = ("fashon-mnist")
@@ -33,8 +33,8 @@ class DatasetEnum(Enum):
 
 class BaseData:
     """
-    Cutsom wrapper on any torch vision dataset to download all available datasets -
-    train, val, test - whichever is supported.
+        Cutsom wrapper on any torch vision dataset to download all available datasets -
+        train, val, test - whichever is supported.
     """
     def __init__(self):
         self.train_args = {
@@ -92,13 +92,13 @@ class BaseData:
 
 class TorchVisionDataWrapper:
     """
-    Dataset class for any of the standard torchvision datasets available.
-    Provides a common interface to access all datasets and manitains a train, val, test
-    dataset if directly provided by the dataset or splits the train dataset into train,
-    val based on the input val ratio specified.
+        Dataset class for any of the standard torchvision datasets available.
+        Provides a common interface to access all datasets and manitains a train, val, test
+        dataset if directly provided by the dataset or splits the train dataset into train,
+        val based on the input val ratio specified.
 
-    Args:
-        dataset: str - should be one of the supported datasets.
+        Args:
+            dataset: str - should be one of the supported datasets.
     """
     def __init__(self):
         self.supported_datasets = DatasetEnum.__dict__.keys()
